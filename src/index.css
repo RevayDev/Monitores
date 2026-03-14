@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-blue: #1e3a8a; /* Navy Blue */
+  --color-brand-gray: #f8fafc; /* Lighter Gray */
+  --color-brand-dark-blue: #172554;
+  --color-brand-text: #0f172a;
+}
+
+@layer base {
+  button {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  /* Prevent browser autofill from changing background color */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    -webkit-text-fill-color: black !important;
+  }
+
+  /* Force black text on focus and selection */
+  input:focus,
+  select:focus,
+  input:active,
+  select:active {
+    color: black !important;
+  }
+
+  ::selection {
+    background-color: rgba(30, 58, 138, 0.2);
+    color: black;
+  }
+
+
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+  .animate-scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.4; /* Slightly tighter */
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Global Scale Reduction */
+  font-size: 14px; 
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-size: 1rem; /* Based on 14px */
+}
+
+/* Custom compact utilities */
+.container-compact {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
