@@ -13,7 +13,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       ></div>
       
       {/* Modal Content */}
-      <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl max-h-[90vh] relative z-10 overflow-hidden animate-scale-in border border-white/20 flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] relative z-10 overflow-hidden animate-scale-in border border-white/20 flex flex-col">
         <div className="px-10 py-8 flex justify-between items-center bg-gray-50/50 border-b border-gray-100 shrink-0">
           <div className="space-y-1">
             <h3 className="text-xl font-black text-gray-900 tracking-tight">{title}</h3>

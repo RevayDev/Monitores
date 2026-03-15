@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signupStudent } from '../services/api';
+import { ToastContext } from '../App';
 import {
   User,
   Mail,
@@ -16,6 +17,7 @@ import {
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { showToast } = React.useContext(ToastContext);
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -45,9 +47,11 @@ const Signup = () => {
       const { confirmarPassword, ...submitData } = formData;
       await signupStudent(submitData);
       setLoading(false);
-      alert('¡Cuenta creada correctamente! Bienvenido.');
-      navigate('/');
-      window.location.reload();
+      showToast('¡Cuenta creada correctamente! Bienvenido.', 'success');
+      setTimeout(() => {
+        navigate('/');
+        window.location.reload();
+      }, 1500);
     } catch (err) {
       setError('Hubo un error al crear la cuenta.');
       setLoading(false);
@@ -61,8 +65,8 @@ const Signup = () => {
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray flex items-center justify-center p-4">
       <div className="max-w-4xl w-full bg-white rounded-[32px] shadow-2xl overflow-hidden border border-gray-100 flex flex-col lg:flex-row animate-scale-in">
 
-        {/* Left Side: Brand & Benefits */}
-        <div className="lg:w-1/4 bg-brand-blue p-8 text-white flex flex-col justify-between relative overflow-hidden">
+        {/* Left Side - hidden on mobile */}
+        <div className="hidden lg:flex lg:w-1/4 bg-brand-blue p-8 text-white flex-col justify-between relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
 
           <div className="relative z-10 space-y-4">
@@ -75,7 +79,7 @@ const Signup = () => {
             </p>
 
             <div className="space-y-3 pt-4">
-              {["Monitorías Personalizadas", "Seguimiento de Progreso", "Certificados"].map((text, i) => (
+              {["Monitorías Personalizadas", "Seguimiento de Progreso"].map((text, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="bg-white/10 p-1 rounded-lg text-blue-300">
                     <CheckCircle2 size={12} />
@@ -92,7 +96,7 @@ const Signup = () => {
         </div>
 
         {/* Right Side: Form */}
-        <div className="lg:w-3/4 p-10 bg-white">
+        <div className="lg:w-3/4 p-5 sm:p-8 lg:p-10 bg-white">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex justify-between items-end border-b border-gray-50 pb-4">
               <div className="space-y-1">
@@ -110,7 +114,7 @@ const Signup = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Row 1: Basicos */}
               <div className="space-y-2.5 lg:col-span-2">
                 <label className={labelClass}><User size={12} /> Nombre Completo</label>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getMonitorias, registerMonitoria, getCurrentUser, getMisMonitorias } from '../services/api';
+import { getMonitorias, registerMonitoria, getCurrentUser, getMisMonitorias, getAllRegistrations } from '../services/api';
 import MonitorCard from '../components/MonitorCard';
 import Modal from '../components/Modal';
 import { Search, Filter, Info, CheckCircle2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ToastContext } from '../App';
 
 const Monitorias = () => {
   const [monitorias, setMonitorias] = useState([]);
@@ -15,9 +16,11 @@ const Monitorias = () => {
   const [registeredName, setRegisteredName] = useState('');
   const [user, setUser] = useState(null);
   const [registeredIds, setRegisteredIds] = useState([]);
+  const [allRegistrations, setAllRegistrations] = useState([]);
   
   const location = useLocation();
   const navigate = useNavigate();
+  const { showToast } = React.useContext(ToastContext);
   const filteredFromRegistration = location.state?.selectedModulo || '';
 
   useEffect(() => {
@@ -26,16 +29,19 @@ const Monitorias = () => {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
 
-        // Fetch user's current registrations
         if (currentUser?.email) {
           const regs = await getMisMonitorias(currentUser.email);
           setRegisteredIds(regs.map(r => r.id));
         }
 
-        const data = await getMonitorias();
+        const [data, registrations] = await Promise.all([
+          getMonitorias(),
+          getAllRegistrations()
+        ]);
+        
+        setAllRegistrations(registrations || []);
         let filteredData = data || [];
         
-        // Filter by selected module (from registration page)
         if (filteredFromRegistration) {
           filteredData = filteredData.filter(m => m.modulo === filteredFromRegistration);
         }
@@ -56,22 +62,23 @@ const Monitorias = () => {
     };
 
     fetchData();
+    window.addEventListener('data-updated', fetchData);
+    return () => window.removeEventListener('data-updated', fetchData);
   }, [filteredFromRegistration]);
 
   const handleRegister = (monitoria) => {
     if (!user || !user.nombre) {
-      alert("Debes iniciar sesión como Estudiante para registrarte en una monitoría.");
-      navigate('/login');
+      navigate('/signup');
       return;
     }
 
     if (user.role !== 'student') {
-      alert("Solo los estudiantes pueden registrarse en monitorías.");
+      showToast("Solo los estudiantes pueden registrarse en monitorías.", "error");
       return;
     }
 
     if (monitoria.monitorId === user.id) {
-      alert("No puedes registrarte en tu propia monitoría.");
+      showToast("No puedes registrarte en tu propia monitoría.", "error");
       return;
     }
 
@@ -89,7 +96,7 @@ const Monitorias = () => {
       setIsSuccessOpen(true);
       setRegisteredIds([...registeredIds, pendingMonitoria.id]);
     } catch (error) {
-      alert(error);
+      showToast(error.message || "Error al registrarse", "error");
     } finally {
       setPendingMonitoria(null);
     }
@@ -112,8 +119,8 @@ const Monitorias = () => {
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="relative w-full md:max-w-md">
+        <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="relative flex-grow">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
               <Search size={20} />
             </div>
@@ -127,7 +134,7 @@ const Monitorias = () => {
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Filter size={18} />
-            <span>Mostrando {filteredMonitorias.length} resultados</span>
+            <span>{filteredMonitorias.length} Resultados</span>
           </div>
         </div>
 
@@ -145,6 +152,7 @@ const Monitorias = () => {
                 actionLabel={registeredIds.includes(m.id) ? "Ir al Recurso" : "Registrarse"}
                 isRegistered={registeredIds.includes(m.id)}
                 showDescription={false}
+                registrationCount={allRegistrations.filter(r => r.id === m.id).length}
               />
             ))}
           </div>
@@ -161,7 +169,7 @@ const Monitorias = () => {
           title="Confirmar Registro"
         >
           <div className="text-center space-y-6">
-            <div className="bg-amber-50 p-6 rounded-3xl border-2 border-amber-100/50">
+            <div className="bg-amber-50 p-6 rounded-2xl border-2 border-amber-100/50">
               <Info size={40} className="mx-auto text-amber-500 mb-3" />
               <p className="text-sm font-bold text-gray-800 leading-relaxed">
                 ¿Estás seguro de que deseas registrarte en la monitoría de:

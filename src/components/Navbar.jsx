@@ -11,20 +11,24 @@ import {
   UserPlus
 } from 'lucide-react';
 import { getCurrentUser, switchRole, logout as apiLogout } from '../services/api';
+import { ToastContext } from '../App';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const { showToast } = React.useContext(ToastContext);
 
   useEffect(() => {
     fetchUser();
+    // Re-fetch user when profile is updated from another page
+    window.addEventListener('profile-updated', fetchUser);
+    return () => window.removeEventListener('profile-updated', fetchUser);
   }, []);
 
   const fetchUser = async () => {
     const data = await getCurrentUser();
-    // In our mock logic, if there's no name, we treat as guest
     setUser(data);
   };
 
@@ -120,7 +124,6 @@ const Navbar = () => {
                   >
                     <LogIn size={14} /> Ingresar
                   </button>
-
                 </div>
               ) : (
                 <div className="relative">
@@ -133,21 +136,31 @@ const Navbar = () => {
                       <p className="text-[9px] font-black text-gray-900 leading-none">{user.nombre || 'Usuario'}</p>
                       <p className="text-[8px] font-bold text-brand-blue uppercase leading-none mt-1 tracking-tighter">{user.role}</p>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-brand-blue text-white flex items-center justify-center text-[13px] font-black shadow-sm shadow-brand-blue/20 group-hover:scale-105 transition-transform">
-                      {user.nombre?.charAt(0) || 'U'}
+                    <div className="w-8 h-8 rounded-lg bg-brand-blue text-white flex items-center justify-center text-[13px] font-black shadow-sm shadow-brand-blue/20 group-hover:scale-105 transition-transform overflow-hidden">
+                      {user.foto ? (
+                        <img src={user.foto} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        user.nombre?.charAt(0) || 'U'
+                      )}
                     </div>
                   </button>
 
                   {profileOpen && (
-                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-3xl shadow-2xl border border-gray-100 py-3 animate-scale-in z-50">
+                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 animate-scale-in z-50">
                       <button 
-                        onClick={() => navigate('/profile')}
+                        onClick={() => {
+                          setProfileOpen(false);
+                          navigate('/profile');
+                        }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
                       >
                         <User size={18} /> Mi Perfil
                       </button>
                       <button 
-                        onClick={() => navigate('/complaints')}
+                        onClick={() => {
+                          setProfileOpen(false);
+                          showToast("Estamos trabajando en esta función", "info");
+                        }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
                       >
                         <HelpCircle size={18} /> Ayuda
@@ -180,37 +193,107 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-t border-gray-50 px-4 pt-2 pb-6 space-y-2 animate-fade-in shadow-xl">
-          {currentLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              onClick={() => setIsOpen(false)}
-              className="block px-4 py-4 text-base font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-2xl transition-all"
-            >
-              {link.name}
-            </Link>
-          ))}
-          {!isGuest && (
-            <>
-              <div className="h-px bg-gray-50 my-4"></div>
-              <select 
-                value={user.role} 
-                onChange={(e) => handleRoleChange(e.target.value)}
-                className="w-full p-4 bg-gray-50 border-2 border-transparent text-sm font-black rounded-2xl outline-none"
+        <div className="md:hidden bg-white border-t border-gray-100 shadow-xl animate-fade-in">
+          <div className="px-4 pt-3 pb-6 space-y-1">
+            {/* Nav links */}
+            {currentLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setIsOpen(false)}
+                className="flex items-center px-4 py-3.5 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-xl transition-all"
               >
-                <option value="student">Estudiante</option>
-                <option value="monitor">Monitor</option>
-                <option value="admin">Admin</option>
-              </select>
-              <button 
-                onClick={handleLogout}
-                className="w-full p-4 text-red-500 font-bold bg-red-50 rounded-2xl text-center flex items-center justify-center gap-2"
-              >
-                <LogOut size={18} /> Cerrar Sesión
-              </button>
-            </>
-          )}
+                {link.name}
+              </Link>
+            ))}
+
+            <div className="h-px bg-gray-100 my-3"></div>
+
+            {isGuest ? (
+              /* Guest: login/signup buttons */
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => { setIsOpen(false); navigate('/signup'); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-brand-blue text-white text-sm font-black rounded-xl shadow-md shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all"
+                >
+                  <UserPlus size={18} /> Crear Mi Cuenta
+                </button>
+                <button
+                  onClick={() => { setIsOpen(false); navigate('/login'); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-white text-brand-blue text-sm font-black rounded-xl border-2 border-brand-blue/20 hover:bg-brand-blue/5 active:scale-95 transition-all"
+                >
+                  <LogIn size={18} /> Iniciar Sesión
+                </button>
+              </div>
+            ) : (
+              /* Logged-in user */
+              <>
+                {/* User info */}
+                <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
+                  <div className="w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center text-base font-black shadow-sm shadow-brand-blue/20 shrink-0 overflow-hidden">
+                    {user.foto ? (
+                      <img src={user.foto} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      user.nombre?.charAt(0) || 'U'
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-gray-900 leading-none truncate">{user.nombre || 'Usuario'}</p>
+                    <p className="text-[10px] font-bold text-brand-blue uppercase tracking-wider mt-0.5">{user.role}</p>
+                  </div>
+                </div>
+
+                {/* Mi Perfil & Ayuda */}
+                <button
+                  onClick={() => { setIsOpen(false); navigate('/profile'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-xl transition-all"
+                >
+                  <User size={18} /> Mi Perfil
+                </button>
+                <button
+                  onClick={() => { setIsOpen(false); showToast("Estamos trabajando en esta función", "info"); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-xl transition-all"
+                >
+                  <HelpCircle size={18} /> Ayuda
+                </button>
+
+                {/* Role switcher — only for admin/monitor */}
+                {(user.baseRole === 'admin' || user.baseRole === 'monitor') && (
+                  <>
+                    <div className="h-px bg-gray-100 my-1"></div>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-4 pt-1 pb-0.5">Vista actual</p>
+                    <div className="flex flex-col gap-1 p-1 bg-gray-50 rounded-xl">
+                      {['student', 'monitor', ...(user.baseRole === 'admin' ? ['admin'] : [])].map(role => (
+                        <button
+                          key={role}
+                          onClick={() => { handleRoleChange(role); setIsOpen(false); }}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black text-sm transition-all ${
+                            user.role === role
+                              ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20'
+                              : 'text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          <span>{role === 'student' ? '🎓' : role === 'monitor' ? '🧑‍🏫' : '🛡️'}</span>
+                          <span>{role === 'student' ? 'Estudiante' : role === 'monitor' ? 'Monitor' : 'Administrador'}</span>
+                          {user.role === role && (
+                            <span className="ml-auto text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Activo</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="h-px bg-gray-100 my-2"></div>
+                <button
+                  onClick={() => { handleLogout(); setIsOpen(false); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-all"
+                >
+                  <LogOut size={18} /> Cerrar Sesión
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </nav>

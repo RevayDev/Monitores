@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/api';
-import { Mail, Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight } from 'lucide-react';
+import { Mail, Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight, Clock } from 'lucide-react';
+import { ToastContext } from '../App';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { showToast } = React.useContext(ToastContext);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -20,7 +22,7 @@ const Login = () => {
       navigate('/');
       window.location.reload();
     } catch (error) {
-      alert(error);
+      showToast(typeof error === 'string' ? error : 'Credenciales incorrectas. Intenta de nuevo.', 'error');
     } finally {
       setLoading(false);
     }
@@ -36,27 +38,51 @@ const Login = () => {
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray flex items-center justify-center p-3">
       <div className="max-w-4xl w-full bg-white rounded-[32px] shadow-xl overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
         
-        {/* Left Side: Branding */}
-        <div className="md:w-5/12 bg-brand-blue p-8 text-white flex flex-col justify-between relative overflow-hidden">
+        {/* Left Side: Branding - hidden on mobile */}
+        <div className="hidden md:flex md:w-5/12 bg-brand-blue p-8 text-white flex-col justify-between relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-          <div className="relative z-10 space-y-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-              <LogIn size={20} />
+          <div className="relative z-10 space-y-8">
+            <div className="space-y-4">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/30 shadow-inner">
+                <LogIn size={24} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black leading-tight tracking-tighter">
+                  Portal <br /> Universitario
+                </h1>
+                <p className="text-blue-100 text-sm font-medium opacity-80 leading-relaxed mt-2">
+                  Tu plataforma central de apoyo académico.
+                </p>
+              </div>
             </div>
-            <h1 className="text-2xl font-black leading-tight tracking-tighter">
-              Portal <br /> Universitario
-            </h1>
-            <p className="text-blue-100 text-xs font-medium opacity-80 leading-relaxed max-w-[180px]">
-              Accede a tus monitorías y certificados.
-            </p>
+
+            <div className="space-y-4 pt-6">
+              {[
+                { icon: <GraduationCap size={18} />, text: "Monitorías Personalizadas" },
+                { icon: <Clock size={18} />, text: "Horarios Flexibles" },
+                { icon: <UserCheck size={18} />, text: "Apoyo Directo" },
+               
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 group">
+                  <div className="p-2 bg-white/10 rounded-xl group-hover:bg-white/20 transition-all border border-white/10">
+                    {item.icon}
+                  </div>
+                  <span className="text-xs font-bold text-blue-50/90">{item.text}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="relative z-10 bg-white/5 p-3 rounded-2xl border border-white/10 text-[10px] font-bold">
-            Verifica tu rol antes de continuar.
+          
+          <div className="relative z-10 mt-auto">
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/10 text-[10px] font-bold backdrop-blur-sm">
+              <p className="text-blue-200 uppercase tracking-widest mb-1">Seguridad</p>
+              Verifica tu rol antes de continuar para acceder a tus funciones específicas.
+            </div>
           </div>
         </div>
 
         {/* Right Side: Form */}
-        <div className="md:w-7/12 p-8 flex flex-col justify-center bg-white">
+        <div className="md:w-7/12 p-6 md:p-8 flex flex-col justify-center bg-white">
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-6">
               <div className="space-y-1">

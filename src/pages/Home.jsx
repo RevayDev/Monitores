@@ -1,84 +1,188 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, BookOpen, GraduationCap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { PlusCircle, Users } from 'lucide-react';
+import { getAllUsers } from '../services/api';
+import StaffCard from '../components/StaffCard';
+import PageTransition from '../components/PageTransition';
 
 const Home = () => {
   const navigate = useNavigate();
+  const [staff, setStaff] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState('monitor');
+
+  React.useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const allUsers = await getAllUsers();
+        const filteredStaff = allUsers.filter(u => u.role === 'monitor' || u.role === 'admin');
+        setStaff(filteredStaff);
+      } catch (error) {
+        console.error("Error fetching staff:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStaff();
+    // Re-fetch when admin updates data
+    window.addEventListener('data-updated', fetchStaff);
+    return () => window.removeEventListener('data-updated', fetchStaff);
+  }, []);
+
+  const filteredStaff = staff.filter(member => member.role === activeTab);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.08 } }
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, scale: 0.95, y: 10 },
+    visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.15, ease: "easeOut" } }
+  };
 
   return (
-    <div className="bg-white min-h-[calc(100vh-80px)] font-sans">
-      {/* Hero Section */}
-      <section className="relative h-[650px] bg-brand-blue overflow-hidden flex items-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-blue via-brand-blue to-brand-dark-blue opacity-95"></div>
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-        </div>
+    <PageTransition>
+      <div className="bg-white min-h-[calc(100vh-80px)] font-sans">
 
-        <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
-          <div className="max-w-3xl space-y-8 animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              <span className="text-white text-xs font-black uppercase tracking-widest">Portal Académico Activo</span>
-            </div>
+        {/* Hero Section */}
+        <section className="relative min-h-[360px] bg-brand-blue overflow-hidden flex items-center">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-blue via-brand-blue to-brand-dark-blue opacity-95"></div>
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+          </div>
 
-            <h1 className="text-5xl md:text-6xl font-black text-white leading-[0.95] tracking-tighter">
-              Potencia tu <br />
-              <span className="text-blue-300">Aprendizaje</span>
-            </h1>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full py-14 sm:py-20">
+            <div className="max-w-3xl space-y-4 sm:space-y-6 animate-fade-in">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span className="text-white text-[10px] font-black uppercase tracking-widest">Portal Académico Activo</span>
+              </div>
 
-            <p className="text-lg text-blue-100 font-medium leading-relaxed max-w-xl opacity-90">
-              Conecta con los mejores estudiantes de tu facultad. Gestiona tus monitorías, certíficate y alcanza la excelencia académica.
-            </p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight tracking-tighter">
+                Potencia tu{' '}
+                <span className="text-blue-300">Aprendizaje</span>
+              </h1>
 
-            <div className="flex flex-wrap gap-5 pt-8">
-              <button
-                onClick={() => navigate('/signup')}
-                className="px-10 py-5 bg-white text-brand-blue font-black rounded-3xl shadow-2xl hover:bg-gray-50 hover:scale-105 active:scale-95 transition-all text-xl"
-              >
-                Crear Mi Cuenta 🎓
-              </button>
+              <p className="text-sm sm:text-base text-blue-100 font-medium leading-relaxed max-w-xl opacity-90">
+                Conecta con los mejores estudiantes de tu facultad. Gestiona tus monitorías y alcanza la excelencia académica.
+              </p>
 
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="px-6 py-3 sm:px-8 sm:py-4 bg-white text-brand-blue font-black rounded-2xl shadow-xl hover:bg-gray-50 active:scale-95 transition-all text-sm sm:text-base text-center"
+                >
+                  Crear Mi Cuenta 🎓
+                </button>
+                <button
+                  onClick={() => navigate('/monitorias')}
+                  className="px-6 py-3 sm:px-8 sm:py-4 bg-transparent border-2 border-white/30 text-white font-black rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-sm sm:text-base text-center"
+                >
+                  Ver Monitorías 📋
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Stats Section */}
-      <section className="py-24 bg-gray-50 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            {[
-              {
-                title: 'Excelencia Académica',
-                desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.',
-                color: 'bg-blue-50 text-brand-blue'
-              },
-              {
-                title: 'Flexibilidad Total',
-                desc: 'Modalidades presenciales en sede y virtuales adaptadas a tu ritmo de estudio.',
-                color: 'bg-green-50 text-green-600'
-              },
-              {
-                title: 'Gestión Transparente',
-                desc: 'Certificados automáticos y seguimiento en tiempo real para monitores y alumnos.',
-                color: 'bg-yellow-50 text-yellow-600'
-              }
-            ].map((item, i) => (
-              <div key={i} className="bg-white p-10 rounded-[32px] shadow-sm border border-gray-100 flex flex-col items-start gap-6 hover:shadow-xl transition-all group">
-                <div className={`${item.color} w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl group-hover:rotate-6 transition-transform`}>
-                  0{i + 1}
+        {/* Benefits Section */}
+        <section className="py-10 sm:py-16 md:py-20 bg-gray-50 px-4 sm:px-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {[
+                { title: 'Excelencia Académica', desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.', color: 'bg-blue-50 text-brand-blue' },
+                { title: 'Flexibilidad Total', desc: 'Modalidades presenciales y virtuales adaptadas a tu ritmo de estudio.', color: 'bg-green-50 text-green-600' },
+                { title: 'Gestión Transparente', desc: 'Certificados automáticos y seguimiento en tiempo real.', color: 'bg-yellow-50 text-yellow-600' }
+              ].map((item, i) => (
+                <div key={i} className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-start gap-4 hover:shadow-lg transition-all group cursor-pointer">
+                  <div className={`${item.color} w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-base sm:text-xl group-hover:rotate-6 transition-transform`}>
+                    0{i + 1}
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-xl font-black text-gray-900 mb-1 tracking-tight">{item.title}</h3>
+                    <p className="text-gray-500 text-sm font-medium leading-relaxed">{item.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-2xl font-black text-brand-text mb-3 tracking-tight">{item.title}</h3>
-                  <p className="text-gray-500 font-medium leading-relaxed">{item.desc}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Staff Section */}
+        <section className="py-10 sm:py-16 md:py-24 bg-white px-4 sm:px-6">
+          <div className="max-w-7xl mx-auto space-y-6 sm:space-y-10 md:space-y-12">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-blue/10 rounded-full border border-brand-blue/20">
+                  <Users size={14} className="text-brand-blue" />
+                  <span className="text-brand-blue text-[10px] font-black uppercase tracking-widest">Nuestro Equipo</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-900 tracking-tighter">
+                  Conoce a nuestros <span className="text-brand-blue">Especialistas</span>
+                </h2>
+
+                {/* Tabs */}
+                <div className="flex gap-2 p-1 bg-gray-50 rounded-xl w-fit mt-2">
+                  <button
+                    onClick={() => setActiveTab('monitor')}
+                    className={`px-4 sm:px-6 py-2 rounded-lg text-xs font-black transition-all ${
+                      activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    MONITORES
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`px-4 sm:px-6 py-2 rounded-lg text-xs font-black transition-all ${
+                      activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    ADMINS
+                  </button>
                 </div>
               </div>
-            ))}
+
+              <button
+                onClick={() => navigate('/monitorias')}
+                className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-bold rounded-2xl border border-gray-100 hover:bg-gray-100 transition-all text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              >
+                Ver Monitorías <PlusCircle size={16} />
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-blue"></div>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 md:gap-8"
+                >
+                  {filteredStaff.length === 0 ? (
+                    <div className="col-span-full text-center py-16 text-gray-400 font-bold">
+                      No hay {activeTab === 'monitor' ? 'monitores' : 'administradores'} registrados.
+                    </div>
+                  ) : filteredStaff.map(member => (
+                    <motion.div key={member.id} variants={cardVariants}>
+                      <StaffCard user={member} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            )}
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </PageTransition>
   );
 };
 

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias } from '../services/api';
+import { getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, getAllUsers } from '../services/api';
 import Modal from '../components/Modal';
 import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video } from 'lucide-react';
+import { ToastContext } from '../App';
 
 const MonitorDashboard = () => {
+  const { showToast } = React.useContext(ToastContext);
   const [students, setStudents] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [monitorModules, setMonitorModules] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -25,12 +28,14 @@ const MonitorDashboard = () => {
   }, []);
 
   const fetchData = async () => {
-    const [allStudents, allModules] = await Promise.all([
+    const [allStudents, allModules, users] = await Promise.all([
       getStudentsByMonitor(monitorId),
-      getMonitorias()
+      getMonitorias(),
+      getAllUsers()
     ]);
     setStudents(allStudents);
     setMonitorModules(allModules.filter(m => m.monitorId === monitorId));
+    setAllUsers(users);
     setLoading(false);
   };
 
@@ -41,7 +46,7 @@ const MonitorDashboard = () => {
 
   const confirmDelete = async () => {
     if (!deleteComment) {
-      alert("Por favor ingresa un comentario para la baja");
+      showToast("Por favor ingresa un comentario para la baja", "error");
       return;
     }
     await deleteMonitoria(selectedStudent.id, "Baja por Monitor", deleteComment);
@@ -65,24 +70,26 @@ const MonitorDashboard = () => {
     await updateMonitoriaInfo(selectedModule.id, editFormData);
     setIsEditModuleOpen(false);
     fetchData();
+    showToast('¡Información del módulo actualizada!', 'success');
+    window.dispatchEvent(new Event('data-updated'));
   };
 
   const handlePrint = () => {
-    alert("Generando planilla de asistencia para imprimir...");
+    showToast("Estamos trabajando en esta función", "info");
   };
 
   const handleCopySurvey = () => {
     const url = `${window.location.origin}/survey/${monitorId}`;
     navigator.clipboard.writeText(url);
-    alert("¡Link de encuesta copiado al portapapeles! Envíalo a tus estudiantes.");
+    showToast("¡Link de encuesta copiado! Envíalo a tus estudiantes.", "success");
   };
 
   return (
-    <div className="min-h-screen bg-brand-gray p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h1 className="text-3xl font-black text-gray-900">Panel de Monitor</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900">Panel de Monitor</h1>
             <p className="text-gray-500 font-medium tracking-tight uppercase text-xs">Bienvenido, Juan Pérez</p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -131,12 +138,12 @@ const MonitorDashboard = () => {
 
           {/* Student List */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-xl font-bold text-brand-blue flex items-center gap-2">
-              <Users size={24} /> Estudiantes Registrados
+            <h2 className="text-lg sm:text-xl font-bold text-brand-blue flex items-center gap-2">
+              <Users size={20} /> Estudiantes Registrados
             </h2>
-            <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[500px]">
                   <thead>
                     <tr className="bg-gray-50 text-[10px] uppercase tracking-widest font-black text-gray-400">
                       <th className="px-6 py-4">Estudiante</th>
@@ -150,8 +157,13 @@ const MonitorDashboard = () => {
                       <tr key={st.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-brand-blue/5 flex items-center justify-center text-brand-blue">
-                              {st.studentName.charAt(0)}
+                            <div className="w-10 h-10 rounded-full bg-brand-blue/5 flex items-center justify-center text-brand-blue overflow-hidden shrink-0">
+                              {(() => {
+                                const u = allUsers.find(u => u.email === st.studentEmail);
+                                return u?.foto
+                                  ? <img src={u.foto} alt={st.studentName} className="w-full h-full object-cover" />
+                                  : <span className="font-bold">{st.studentName.charAt(0)}</span>;
+                              })()}
                             </div>
                             <div>
                               <p className="font-bold text-gray-900">{st.studentName}</p>
