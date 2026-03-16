@@ -1,0 +1,154 @@
+{
+  "users": [
+    {
+      "id": 101,
+      "nombre": "Juan Pérez",
+      "email": "juan@u.edu",
+      "password": "123",
+      "role": "monitor",
+      "sede": "Sede Centro",
+      "cuatrimestre": "1° Cuatrimestre"
+    },
+    {
+      "id": 102,
+      "nombre": "Ana García",
+      "email": "ana@u.edu",
+      "password": "123",
+      "role": "monitor",
+      "sede": "Sede Norte",
+      "cuatrimestre": "2° Cuatrimestre"
+    },
+    {
+      "id": 103,
+      "nombre": "Carlos Ruiz",
+      "email": "carlos@u.edu",
+      "password": "123",
+      "role": "monitor",
+      "sede": "Sede Sur",
+      "cuatrimestre": "3° Cuatrimestre"
+    },
+    {
+      "id": 999,
+      "nombre": "Admin Principal",
+      "email": "admin@u.edu",
+      "password": "123",
+      "role": "admin",
+      "sede": "Sede Centro",
+      "cuatrimestre": "1° Cuatrimestre"
+    },
+    {
+      "id": 1000,
+      "nombre": "Developer",
+      "email": "dev@u.edu",
+      "password": "123",
+      "role": "dev",
+      "sede": "Sede Virtual",
+      "cuatrimestre": "1° Cuatrimestre"
+    },
+    {
+      "id": 1001,
+      "nombre": "Estudiante Prueba 1",
+      "email": "estudiante1@u.edu",
+      "password": "123",
+      "role": "student",
+      "sede": "Sede Centro",
+      "cuatrimestre": "1° Cuatrimestre"
+    },
+    {
+      "id": 1002,
+      "nombre": "Estudiante Prueba 2",
+      "email": "estudiante2@u.edu",
+      "password": "123",
+      "role": "student",
+      "sede": "Sede Norte",
+      "cuatrimestre": "1° Cuatrimestre"
+    }
+  ],
+  "modules": [
+    {
+      "id": 1,
+      "monitorId": 101,
+      "monitor": "Juan Pérez",
+      "monitorEmail": "juan@u.edu",
+      "modulo": "Programación",
+      "cuatrimestre": "1° Cuatrimestre",
+      "modalidad": "Presencial",
+      "horario": "Lunes 14:00 - 16:00",
+      "salon": "B-102",
+      "sede": "Sede Centro",
+      "descripcion": "Fundamentos de algoritmos y lógica de programación en Python."
+    },
+    {
+      "id": 2,
+      "monitorId": 102,
+      "monitor": "Ana García",
+      "monitorEmail": "ana@u.edu",
+      "modulo": "Matemáticas",
+      "cuatrimestre": "2° Cuatrimestre",
+      "modalidad": "Virtual",
+      "horario": "Martes 10:00 - 12:00",
+      "salon": "Teams",
+      "sede": "Sede Norte",
+      "descripcion": "Cálculo diferencial e integral y sus aplicaciones."
+    },
+    {
+      "id": 3,
+      "monitorId": 103,
+      "monitor": "Carlos Ruiz",
+      "monitorEmail": "carlos@u.edu",
+      "modulo": "Bases de Datos",
+      "cuatrimestre": "3° Cuatrimestre",
+      "modalidad": "Presencial",
+      "horario": "Miércoles 16:00 - 18:00",
+      "salon": "C-205",
+      "sede": "Sede Sur",
+      "descripcion": "Diseño de modelos relacionales y lenguaje SQL."
+    },
+    {
+      "id": 4,
+      "monitorId": 101,
+      "monitor": "Juan Pérez",
+      "monitorEmail": "juan@u.edu",
+      "modulo": "Redes",
+      "cuatrimestre": "4° Cuatrimestre",
+      "modalidad": "Virtual",
+      "horario": "Jueves 18:00 - 20:00",
+      "salon": "Meet",
+      "sede": "Sede Centro",
+      "descripcion": "Configuración de redes locales y protocolos de comunicación."
+    }
+  ],
+  "registrations": [],
+  "attendance": [],
+  "complaints": [],
+  "sedes": [
+    "Sede Centro",
+    "Sede Norte",
+    "Sede Sur",
+    "Sede Virtual"
+  ],
+  "programas": [
+    "Programación",
+    "Matemáticas",
+    "Bases de Datos",
+    "Redes",
+    "Diseño",
+    "Física"
+  ],
+  "modalidades": [
+    "Presencial",
+    "Virtual",
+    "Híbrido"
+  ],
+  "cuatrimestres": [
+    "1° Cuatrimestre",
+    "2° Cuatrimestre",
+    "3° Cuatrimestre",
+    "4° Cuatrimestre",
+    "5° Cuatrimestre",
+    "6° Cuatrimestre"
+  ],
+  "maintenance": {
+    "global": true
+  }
+}

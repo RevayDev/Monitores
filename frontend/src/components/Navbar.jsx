@@ -8,7 +8,10 @@ import {
   LogOut, 
   HelpCircle,
   LogIn,
-  UserPlus
+  UserPlus,
+  Users,
+  ShieldCheck,
+  Wrench
 } from 'lucide-react';
 import { getCurrentUser, switchRole, logout as apiLogout } from '../services/api';
 import { ToastContext } from '../App';
@@ -27,16 +30,18 @@ const Navbar = () => {
     return () => window.removeEventListener('profile-updated', fetchUser);
   }, []);
 
-  const fetchUser = async () => {
+  async function fetchUser() {
     const data = await getCurrentUser();
     setUser(data);
-  };
+  }
 
-  const handleRoleChange = async (role) => {
+  const handleRoleChange = async (role, shouldNavigate = true) => {
     const newUser = await switchRole(role, user?.nombre ? { nombre: user.nombre, email: user.email } : {});
     setUser(newUser);
-    navigate('/');
-    window.location.reload();
+    if (shouldNavigate) {
+      navigate('/');
+      window.location.reload();
+    }
   };
 
   const handleLogout = async () => {
@@ -57,29 +62,21 @@ const Navbar = () => {
       { name: 'Inicio', path: '/' },
       { name: 'Monitorías', path: '/monitorias' },
       { name: 'Mis Monitorías', path: '/mis-monitorias' },
-    ],
-    monitor: [
-      { name: 'Inicio', path: '/' },
-      { name: 'Panel Monitor', path: '/monitor-dashboard' },
-    ],
-    admin: [
-      { name: 'Inicio', path: '/' },
-      { name: 'Panel Admin', path: '/admin-dashboard' },
     ]
   };
 
-  const currentLinks = isGuest ? navLinks.guest : navLinks[user.role];
+  const currentLinks = isGuest ? navLinks.guest : navLinks.student;
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="p-1.5 bg-brand-blue rounded-lg text-white group-hover:rotate-6 transition-transform shadow-md shadow-brand-blue/20">
+            <Link to="/" className="flex items-center gap-2 group min-w-max">
+              <div className="p-1.5 bg-brand-blue rounded-lg text-white group-hover:rotate-6 transition-transform shadow-md shadow-brand-blue/20 shrink-0">
                 <GraduationCap size={22} />
               </div>
-              <span className="text-lg font-black text-gray-900 tracking-tighter">
+              <span className="text-lg font-black text-gray-900 tracking-tighter whitespace-nowrap">
                 MONI<span className="text-brand-blue">TORES</span>
               </span>
             </Link>
@@ -98,16 +95,32 @@ const Navbar = () => {
             ))}
             
             <div className="ml-4 pl-4 border-l border-gray-100 flex items-center gap-3">
-              {!isGuest && (user.baseRole === 'admin' || user.baseRole === 'monitor') && (
-                <select 
-                  value={user.role} 
-                  onChange={(e) => handleRoleChange(e.target.value)}
-                  className="bg-gray-50 border-2 border-transparent text-[10px] font-black rounded-lg px-3 py-1.5 focus:border-brand-blue/20 outline-none cursor-pointer text-gray-500 hover:bg-gray-100 transition-all uppercase tracking-widest"
+              {/* Dedicated Panel Buttons based on baseRole */}
+              {!isGuest && (user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+                <button
+                  onClick={() => navigate('/monitor-dashboard')}
+                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/20"
                 >
-                  <option value="student">🎓 Estudiante</option>
-                  <option value="monitor">🧑‍🏫 Monitor</option>
-                  {user.baseRole === 'admin' && <option value="admin">🛡️ Admin</option>}
-                </select>
+                  <Users size={13} /> Panel Monitor
+                </button>
+              )}
+
+              {!isGuest && user.baseRole === 'admin' && (
+                <button
+                  onClick={() => navigate('/admin-dashboard')}
+                  className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-amber-700 active:scale-95 transition-all shadow-md shadow-amber-600/20"
+                >
+                  <ShieldCheck size={13} /> Panel Admin
+                </button>
+              )}
+
+              {!isGuest && user.baseRole === 'dev' && (
+                <button
+                  onClick={() => navigate('/dev-dashboard')}
+                  className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-purple-700 active:scale-95 transition-all shadow-md shadow-purple-600/20"
+                >
+                  <Wrench size={13} /> Panel DEV
+                </button>
               )}
 
               {isGuest ? (
@@ -229,17 +242,19 @@ const Navbar = () => {
               /* Logged-in user */
               <>
                 {/* User info */}
-                <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center text-base font-black shadow-sm shadow-brand-blue/20 shrink-0 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-4 bg-gray-50 rounded-2xl">
+                  <div className="w-12 h-12 rounded-xl bg-brand-blue text-white flex items-center justify-center text-lg font-black shadow-sm shadow-brand-blue/20 shrink-0 overflow-hidden">
                     {user.foto ? (
                       <img src={user.foto} alt="avatar" className="w-full h-full object-cover" />
                     ) : (
                       user.nombre?.charAt(0) || 'U'
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-grow">
                     <p className="text-sm font-black text-gray-900 leading-none truncate">{user.nombre || 'Usuario'}</p>
-                    <p className="text-[10px] font-bold text-brand-blue uppercase tracking-wider mt-0.5">{user.role}</p>
+                    <p className="text-[10px] font-bold text-brand-blue uppercase tracking-widest mt-1.5 opacity-80">
+                      {user.role}
+                    </p>
                   </div>
                 </div>
 
@@ -257,32 +272,35 @@ const Navbar = () => {
                   <HelpCircle size={18} /> Ayuda
                 </button>
 
-                {/* Role switcher — only for admin/monitor */}
-                {(user.baseRole === 'admin' || user.baseRole === 'monitor') && (
-                  <>
-                    <div className="h-px bg-gray-100 my-1"></div>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-4 pt-1 pb-0.5">Vista actual</p>
-                    <div className="flex flex-col gap-1 p-1 bg-gray-50 rounded-xl">
-                      {['student', 'monitor', ...(user.baseRole === 'admin' ? ['admin'] : [])].map(role => (
-                        <button
-                          key={role}
-                          onClick={() => { handleRoleChange(role); setIsOpen(false); }}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black text-sm transition-all ${
-                            user.role === role
-                              ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20'
-                              : 'text-gray-500 hover:bg-gray-100'
-                          }`}
-                        >
-                          <span>{role === 'student' ? '🎓' : role === 'monitor' ? '🧑‍🏫' : '🛡️'}</span>
-                          <span>{role === 'student' ? 'Estudiante' : role === 'monitor' ? 'Monitor' : 'Administrador'}</span>
-                          {user.role === role && (
-                            <span className="ml-auto text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Activo</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
+                {/* Mobile Dashboards Container */}
+                <div className="flex flex-col gap-2 pt-2 pb-1">
+                  {(user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+                    <button
+                      onClick={() => { setIsOpen(false); navigate('/monitor-dashboard'); }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-600 text-white text-sm font-black rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 uppercase tracking-widest"
+                    >
+                      <Users size={18} /> Panel Monitor
+                    </button>
+                  )}
+
+                  {user.baseRole === 'admin' && (
+                    <button
+                      onClick={() => { setIsOpen(false); navigate('/admin-dashboard'); }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-amber-600 text-white text-sm font-black rounded-xl hover:bg-amber-700 transition-all shadow-md shadow-amber-600/20 uppercase tracking-widest"
+                    >
+                      <ShieldCheck size={18} /> Panel Admin
+                    </button>
+                  )}
+
+                  {user.baseRole === 'dev' && (
+                    <button
+                      onClick={() => { setIsOpen(false); navigate('/dev-dashboard'); }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-purple-600 text-white text-sm font-black rounded-xl hover:bg-purple-700 transition-all shadow-md shadow-purple-600/20 uppercase tracking-widest"
+                    >
+                      <Wrench size={18} /> Panel DEV
+                    </button>
+                  )}
+                </div>
 
                 <div className="h-px bg-gray-100 my-2"></div>
                 <button

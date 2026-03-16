@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signupStudent } from '../services/api';
+import { signupStudent, getSedes, getCuatrimestres, getMaintenanceConfig } from '../services/api';
 import { ToastContext } from '../App';
 import {
   User,
@@ -30,8 +30,29 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const sedes = ['Sede Centro', 'Sede Norte', 'Sede Sur'];
-  const cuatrimestres = ['1° Cuatrimestre', '2° Cuatrimestre', '3° Cuatrimestre', '4° Cuatrimestre', '5° Cuatrimestre'];
+  const [dbSedes, setDbSedes] = useState([]);
+  const [dbCuatrimestres, setDbCuatrimestres] = useState([]);
+
+  React.useEffect(() => {
+    // Check Maintenance
+    const config = getMaintenanceConfig();
+    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    if (config?.registro && session?.baseRole !== 'dev' && session?.role !== 'dev') {
+      showToast('Esta función está en mantenimiento', 'error');
+      navigate('/');
+      return;
+    }
+
+    const fetchSelectData = async () => {
+      const [sedesList, cuatsList] = await Promise.all([
+        getSedes(),
+        getCuatrimestres()
+      ]);
+      setDbSedes(sedesList || []);
+      setDbCuatrimestres(cuatsList || []);
+    };
+    fetchSelectData();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -182,7 +203,7 @@ const Signup = () => {
                     onChange={e => setFormData({ ...formData, sede: e.target.value })}
                   >
                     <option value="">Selecciona Sede</option>
-                    {sedes.map(s => <option key={s} value={s}>{s}</option>)}
+                    {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
@@ -200,7 +221,7 @@ const Signup = () => {
                     onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
                   >
                     <option value="">Selecciona ciclo</option>
-                    {cuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
+                    {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>

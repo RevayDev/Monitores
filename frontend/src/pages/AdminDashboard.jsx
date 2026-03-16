@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   getAllUsers,
   getAllRegistrations,
@@ -9,7 +10,13 @@ import {
   deleteMonitor,
   updateUser,
   deleteUser,
-  getMonitorias
+  createUser,
+  getMonitorias,
+  getMaintenanceConfig,
+  getSedes,
+  getProgramas,
+  getModalidades,
+  getCuatrimestres
 } from '../services/api';
 import { ToastContext } from '../App';
 import Modal from '../components/Modal';
@@ -36,12 +43,18 @@ import {
 } from 'lucide-react';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('monitors');
   const { showToast } = React.useContext(ToastContext);
   const [monitors, setMonitors] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [students, setStudents] = useState([]);
+  const [devs, setDevs] = useState([]);
   const [monitorModules, setMonitorModules] = useState([]);
+  const [dbSedes, setDbSedes] = useState([]);
+  const [dbProgramas, setDbProgramas] = useState([]);
+  const [dbModalidades, setDbModalidades] = useState([]);
+  const [dbCuatrimestres, setDbCuatrimestres] = useState([]);
   const [stats, setStats] = useState({ totalRegs: 0, totalAttendance: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -57,15 +70,9 @@ const AdminDashboard = () => {
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
-    modulo: '',
-    sede: 'Sede Centro',
-    horario: '',
-    descripcion: '',
-    cuatrimestre: '1° Cuatrimestre',
-    modalidad: 'Presencial',
     role: 'monitor',
-    whatsapp: '',
-    teams: ''
+    sede: 'Sede Centro',
+    cuatrimestre: '1° Cuatrimestre'
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -74,22 +81,52 @@ const AdminDashboard = () => {
   });
 
   useEffect(() => {
+    // Check Maintenance
+    const config = getMaintenanceConfig();
+    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const currentUser = session;
+    
+    if (session?.baseRole !== 'admin' && session?.role !== 'admin') {
+      showToast('No tienes permisos de Administrador', 'error');
+      navigate('/');
+      return;
+    }
+
+    if (config?.panelAdmin && session?.baseRole !== 'dev' && session?.role !== 'dev') {
+      showToast('Esta función está en mantenimiento', 'error');
+      navigate('/');
+      return;
+    }
+
     fetchData();
+    window.addEventListener('data-updated', fetchData);
+    return () => {
+      window.removeEventListener('data-updated', fetchData);
+    };
   }, []);
 
-  const fetchData = async () => {
+  async function fetchData() {
     try {
       setLoading(true);
-      const [users, regs, att, modules] = await Promise.all([
+      const [users, regs, att, modules, sedesList, progsList, modsList, cuatsList] = await Promise.all([
         getAllUsers(),
         getAllRegistrations(),
         getAllAttendance(),
-        getMonitorias()
+        getMonitorias(),
+        getSedes(),
+        getProgramas(),
+        getModalidades(),
+        getCuatrimestres()
       ]);
       setMonitors(users.filter(u => u.role === 'monitor'));
       setAdmins(users.filter(u => u.role === 'admin'));
       setStudents(users.filter(u => u.role === 'student'));
+      setDevs(users.filter(u => u.role === 'dev'));
       setMonitorModules(modules || []);
+      setDbSedes(sedesList || []);
+      setDbProgramas(progsList || []);
+      setDbModalidades(modsList || []);
+      setDbCuatrimestres(cuatsList || []);
       setStats({
         totalRegs: regs.length,
         totalAttendance: att.length
@@ -107,7 +144,7 @@ const AdminDashboard = () => {
     if (role === 'monitor') {
       await createMonitor(formData);
     } else {
-      await updateUser(Date.now(), { ...formData, role: 'admin' });
+      await createUser({ ...formData, role: role });
     }
     setIsNewMonitorOpen(false);
     resetForm();
@@ -117,19 +154,13 @@ const AdminDashboard = () => {
 
 
   const handleEditMonitor = (monitor) => {
-    const mod = monitorModules.find(m => m.monitorId === monitor.id);
     setSelectedUser(monitor);
     setFormData({
       nombre: monitor.nombre,
       email: monitor.email,
-      modulo: mod?.modulo || '',
-      sede: mod?.sede || 'Sede Centro',
-      horario: mod?.horario || '',
-      descripcion: mod?.descripcion || '',
-      cuatrimestre: mod?.cuatrimestre || '1° Cuatrimestre',
-      modalidad: mod?.modalidad || 'Presencial',
-      whatsapp: mod?.whatsapp || '',
-      teams: mod?.teams || ''
+      sede: monitor.sede || 'Sede Centro',
+      cuatrimestre: monitor.cuatrimestre || '1° Cuatrimestre',
+      role: monitor.role
     });
     setIsEditMonitorOpen(true);
   };
@@ -153,7 +184,13 @@ const AdminDashboard = () => {
 
   const handleEditUser = (user) => {
     setSelectedUser(user);
-    setFormData({ nombre: user.nombre, email: user.email });
+    setFormData({ 
+      nombre: user.nombre, 
+      email: user.email, 
+      sede: user.sede || 'Sede Centro', 
+      cuatrimestre: user.cuatrimestre || '1° Cuatrimestre',
+      role: user.role
+    });
     setPasswordData({ password: '', confirmPassword: '' });
     setIsEditUserOpen(true);
   };
@@ -199,66 +236,98 @@ const AdminDashboard = () => {
   };
 
   const resetForm = () => {
-    setFormData({ nombre: '', email: '', modulo: '', sede: 'Sede Centro', horario: '', descripcion: '', cuatrimestre: '1° Cuatrimestre', modalidad: 'Presencial', role: 'monitor', whatsapp: '', teams: '' });
-    setSelectedUser(null);
+    setFormData({
+      nombre: '',
+      email: '',
+      role: 'monitor',
+      sede: 'Sede Centro',
+      cuatrimestre: '1° Cuatrimestre'
+    });
+    setPasswordData({ password: '', confirmPassword: '' });
   };
 
 
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">Panel de Administración</h1>
-            <p className="text-brand-blue font-bold tracking-tight uppercase text-[10px] flex items-center gap-1.5 bg-brand-blue/5 px-3 py-1 rounded-full w-fit">
-              <ShieldCheck size={14} /> Sistema Central Institucional
-            </p>
+        {/* Header */}
+        <div className="bg-amber-500 rounded-[32px] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-700/40 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+          
+          <div className="relative z-10 flex gap-5 items-center w-full">
+            <div className="w-14 h-14 bg-white/10 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0 shadow-inner">
+              <ShieldCheck size={28} className="text-white" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 backdrop-blur-sm border border-white/10">
+                <ShieldCheck size={10} className="text-amber-100" />
+                <span className="text-amber-50">Sistema Central Institucional</span>
+              </div>
+              <h1 className="text-2xl md:text-4xl font-black tracking-tighter leading-none mb-1.5">
+                Panel de Administración
+              </h1>
+              <p className="text-amber-100 text-sm font-medium leading-snug max-w-lg">
+                Gestiona usuarios, monitorías, asistencias y reportes. Tienes el control total de la plataforma académica.
+              </p>
+            </div>
           </div>
+          
+          {/* Action Button */}
           <button
             onClick={() => { resetForm(); setIsNewMonitorOpen(true); }}
-            className="flex items-center gap-2 bg-brand-blue text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black shadow-xl hover:bg-brand-dark-blue active:scale-95 transition-all text-sm sm:text-lg self-start"
+            className="relative z-10 flex items-center gap-2 bg-white text-amber-600 px-5 py-3 rounded-2xl font-black shadow-lg hover:bg-amber-50 active:scale-95 transition-all text-sm shrink-0 whitespace-nowrap border-2 border-white/50"
           >
-            <PlusCircle size={20} /> <span>Registrar Monitor</span>
+            <PlusCircle size={18} /> <span>Registrar Monitor</span>
           </button>
-        </header>
+        </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-          <StatCard icon={<Users />} title="Monitores" value={monitors.length} color="blue" />
-          <StatCard icon={<ShieldCheck />} title="Admins" value={admins.length} color="yellow" />
-          <StatCard icon={<GraduationCap />} title="Estudiantes" value={students.length} color="purple" />
-          <StatCard icon={<Activity />} title="Total Usuarios" value={monitors.length + admins.length + students.length} color="green" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <StatCard icon={<GraduationCap />} title="Estudiantes" value={students.length} color="blue" />
+          <StatCard icon={<Users />} title="Monitores" value={monitors.length} color="green" />
+          <StatCard icon={<ShieldCheck />} title="Administradores" value={admins.length} color="yellow" />
+          <StatCard icon={<Activity />} title="Developers" value={devs.length} color="purple" />
         </div>
         {/* Management Tabs - Refined to Pill Style */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="bg-gray-50/50 p-2 overflow-x-auto">
-            <div className="flex bg-gray-100/50 p-1.5 rounded-2xl gap-2 min-w-max md:w-fit">
+            <div className="flex flex-wrap gap-2 p-1 bg-gray-50 rounded-2xl w-full sm:w-fit">
               <button
                 onClick={() => setActiveTab('monitors')}
-                className={`px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'monitors'
+                className={`flex-grow sm:flex-initial px-4 sm:px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'monitors'
                   ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20'
                   : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
-                <Users size={16} /> Monitores
+                <Users size={16} /> <span className="hidden xs:inline">Monitores</span>
               </button>
               <button
                 onClick={() => setActiveTab('admins')}
-                className={`px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'admins'
+                className={`flex-grow sm:flex-initial px-4 sm:px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'admins'
                   ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20'
                   : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
-                <ShieldCheck size={16} /> Admins
+                <ShieldCheck size={16} /> <span className="hidden xs:inline">Admins</span>
               </button>
               <button
                 onClick={() => setActiveTab('students')}
-                className={`px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'students'
+                className={`flex-grow sm:flex-initial px-4 sm:px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'students'
                   ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20'
                   : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
-                <GraduationCap size={16} /> Estudiantes
+                <GraduationCap size={16} /> <span className="hidden xs:inline">Estudiantes</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('devs')}
+                className={`flex-grow sm:flex-initial px-4 sm:px-8 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${activeTab === 'devs'
+                  ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20'
+                  : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                <Activity size={16} /> <span className="hidden xs:inline">Devs</span>
               </button>
             </div>
           </div>
@@ -282,13 +351,17 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(activeTab === 'monitors' ? monitors : activeTab === 'admins' ? admins : students).map(user => {
+                  {(activeTab === 'monitors' ? monitors : activeTab === 'admins' ? admins : activeTab === 'devs' ? devs : students).map(user => {
                     const mod = monitorModules.find(m => m.monitorId === user.id);
                     return (
                       <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group">
                         <td className="px-4 sm:px-8 py-4 sm:py-6">
                           <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg overflow-hidden ${user.role === 'monitor' ? 'bg-brand-blue text-white shadow-lg' : 'bg-purple-100 text-purple-600'
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg overflow-hidden ${
+                                user.role === 'monitor' ? 'bg-green-600 text-white shadow-lg shadow-green-600/20' : 
+                                user.role === 'admin' ? 'bg-amber-100 text-amber-600' : 
+                                user.role === 'dev' ? 'bg-purple-100 text-purple-600' : 
+                                'bg-blue-100 text-brand-blue'
                               }`}>
                               {user.foto ? (
                                 <img src={user.foto} alt={user.nombre} className="w-full h-full object-cover" />
@@ -322,20 +395,28 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-4 sm:px-8 py-4 sm:py-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => user.role === 'monitor' ? handleEditMonitor(user) : handleEditUser(user)}
-                              className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-xl transition-all"
-                              title="Editar Información"
-                            >
-                              <Edit3 size={18} />
-                            </button>
-                            <button
-                              onClick={() => openDeleteConfirm(user, user.role)}
-                              className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                              title="Eliminar Registro"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                            {user.role !== 'dev' && user.id !== JSON.parse(localStorage.getItem('monitores_current_role') || '{}').id ? (
+                              <>
+                                <button
+                                  onClick={() => user.role === 'monitor' ? handleEditMonitor(user) : handleEditUser(user)}
+                                  className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-xl transition-all"
+                                  title="Editar Información"
+                                >
+                                  <Edit3 size={18} />
+                                </button>
+                                <button
+                                  onClick={() => openDeleteConfirm(user, user.role)}
+                                  className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                  title="Eliminar Registro"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </>
+                            ) : (
+                              <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black rounded-lg tracking-widest uppercase flex items-center gap-1.5">
+                                <Lock size={12} /> {user.id === JSON.parse(localStorage.getItem('monitores_current_role') || '{}').id ? 'Tu Perfil' : 'Protegido'}
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -361,6 +442,7 @@ const AdminDashboard = () => {
               value={formData.role || 'monitor'} onChange={e => setFormData({ ...formData, role: e.target.value })}>
               <option value="monitor">🧑‍🏫 Monitor Académico</option>
               <option value="admin">🛡️ Administrador de Sistema</option>
+              {/* Dev role removed for Admin users */}
             </select>
           </div>
 
@@ -373,55 +455,24 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InputField label="Módulo / Curso" icon={<BookOpen />} value={formData.modulo}
-              onChange={e => setFormData({ ...formData, modulo: e.target.value })} />
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Modalidad</label>
-              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm cursor-pointer"
-                value={formData.modalidad} onChange={e => setFormData({ ...formData, modalidad: e.target.value })}>
-                <option value="Presencial">Presencial</option>
-                <option value="Virtual">Virtual</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
-              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm cursor-pointer"
-                value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}>
-                {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={`${n}° Cuatrimestre`}>{n}° Cuatrimestre</option>)}
-              </select>
-            </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
               <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm cursor-pointer"
                 value={formData.sede} onChange={e => setFormData({ ...formData, sede: e.target.value })}>
-                <option value="Sede Centro">Sede Centro</option>
-                <option value="Sede Norte">Sede Norte</option>
-                <option value="Sede Sur">Sede Sur</option>
+                {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
+              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm cursor-pointer"
+                value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}>
+                {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
 
-          <InputField label="Horario Detallado" icon={<Clock />} placeholder="Ej. Lunes y Viernes 10:00 - 12:00" value={formData.horario}
-            onChange={e => setFormData({ ...formData, horario: e.target.value })} />
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Descripción del Módulo</label>
-            <textarea className="w-full h-24 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-medium transition-all resize-none text-sm"
-              value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InputField label="Link WhatsApp" icon={<MessageCircle />} placeholder="https://wa.me/..." value={formData.whatsapp}
-              onChange={e => setFormData({ ...formData, whatsapp: e.target.value })} />
-            <InputField label="Link Microsoft Teams" icon={<Video />} placeholder="https://teams.microsoft.com/..." value={formData.teams}
-              onChange={e => setFormData({ ...formData, teams: e.target.value })} />
-          </div>
-
           <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black text-lg rounded-2xl shadow-xl hover:bg-brand-dark-blue active:scale-95 transition-all">
-            {isEditMonitorOpen ? "Actualizar Monitor" : "Confirmar Registro"}
+            {isEditMonitorOpen ? "Actualizar Registro" : "Confirmar Registro"}
           </button>
         </form>
       </Modal>
@@ -431,6 +482,23 @@ const AdminDashboard = () => {
         <form onSubmit={confirmUpdateUser} className="space-y-6 py-4">
           <InputField label="Nombre completo" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
           <InputField label="Email institucional" icon={<Mail />} type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
+              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm cursor-pointer"
+                value={formData.sede} onChange={e => setFormData({ ...formData, sede: e.target.value })}>
+                {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
+              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm cursor-pointer"
+                value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}>
+                {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
 
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <p className="text-[10px] font-black text-brand-blue uppercase tracking-widest flex items-center gap-2">
@@ -457,10 +525,10 @@ const AdminDashboard = () => {
             <p className="text-gray-500 font-medium">Esta acción eliminará todos los registros asociados permanentemente.</p>
           </div>
           <div className="flex flex-col gap-3">
-            <button onClick={executeDelete} className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 active:scale-95 transition-all">
+            <button onClick={executeDelete} className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
               Sí, eliminar definitivamente
             </button>
-            <button onClick={() => setIsConfirmDeleteOpen(false)} className="w-full py-4 bg-white text-gray-400 font-bold border-2 border-gray-100 rounded-2xl hover:bg-gray-50 transition-all">
+            <button onClick={() => setIsConfirmDeleteOpen(false)} className="w-full py-4 bg-white text-gray-400 font-bold border-2 border-gray-100 rounded-2xl hover:bg-gray-50 transition-all text-xs uppercase">
               Cancelar
             </button>
           </div>

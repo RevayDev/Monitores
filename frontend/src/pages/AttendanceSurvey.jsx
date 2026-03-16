@@ -51,6 +51,11 @@ const AttendanceSurvey = () => {
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
           <div className="bg-brand-blue p-8 text-white text-center space-y-2">
             <h1 className="text-2xl font-black">Encuesta de Asistencia</h1>
+            {new URLSearchParams(window.location.search).get('modulo') && (
+              <p className="bg-white/20 px-4 py-1 rounded-full text-xs font-bold w-fit mx-auto backdrop-blur-sm">
+                Módulo: {new URLSearchParams(window.location.search).get('modulo')}
+              </p>
+            )}
             <p className="text-blue-100 opacity-80 text-sm">Completa los datos para certificar la sesión de hoy.</p>
           </div>
 
@@ -85,7 +90,7 @@ const AttendanceSurvey = () => {
               <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
                 <Star size={18} className="text-brand-blue" /> Califica la sesión
               </label>
-              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <div className="flex flex-wrap justify-center sm:justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100 gap-3">
                 {[1, 2, 3, 4, 5].map(nu => (
                   <button
                     key={nu}

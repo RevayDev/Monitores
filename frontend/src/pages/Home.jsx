@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, Users } from 'lucide-react';
-import { getAllUsers } from '../services/api';
+import { getAllUsers, getMaintenanceConfig } from '../services/api';
 import StaffCard from '../components/StaffCard';
 import PageTransition from '../components/PageTransition';
 
@@ -11,12 +11,14 @@ const Home = () => {
   const [staff, setStaff] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState('monitor');
+  const [config, setConfig] = React.useState(null);
 
   React.useEffect(() => {
+    setConfig(getMaintenanceConfig());
     const fetchStaff = async () => {
       try {
         const allUsers = await getAllUsers();
-        const filteredStaff = allUsers.filter(u => u.role === 'monitor' || u.role === 'admin');
+        const filteredStaff = allUsers.filter(u => u.role === 'monitor' || u.role === 'admin' || u.role === 'dev');
         setStaff(filteredStaff);
       } catch (error) {
         console.error("Error fetching staff:", error);
@@ -57,8 +59,10 @@ const Home = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full py-14 sm:py-20">
             <div className="max-w-3xl space-y-4 sm:space-y-6 animate-fade-in">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                <span className="text-white text-[10px] font-black uppercase tracking-widest">Portal Académico Activo</span>
+                <span className={`w-2 h-2 rounded-full animate-pulse ${config?.global ? 'bg-yellow-400' : 'bg-green-400'}`}></span>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${config?.global ? 'text-yellow-400' : 'text-white'}`}>
+                  {config?.global ? '🔧 SISTEMA EN MANTENIMIENTO' : 'Portal Académico Activo'}
+                </span>
               </div>
 
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight tracking-tighter">
@@ -125,10 +129,10 @@ const Home = () => {
                 </h2>
 
                 {/* Tabs */}
-                <div className="flex gap-2 p-1 bg-gray-50 rounded-xl w-fit mt-2">
+                <div className="flex flex-wrap gap-2 p-1 bg-gray-50 rounded-2xl w-full sm:w-fit mt-2">
                   <button
                     onClick={() => setActiveTab('monitor')}
-                    className={`px-4 sm:px-6 py-2 rounded-lg text-xs font-black transition-all ${
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
                       activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
@@ -136,11 +140,19 @@ const Home = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('admin')}
-                    className={`px-4 sm:px-6 py-2 rounded-lg text-xs font-black transition-all ${
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
                       activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
                     ADMINS
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('dev')}
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
+                      activeTab === 'dev' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    DEVS
                   </button>
                 </div>
               </div>
@@ -169,7 +181,7 @@ const Home = () => {
                 >
                   {filteredStaff.length === 0 ? (
                     <div className="col-span-full text-center py-16 text-gray-400 font-bold">
-                      No hay {activeTab === 'monitor' ? 'monitores' : 'administradores'} registrados.
+                      No hay {activeTab === 'monitor' ? 'monitores' : activeTab === 'admin' ? 'administradores' : 'miembros del equipo dev'} registrados.
                     </div>
                   ) : filteredStaff.map(member => (
                     <motion.div key={member.id} variants={cardVariants}>

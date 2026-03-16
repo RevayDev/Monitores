@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../services/api';
-import { Mail, Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight, Clock } from 'lucide-react';
+import { login, getMaintenanceConfig } from '../services/api';
+import { Mail, Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight, Clock, Wrench } from 'lucide-react';
 import { ToastContext } from '../App';
 
 const Login = () => {
@@ -13,6 +13,16 @@ const Login = () => {
     role: 'student'
   });
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    // Check Maintenance
+    const config = getMaintenanceConfig();
+    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    if (config?.login && session?.baseRole !== 'dev' && session?.role !== 'dev') {
+      showToast('Esta función está en mantenimiento', 'error');
+      navigate('/');
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +41,8 @@ const Login = () => {
   const roles = [
     { id: 'student', name: 'Estudiante', icon: <GraduationCap size={18} />, color: 'bg-blue-50 text-brand-blue' },
     { id: 'monitor', name: 'Monitor', icon: <UserCheck size={18} />, color: 'bg-green-50 text-green-600' },
-    { id: 'admin', name: 'Admin', icon: <Shield size={18} />, color: 'bg-yellow-50 text-yellow-600' }
+    { id: 'admin', name: 'Administrador', icon: <Shield size={18} />, color: 'bg-amber-50 text-amber-600' },
+    { id: 'dev', name: 'Desarrollador', icon: <Wrench size={18} />, color: 'bg-purple-50 text-purple-600' }
   ];
 
   return (
@@ -90,7 +101,7 @@ const Login = () => {
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Acceso Seguro</p>
               </div>
               
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {roles.map((r) => (
                   <button
                     key={r.id}

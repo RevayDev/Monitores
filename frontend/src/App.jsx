@@ -9,9 +9,11 @@ import MisMonitorias from './pages/MisMonitorias';
 import MonitorDashboard from './pages/MonitorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AttendanceSurvey from './pages/AttendanceSurvey';
+import AttendanceTemplate from './pages/AttendanceTemplate';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
 import Complaints from './pages/Complaints';
+import DevDashboard from './pages/DevDashboard';
 import Login from './pages/Login';
 import Toast from './components/Toast';
 
@@ -33,7 +35,9 @@ function AnimatedRoutes() {
         <Route path="/mis-monitorias" element={<PageTransition><MisMonitorias /></PageTransition>} />
         <Route path="/monitor-dashboard" element={<PageTransition><MonitorDashboard /></PageTransition>} />
         <Route path="/admin-dashboard" element={<PageTransition><AdminDashboard /></PageTransition>} />
+        <Route path="/dev-dashboard" element={<PageTransition><DevDashboard /></PageTransition>} />
         <Route path="/survey/:monitorId" element={<PageTransition><AttendanceSurvey /></PageTransition>} />
+        <Route path="/attendance-template/:id" element={<PageTransition><AttendanceTemplate /></PageTransition>} />
       </Routes>
     </AnimatePresence>
   );

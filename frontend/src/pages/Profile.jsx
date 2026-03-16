@@ -75,6 +75,18 @@ const Profile = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleDeletePhoto = async () => {
+    setPhotoPreview(null);
+    await updateUser(user.id, { foto: null });
+    const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const updatedSession = { ...currentSession };
+    delete updatedSession.foto; // Remove foto property
+    localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
+    setUser(updatedSession);
+    showToast('¡Foto de perfil eliminada!', 'success');
+    window.dispatchEvent(new Event('profile-updated'));
+  };
+
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
     await updateUser(user.id, formData);
@@ -154,6 +166,15 @@ const Profile = () => {
                 <Camera size={18} />
               )}
             </button>
+            {photoPreview && (
+              <button
+                onClick={handleDeletePhoto}
+                title="Eliminar foto"
+                className="absolute -bottom-2 -left-2 p-2.5 bg-white text-red-500 rounded-2xl shadow-xl hover:scale-110 active:scale-95 transition-all border border-gray-100"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
 
           <div className="text-center sm:text-left space-y-2">
@@ -179,7 +200,8 @@ const Profile = () => {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
                 <input
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm"
+                  disabled={user.baseRole === 'student' || user.baseRole === 'monitor'}
+                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.nombre}
                   onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                 />
@@ -187,14 +209,17 @@ const Profile = () => {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Institucional</label>
                 <input
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm"
+                  disabled={user.baseRole === 'student' || user.baseRole === 'monitor'}
+                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
-              <button type="submit" className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-lg hover:bg-brand-dark-blue active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
-                <Save size={18} /> Guardar Cambios
-              </button>
+              { (user.baseRole === 'admin' || user.baseRole === 'dev') && (
+                <button type="submit" className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-lg hover:bg-brand-dark-blue active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
+                  <Save size={18} /> Guardar Cambios
+                </button>
+              )}
             </form>
           </section>
 
