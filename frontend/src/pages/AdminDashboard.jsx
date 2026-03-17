@@ -43,6 +43,9 @@ import {
   UserCheck
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
+import InputField from '../components/InputField';
+import StatCard from '../components/StatCard';
+import { getRoleColors } from '../utils/roleHelpers';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -272,36 +275,6 @@ const AdminDashboard = () => {
       foto: ''
     });
     setPasswordData({ password: '', confirmPassword: '' });
-  };
-
-  const getRoleColors = (role) => {
-    switch (role?.toLowerCase()) {
-      case 'dev': return {
-        color: 'bg-purple-600',
-        textColor: 'text-purple-600',
-        lightBg: 'bg-purple-50',
-      };
-      case 'admin': return {
-        color: 'bg-amber-600',
-        textColor: 'text-amber-600',
-        lightBg: 'bg-amber-50',
-      };
-      case 'monitor': return {
-        color: 'bg-emerald-600',
-        textColor: 'text-emerald-600',
-        lightBg: 'bg-emerald-50',
-      };
-      case 'student': return {
-        color: 'bg-brand-blue',
-        textColor: 'text-brand-blue',
-        lightBg: 'bg-blue-50',
-      };
-      default: return {
-        color: 'bg-gray-400',
-        textColor: 'text-gray-400',
-        lightBg: 'bg-gray-50',
-      };
-    }
   };
 
   return (
@@ -624,42 +597,5 @@ const AdminDashboard = () => {
     </div>
   );
 };
-
-const StatCard = ({ icon, title, value, role }) => {
-  const { lightBg, textColor } = getRoleColors(role);
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5 group hover:shadow-md transition-all">
-      <div className={`${lightBg} ${textColor} p-4 rounded-xl group-hover:scale-110 transition-transform`}>
-        {React.cloneElement(icon, { size: 28 })}
-      </div>
-      <div>
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[2px] mb-0.5">{title}</p>
-        <p className="text-2xl font-black text-gray-900 tracking-tighter">{value}</p>
-      </div>
-    </div>
-  );
-};
-
-const InputField = ({ label, icon, type = "text", placeholder = "", value, onChange }) => (
-  <div className="space-y-2 text-left group">
-    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 group-focus-within:text-brand-blue transition-colors">
-      {label}
-    </label>
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-5 flex items-center text-gray-300 group-focus-within:text-brand-blue transition-colors pointer-events-none">
-        {React.cloneElement(icon, { size: 20 })}
-      </div>
-      <input
-        type={type}
-        required={type !== "password"}
-        className="w-full pl-14 pr-6 py-5 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-brand-blue/20 focus:ring-8 focus:ring-brand-blue/5 outline-none text-black font-bold transition-all text-sm placeholder-gray-300 shadow-inner"
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-      />
-    </div>
-  </div>
-);
-
 
 export default AdminDashboard;

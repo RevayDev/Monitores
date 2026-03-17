@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import { Search, Filter, Info, CheckCircle2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContext } from '../App';
+import SearchBar from '../components/SearchBar';
 
 const Monitorias = () => {
   const [monitorias, setMonitorias] = useState([]);
@@ -17,7 +18,7 @@ const Monitorias = () => {
   const [user, setUser] = useState(null);
   const [registeredIds, setRegisteredIds] = useState([]);
   const [allRegistrations, setAllRegistrations] = useState([]);
-  
+
   const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
@@ -46,18 +47,12 @@ const Monitorias = () => {
           getMonitorias(),
           getAllRegistrations()
         ]);
-        
+
         setAllRegistrations(registrations || []);
         let filteredData = data || [];
-        
+
         if (filteredFromRegistration) {
           filteredData = filteredData.filter(m => m.modulo === filteredFromRegistration);
-        }
-
-        if (currentUser?.sede && currentUser.role !== 'admin' && currentUser.role !== 'dev') {
-          filteredData = filteredData.filter(m => 
-            m.sede === currentUser.sede || m.modalidad === 'Virtual'
-          );
         }
 
         setMonitorias(filteredData);
@@ -96,7 +91,7 @@ const Monitorias = () => {
 
   const confirmRegistration = async () => {
     if (!pendingMonitoria) return;
-    
+
     setIsConfirmOpen(false);
     try {
       await registerMonitoria(pendingMonitoria, user);
@@ -110,7 +105,7 @@ const Monitorias = () => {
     }
   };
 
-  const filteredMonitorias = monitorias.filter(m => 
+  const filteredMonitorias = monitorias.filter(m =>
     m.modulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.monitor.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -128,18 +123,12 @@ const Monitorias = () => {
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-          <div className="relative flex-grow">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <Search size={18} />
-            </div>
-            <input
-              type="text"
-              placeholder="Buscar por módulo o monitor..."
-              className="block w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-transparent focus:border-brand-blue focus:bg-white rounded-xl outline-none text-gray-900 font-bold transition-all text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+          <SearchBar
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            placeholder="Buscar por módulo o monitor..."
+            className="flex-grow"
+          />
           <div className="flex items-center justify-between md:justify-end gap-3 px-4 py-2 md:py-0 border-t md:border-t-0 border-gray-50 md:border-l border-gray-100">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
               <Filter size={14} className="text-brand-blue" />
@@ -155,10 +144,10 @@ const Monitorias = () => {
         ) : filteredMonitorias.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMonitorias.map(m => (
-              <MonitorCard 
-                key={m.id} 
-                data={m} 
-                onAction={handleRegister} 
+              <MonitorCard
+                key={m.id}
+                data={m}
+                onAction={handleRegister}
                 actionLabel={registeredIds.includes(m.id) ? "Ir al Recurso" : "Registrarse"}
                 isRegistered={registeredIds.includes(m.id)}
                 showDescription={false}
@@ -169,13 +158,13 @@ const Monitorias = () => {
         ) : (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-300">
             <Info size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-xl text-gray-500 font-medium">No se encontraron monitorías que coincidan con tu búsqueda.</p>
+            <p className="text-xl text-gray-500 font-medium">No se encontraron monitorías.</p>
           </div>
         )}
         {/* Modal de Confirmación */}
-        <Modal 
-          isOpen={isConfirmOpen} 
-          onClose={() => setIsConfirmOpen(false)} 
+        <Modal
+          isOpen={isConfirmOpen}
+          onClose={() => setIsConfirmOpen(false)}
           title="Confirmar Registro"
         >
           <div className="text-center space-y-6">
@@ -193,13 +182,13 @@ const Monitorias = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              <button 
+              <button
                 onClick={confirmRegistration}
                 className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all text-sm uppercase tracking-widest"
               >
                 Sí, Registrarme Ahora
               </button>
-              <button 
+              <button
                 onClick={() => setIsConfirmOpen(false)}
                 className="w-full py-3 text-gray-400 font-bold hover:bg-gray-50 rounded-xl transition-all text-xs"
               >
@@ -210,9 +199,9 @@ const Monitorias = () => {
         </Modal>
 
         {/* Modal de Éxito */}
-        <Modal 
-          isOpen={isSuccessOpen} 
-          onClose={() => setIsSuccessOpen(false)} 
+        <Modal
+          isOpen={isSuccessOpen}
+          onClose={() => setIsSuccessOpen(false)}
           title="¡Registro Exitoso!"
         >
           <div className="text-center space-y-4">
@@ -225,13 +214,13 @@ const Monitorias = () => {
               Te has registrado correctamente en la monitoría de <span className="font-bold text-brand-blue">{registeredName}</span>.
             </p>
             <div className="flex flex-col gap-3 pt-4">
-              <button 
+              <button
                 onClick={() => navigate('/mis-monitorias')}
                 className="w-full py-4 rounded-xl bg-brand-blue text-white font-bold text-lg hover:bg-brand-dark-blue shadow-lg transition-all"
               >
                 Ir a Mis Monitorías
               </button>
-              <button 
+              <button
                 onClick={() => setIsSuccessOpen(false)}
                 className="w-full py-2 text-gray-500 font-semibold hover:bg-gray-100 rounded-lg transition-all"
               >

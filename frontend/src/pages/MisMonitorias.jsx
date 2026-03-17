@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMisMonitorias, deleteMonitoria } from '../services/api';
+import { getMisMonitorias, deleteMonitoria, getAllRegistrations } from '../services/api';
 import MonitorCard from '../components/MonitorCard';
 import Modal from '../components/Modal';
 import { Info, MessageCircle, Video, Trash2, Calendar, Clock, MapPin, User, Book, Mail } from 'lucide-react';
@@ -9,6 +9,7 @@ import UserAvatar from '../components/UserAvatar';
 const MisMonitorias = () => {
   const navigate = useNavigate();
   const [monitorias, setMonitorias] = useState([]);
+  const [allRegistrations, setAllRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonitoria, setSelectedMonitoria] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -21,8 +22,12 @@ const MisMonitorias = () => {
 
   const fetchMonitorias = async () => {
     const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-    const data = await getMisMonitorias(session.email);
+    const [data, regs] = await Promise.all([
+      getMisMonitorias(session.email),
+      getAllRegistrations()
+    ]);
     setMonitorias(data);
+    setAllRegistrations(regs || []);
     setLoading(false);
   };
 
@@ -76,6 +81,8 @@ const MisMonitorias = () => {
                 data={m}
                 onAction={handleOpenDetail}
                 actionLabel="Ver Recurso"
+                registrationCount={allRegistrations.filter(r => r.moduleId === m.id || r.moduleId === m.moduleId).length}
+                isRegistered={true}
               />
             ))}
           </div>

@@ -28,19 +28,19 @@ function AnimatedRoutes({ isMaintenance, userRole }) {
   if (isMaintenance && userRole !== 'dev') {
     return (
       <div className="min-h-[calc(100vh-80px)] bg-white flex flex-col items-center justify-center p-6 text-center space-y-6">
-        <div className="w-24 h-24 bg-amber-100 text-amber-600 rounded-[32px] flex items-center justify-center animate-bounce shadow-xl shadow-amber-200/50">
+        <div className="w-24 h-24 bg-purple-200 text-purple-600 rounded-[32px] flex items-center justify-center animate-pulse shadow-xl shadow-purple-200/50">
           <Wrench size={48} />
         </div>
         <div className="space-y-2 max-w-md">
           <h1 className="text-4xl font-black text-gray-900 tracking-tight flex items-center justify-center gap-3">
-            <ShieldAlert className="text-brand-blue" /> Modo Mantenimiento
+            Modo Mantenimiento
           </h1>
           <p className="text-gray-500 font-medium leading-relaxed">
             Estamos realizando mejoras en la plataforma para brindarte una mejor experiencia. Solo personal autorizado (DEVS) puede acceder en este momento.
           </p>
         </div>
         <div className="pt-4">
-          <button 
+          <button
             onClick={() => window.location.href = '/'}
             className="px-8 py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl hover:bg-brand-dark-blue active:scale-95 transition-all uppercase tracking-widest text-sm"
           >
@@ -50,7 +50,7 @@ function AnimatedRoutes({ isMaintenance, userRole }) {
       </div>
     );
   }
-  
+
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
@@ -95,7 +95,7 @@ function App() {
       }
     };
     checkStatus();
-    
+
     // Update on auth changes
     window.addEventListener('profile-updated', checkStatus);
     return () => window.removeEventListener('profile-updated', checkStatus);
@@ -116,10 +116,10 @@ function App() {
       </Router>
       <AnimatePresence>
         {toast && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={() => setToast(null)} 
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
           />
         )}
       </AnimatePresence>

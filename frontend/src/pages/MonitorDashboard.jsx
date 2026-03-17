@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search } from 'lucide-react';
 import { ToastContext } from '../App';
 import UserAvatar from '../components/UserAvatar';
+import InputField from '../components/InputField';
 
 const MonitorDashboard = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const MonitorDashboard = () => {
     descripcion: '',
     sede: 'Sede Centro',
     modalidad: 'Presencial',
+    salon: '',
     horario: '',
     whatsapp: '',
     teams: ''
@@ -104,6 +106,7 @@ const MonitorDashboard = () => {
     setEditFormData({
       descripcion: mod.descripcion || '',
       sede: mod.sede || 'Sede Centro',
+      salon: mod.salon || '',
       modalidad: mod.modalidad || 'Presencial',
       horario: mod.horario || '',
       whatsapp: mod.whatsapp || '',
@@ -161,6 +164,7 @@ const MonitorDashboard = () => {
       cuatrimestre: dbCuatrimestres[0] || '',
       modalidad: 'Presencial',
       sede: 'Sede Centro',
+      salon: '',
       horario: '',
       descripcion: '',
       whatsapp: '',
@@ -422,83 +426,62 @@ const MonitorDashboard = () => {
       >
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
-              <select
-                value={editFormData.sede}
-                onChange={(e) => setEditFormData({ ...editFormData, sede: e.target.value })}
-                className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue outline-none text-gray-900 font-bold text-sm"
-              >
-                {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Modalidad</label>
-              <select
-                value={editFormData.modalidad}
-                onChange={(e) => setEditFormData({ ...editFormData, modalidad: e.target.value })}
-                className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue outline-none text-gray-900 font-bold text-sm"
-              >
-                {dbModalidades.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
-            <select
-              value={editFormData.cuatrimestre}
-              onChange={(e) => setEditFormData({ ...editFormData, cuatrimestre: e.target.value })}
-              className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue outline-none text-gray-900 font-bold text-sm"
-            >
-              {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Horario / Fecha</label>
-            <input
-              type="text"
-              value={editFormData.horario}
-              onChange={(e) => setEditFormData({ ...editFormData, horario: e.target.value })}
-              placeholder="Ej. Martes 15:00 - 17:00"
-              className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-gray-900 font-bold text-sm"
+            <InputField
+              type="select"
+              label="Sede"
+              value={editFormData.sede}
+              onChange={(e) => setEditFormData({ ...editFormData, sede: e.target.value })}
+              options={dbSedes}
+            />
+            <InputField
+              type="select"
+              label="Modalidad"
+              value={editFormData.modalidad}
+              onChange={(e) => setEditFormData({ ...editFormData, modalidad: e.target.value })}
+              options={dbModalidades}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Descripción del Módulo</label>
-            <textarea
-              value={editFormData.descripcion}
-              onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
-              placeholder="Describe los temas que tratas en esta monitoría..."
-              className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-gray-900 font-bold text-sm leading-relaxed"
-            />
-          </div>
+          <InputField
+            type="select"
+            label="Cuatrimestre"
+            value={editFormData.cuatrimestre}
+            onChange={(e) => setEditFormData({ ...editFormData, cuatrimestre: e.target.value })}
+            options={dbCuatrimestres}
+          />
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <MessageCircle size={12} className="text-green-500" /> Link de WhatsApp
-            </label>
-            <input
+          <InputField
+            label="Horario / Fecha"
+            value={editFormData.horario}
+            onChange={(e) => setEditFormData({ ...editFormData, horario: e.target.value })}
+            placeholder="Ej. Martes 15:00 - 17:00"
+          />
+
+          <InputField
+            type="textarea"
+            label="Descripción del Módulo"
+            value={editFormData.descripcion}
+            onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
+            placeholder="Describe los temas que tratas en esta monitoría..."
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <InputField
               type="url"
+              label="Link de WhatsApp"
+              icon={<MessageCircle className="text-green-500" />}
               value={editFormData.whatsapp}
               onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
               placeholder="https://chat.whatsapp.com/..."
-              className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-gray-900 font-bold text-sm"
             />
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <Video size={12} className="text-blue-500" /> Link de Teams
-            </label>
-            <input
+            <InputField
               type="url"
+              label="Link de Teams"
+              icon={<Video className="text-blue-500" />}
               value={editFormData.teams}
               onChange={(e) => setEditFormData({ ...editFormData, teams: e.target.value })}
-              placeholder="https://teams.microsoft.com/l/..."
-              className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-black font-bold text-sm"
+              placeholder="https://teams.microsoft.com/..."
             />
           </div>
 
@@ -518,72 +501,61 @@ const MonitorDashboard = () => {
       >
         <form onSubmit={handleCreateModule} className="space-y-4 py-2 text-left">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre del Módulo</label>
-              <input
-                required
-                value={createFormData.modulo}
-                onChange={(e) => setCreateFormData({ ...createFormData, modulo: e.target.value })}
-                placeholder="Ej. Cálculo I"
-                className="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-gray-900 font-bold text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
-              <select
-                value={createFormData.sede}
-                onChange={(e) => setCreateFormData({ ...createFormData, sede: e.target.value })}
-                className="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-gray-900 font-bold text-sm"
-              >
-                {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+            <InputField
+              label="Nombre del Módulo"
+              value={createFormData.modulo}
+              onChange={(e) => setCreateFormData({ ...createFormData, modulo: e.target.value })}
+              placeholder="Ej. Cálculo I"
+            />
+            <InputField
+              type="select"
+              label="Sede"
+              value={createFormData.sede}
+              onChange={(e) => setCreateFormData({ ...createFormData, sede: e.target.value })}
+              options={dbSedes}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Modalidad</label>
-              <select
+            {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'Híbrido') && (
+              <InputField
+                label="Salón"
+                value={createFormData.salon}
+                onChange={(e) => setCreateFormData({ ...createFormData, salon: e.target.value })}
+                placeholder="Ej. Salón 204 Bloque B"
+              />
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <InputField
+                type="select"
+                label="Modalidad"
                 value={createFormData.modalidad}
                 onChange={(e) => setCreateFormData({ ...createFormData, modalidad: e.target.value })}
-                className="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-gray-900 font-bold text-sm"
-              >
-                {dbModalidades.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
-              <select
+                options={dbModalidades}
+              />
+              <InputField
+                type="select"
+                label="Cuatrimestre"
                 value={createFormData.cuatrimestre}
                 onChange={(e) => setCreateFormData({ ...createFormData, cuatrimestre: e.target.value })}
-                className="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-gray-900 font-bold text-sm"
-              >
-                {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+                options={dbCuatrimestres}
+              />
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Horario</label>
-            <input
-              required
-              value={createFormData.horario}
-              onChange={(e) => setCreateFormData({ ...createFormData, horario: e.target.value })}
-              placeholder="Lunes 10-12"
-              className="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-gray-900 font-bold text-sm"
-            />
-          </div>
+          <InputField
+            label="Horario"
+            value={createFormData.horario}
+            onChange={(e) => setCreateFormData({ ...createFormData, horario: e.target.value })}
+            placeholder="Lunes 10-12"
+          />
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Descripción</label>
-            <textarea
-              required
-              value={createFormData.descripcion}
-              onChange={(e) => setCreateFormData({ ...createFormData, descripcion: e.target.value })}
-              placeholder="¿Qué temas enseñarás?"
-              className="w-full h-24 p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-gray-900 font-bold text-sm"
-            />
-          </div>
+          <InputField
+            type="textarea"
+            label="Descripción"
+            value={createFormData.descripcion}
+            onChange={(e) => setCreateFormData({ ...createFormData, descripcion: e.target.value })}
+            placeholder="¿Qué temas enseñarás?"
+          />
 
           <button
             type="submit"

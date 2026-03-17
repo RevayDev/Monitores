@@ -5,7 +5,7 @@ const UserAvatar = ({
   size = 'md',
   className = '',
   showBadge = false,
-  rounded = 'rounded-2xl' // 👈 NUEVO
+  rounded = 'rounded-2xl'
 }) => {
 
   const getInitials = (name) => {

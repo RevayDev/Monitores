@@ -44,7 +44,8 @@ async function migrate() {
         sede VARCHAR(100),
         cuatrimestre VARCHAR(100),
         foto TEXT,
-        is_principal BOOLEAN DEFAULT FALSE
+        is_principal BOOLEAN DEFAULT FALSE,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -69,7 +70,8 @@ async function migrate() {
         sede VARCHAR(100),
         descripcion TEXT,
         whatsapp VARCHAR(255),
-        teams VARCHAR(255)
+        teams VARCHAR(255),
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -163,7 +165,7 @@ async function migrate() {
     // Clear old static data to populate with new ones
     await connection.query('DELETE FROM static_data');
     
-    const sedes = ["Sede Posgrado", "Sede Centro Historico", "Sede plaza la paz", "sede Soledad"];
+    const sedes = ["Sede plaza la paz", "sede soledad", "sede centro historico", "sede posgrado"];
     const cuatrimestres = Array.from({length: 15}, (_, i) => `${i + 1}° Cuatrimestre`);
     const modalidades = ["Presencial", "Virtual", "Híbrido"];
     const programas = ["Ingeniería de Sistemas", "Derecho", "Psicología", "Administración"];

@@ -5,6 +5,7 @@ import { getMaintenanceConfig, setMaintenanceConfig, getAllUsers, createUser, up
 import Modal from '../components/Modal';
 import { ToastContext } from '../App';
 import UserAvatar from '../components/UserAvatar';
+import InputField from '../components/InputField';
 
 const DevDashboard = () => {
   const navigate = useNavigate();
@@ -400,26 +401,4 @@ const DevDashboard = () => {
     </div>
   );
 };
-
-const InputField = ({ label, icon, type = "text", placeholder = "", value, onChange }) => (
-  <div className="space-y-2 text-left group">
-    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 transition-colors">
-      {label}
-    </label>
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-5 flex items-center text-gray-300 pointer-events-none">
-        {React.cloneElement(icon, { size: 20 })}
-      </div>
-      <input
-        type={type}
-        required={type !== "password" && type !== "file"}
-        className="w-full pl-14 pr-6 py-5 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-purple-600/20 focus:ring-8 focus:ring-purple-600/5 outline-none text-gray-900 font-bold transition-all text-sm placeholder-gray-300 shadow-inner"
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-      />
-    </div>
-  </div>
-);
-
 export default DevDashboard;
