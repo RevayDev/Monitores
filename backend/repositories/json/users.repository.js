@@ -1,4 +1,4 @@
-const { readDB, writeDB } = require('../../utils/db.helper');
+import { readDB, writeDB } from '../../utils/db.helper.js';
 
 class UsersRepository {
   async getAll() {
@@ -47,4 +47,4 @@ class UsersRepository {
   }
 }
 
-module.exports = new UsersRepository();
+export default new UsersRepository();

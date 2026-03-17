@@ -1,7 +1,7 @@
-const monitoriasService = require('../services/monitorias.service');
+import monitoriasService from '../services/monitorias.service.js';
 
 const getMonitorias = async (req, res) => {
-  const monitorias = await monitoriasService.getAllMonitorias();
+  const monitorias = await monitoriasService.getAllMonitorias(req.query);
   res.json(monitorias);
 };
 
@@ -22,7 +22,7 @@ const deleteMonitoria = async (req, res) => {
 };
 
 const getRegistrations = async (req, res) => {
-  const registrations = await monitoriasService.getAllRegistrations();
+  const registrations = await monitoriasService.getAllRegistrations(req.query);
   res.json(registrations);
 };
 
@@ -74,7 +74,7 @@ const submitComplaint = async (req, res) => {
   res.status(201).json({ success: true });
 };
 
-module.exports = {
+export default {
   getMonitorias,
   createMonitoria,
   updateMonitoria,

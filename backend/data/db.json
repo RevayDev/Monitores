@@ -29,7 +29,7 @@
     },
     {
       "id": 999,
-      "nombre": "Admin Principal",
+      "nombre": "Admin Principa",
       "email": "admin@u.edu",
       "password": "123",
       "role": "admin",

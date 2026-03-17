@@ -1,7 +1,7 @@
 /**
  * Monitoria/Module Model
  */
-class Monitoria {
+export default class Monitoria {
   constructor({ id, monitorId, monitor, monitorEmail, modulo, cuatrimestre, modalidad, horario, salon, sede, descripcion }) {
     this.id = id;
     this.monitorId = monitorId;
@@ -16,5 +16,3 @@ class Monitoria {
     this.descripcion = descripcion;
   }
 }
-
-module.exports = Monitoria;

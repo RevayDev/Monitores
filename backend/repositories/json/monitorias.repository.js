@@ -1,4 +1,4 @@
-const { readDB, writeDB } = require('../../utils/db.helper');
+import { readDB, writeDB } from '../../utils/db.helper.js';
 
 class MonitoriasRepository {
   async getAll() {
@@ -95,4 +95,4 @@ class MonitoriasRepository {
   }
 }
 
-module.exports = new MonitoriasRepository();
+export default new MonitoriasRepository();

@@ -1,14 +1,28 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const usersRoutes = require('./routes/users.routes');
-const monitoriasRoutes = require('./routes/monitorias.routes');
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import usersRoutes from './routes/users.routes.js';
+import monitoriasRoutes from './routes/monitorias.routes.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
+// Static files
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // Simple logging
 app.use((req, res, next) => {
@@ -26,4 +40,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-module.exports = app;
+export default app;

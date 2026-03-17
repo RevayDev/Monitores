@@ -1,5 +1,9 @@
-const fs = require('fs-extra');
-const path = require('path');
+import fs from 'fs-extra';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
 
@@ -11,7 +15,7 @@ const writeDB = async (data) => {
   await fs.writeJson(DB_PATH, data, { spaces: 2 });
 };
 
-module.exports = {
+export {
   readDB,
   writeDB
 };

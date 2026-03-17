@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import monitoriasController from '../controllers/monitorias.controller.js';
+
 const router = express.Router();
-const monitoriasController = require('../controllers/monitorias.controller');
 
 // Modules
 router.get('/modules', monitoriasController.getMonitorias);
@@ -28,4 +29,4 @@ router.post('/attendance', monitoriasController.submitAttendance);
 router.get('/attendance', monitoriasController.getAttendance);
 router.post('/complaints', monitoriasController.submitComplaint);
 
-module.exports = router;
+export default router;

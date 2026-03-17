@@ -1,8 +1,8 @@
-const monitoriasRepository = require('../repositories/json/monitorias.repository');
+import monitoriasRepository from '../repositories/mysql/monitorias.repository.js';
 
 class MonitoriasService {
-  async getAllMonitorias() {
-    return await monitoriasRepository.getAll();
+  async getAllMonitorias(filters) {
+    return await monitoriasRepository.getAll(filters);
   }
 
   async createMonitoria(data) {
@@ -18,19 +18,18 @@ class MonitoriasService {
   }
 
   // Registrations
-  async getAllRegistrations() {
-    return await monitoriasRepository.getAllRegistrations();
+  async getAllRegistrations(filters) {
+    return await monitoriasRepository.getAllRegistrations(filters);
   }
 
   async registerStudent(monitoria, usuario) {
     const registrations = await monitoriasRepository.getAllRegistrations();
-    const isDuplicate = registrations.some(r => r.id === monitoria.id && r.studentEmail === usuario.email);
+    const isDuplicate = registrations.some(r => r.monitorId === monitoria.id && r.studentEmail === usuario.email);
     if (isDuplicate) throw new Error("Ya estás registrado.");
 
     const newReg = {
-      id: monitoria.id,
-      registrationId: Date.now(),
-      ...monitoria,
+      monitorId: monitoria.id,
+      modulo: monitoria.modulo,
       studentName: usuario?.nombre,
       studentEmail: usuario?.email,
       registeredAt: new Date().toISOString()
@@ -63,4 +62,4 @@ class MonitoriasService {
   async submitComplaint(data) { return await monitoriasRepository.addComplaint(data); }
 }
 
-module.exports = new MonitoriasService();
+export default new MonitoriasService();
