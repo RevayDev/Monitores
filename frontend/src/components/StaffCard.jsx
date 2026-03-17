@@ -1,4 +1,5 @@
 import { Shield, UserCheck, Mail, User, Wrench } from 'lucide-react';
+import UserAvatar from './UserAvatar';
 
 const StaffCard = ({ user }) => {
   const role = user.role;
@@ -7,9 +8,9 @@ const StaffCard = ({ user }) => {
   // Define role-specific configuration
   const roleConfig = {
     monitor: {
-      color: 'bg-green-600',
-      textColor: 'text-green-600',
-      lightBg: 'bg-green-50',
+      color: 'bg-emerald-500',
+      textColor: 'text-emerald-500',
+      lightBg: 'bg-emerald-50',
       icon: <UserCheck size={18} />,
       title: 'Monitor Académico',
       subtitle: 'Personal Educativo'
@@ -55,19 +56,7 @@ const StaffCard = ({ user }) => {
       {/* Content Area */}
       <div className="p-4 flex flex-col flex-grow space-y-4">
         <div className="flex items-center gap-3 text-gray-700">
-          <div className="relative">
-            {hasPhoto ? (
-              <img 
-                src={user.foto} 
-                alt={user.nombre} 
-                className="w-12 h-12 rounded-full border-2 border-white shadow-sm relative z-10 transition-transform group-hover:scale-105 object-cover"
-              />
-            ) : (
-              <div className={`w-12 h-12 rounded-full border-2 border-white shadow-sm flex items-center justify-center relative z-10 transition-transform group-hover:scale-105 ${config.lightBg} ${config.textColor}`}>
-                <User size={20} />
-              </div>
-            )}
-          </div>
+          <UserAvatar user={user} size="md" />
           <div>
             <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">
               {config.subtitle}

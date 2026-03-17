@@ -64,17 +64,44 @@ app.use((req, res, next) => {
 ```
 
 ### Inyección de Dependencias (Concepto)
-Aunque usamos `require`, la idea es que el **Servicio** use el **Repositorio**. Esto permite que en el futuro, con un solo cambio de importación, el sistema cambie de cerebro (JSON -> MySQL).
+Aunque usamos **ES Modules (`import`)**, la idea es que el **Servicio** use el **Repositorio**. Esto permite que en el futuro, con un solo cambio de importación, el sistema cambie de cerebro (JSON -> MySQL).
+
+### ES Modules (ESM)
+El backend fue actualizado para usar **EcmaScript Modules**. Esto significa que:
+- Usamos `import X from './archivo.js'` en lugar de `require`.
+- Usamos `export default` o `export const` en lugar de `module.exports`.
+- **Importante**: En el backend de Node.js con ESM, es obligatorio incluir la extensión `.js` en las importaciones locales.
 
 ### Modelos
 Son clases que definen cómo luce un objeto (Usuario, Monitoría). Ayudan a que el código sea predecible y fácil de leer.
 
 ---
 
+## 3. La Gran Migración: De JSON a MySQL
+
+¡Lo logramos! El proyecto ahora es una aplicación web profesional con base de datos relacional. 
+
+### ¿Qué cambió?
+1. **Persistencia**: Los datos ya no se borran si reinicias el servidor; ahora viven en un servidor de base de datos (**MySQL**).
+2. **Helper de Conexión**: Creamos `utils/mysql.helper.js` que maneja un **Pool de Conexiones**. Esto es más eficiente que abrir y cerrar conexiones todo el tiempo.
+3. **Scripts de Automatización**: Creamos `migrate.js` para que pudieras mover tus datos viejos de `db.json` a la nueva DB sin perder nada.
+
+### El Proceso de Migración:
+1.  **Instalación**: Añadimos la librería `mysql2`.
+2.  **Abstracción**: Implementamos los nuevos repositorios en `repositories/mysql/`.
+3.  **Inyección**: Simplemente cambiamos una línea en los **Services** para que dejen de mirar la carpeta `json/` y empiecen a usar `mysql/`.
+
+---
+
+## 4. Conceptos Clave para Aprender
+... (se mantienen los conceptos anteriores) ...
+
+---
+
 ## 5. Próximos Pasos Sugeridos
-1. **Implementar MySQL**: Crea las tablas y rellena los archivos en `repositories/mysql/`.
-2. **JWT (Seguridad)**: Actualmente la sesión es sencilla. Podrías añadir tokens JWT para hacer el backend más robusto.
-3. **Validaciones**: Usa librerías como `joi` o `zod` en los controladores para validar que los datos que envía el usuario sean correctos antes de llegar al servicio.
+1. **JWT (Seguridad)**: Actualmente la sesión es sencilla. Al tener MySQL, puedes crear una tabla de tokens para mayor seguridad.
+2. **Validaciones**: Usa librerías como `joi` o `zod` en los controladores para validar los datos antes de guardarlos en SQL.
+3. **Relaciones Complejas**: Ahora que tienes SQL, puedes empezar a usar `JOINs` para hacer consultas más potentes.
 
 ---
 *Documento generado para el aprendizaje y evolución del proyecto Monitores.*

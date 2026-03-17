@@ -4,6 +4,7 @@ import { getMisMonitorias, deleteMonitoria } from '../services/api';
 import MonitorCard from '../components/MonitorCard';
 import Modal from '../components/Modal';
 import { Info, MessageCircle, Video, Trash2, Calendar, Clock, MapPin, User, Book, Mail } from 'lucide-react';
+import UserAvatar from '../components/UserAvatar';
 
 const MisMonitorias = () => {
   const navigate = useNavigate();
@@ -19,7 +20,8 @@ const MisMonitorias = () => {
   }, []);
 
   const fetchMonitorias = async () => {
-    const data = await getMisMonitorias();
+    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const data = await getMisMonitorias(session.email);
     setMonitorias(data);
     setLoading(false);
   };
@@ -69,10 +71,10 @@ const MisMonitorias = () => {
         ) : monitorias.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {monitorias.map(m => (
-              <MonitorCard 
-                key={m.id} 
-                data={m} 
-                onAction={handleOpenDetail} 
+              <MonitorCard
+                key={m.id}
+                data={m}
+                onAction={handleOpenDetail}
                 actionLabel="Ver Recurso"
               />
             ))}
@@ -86,7 +88,7 @@ const MisMonitorias = () => {
               <p className="text-2xl text-gray-800 font-extrabold">¡Vaya! No tienes registros</p>
               <p className="text-gray-500 font-medium">Parece que aún no te has inscrito en ninguna monitoría. Empieza ahora para fortalecer tu aprendizaje.</p>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/monitorias')}
               className="px-10 py-4 bg-brand-blue text-white font-extrabold rounded-2xl shadow-xl hover:bg-brand-dark-blue hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
             >
@@ -97,9 +99,9 @@ const MisMonitorias = () => {
       </div>
 
       {/* Modal de Detalle */}
-      <Modal 
-        isOpen={isDetailOpen} 
-        onClose={() => setIsDetailOpen(false)} 
+      <Modal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
         title="Detalles de la Monitoría"
       >
         {selectedMonitoria && (
@@ -113,10 +115,18 @@ const MisMonitorias = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-gray-700">
-                <User size={18} className="text-brand-blue" />
+                <UserAvatar
+                  user={{
+                    nombre: selectedMonitoria.monitor,
+                    email: selectedMonitoria.monitorEmail,
+                    role: 'monitor',
+                    foto: selectedMonitoria.monitorFoto
+                  }}
+                  size="sm"
+                />
                 <div>
-                  <p className="text-[10px] text-gray-500 uppercase">Monitor</p>
-                  <p className="text-sm font-semibold">{selectedMonitoria.monitor}</p>
+                  <p className="text-[10px] text-gray-500 uppercase leading-none mb-1">Monitor Responsable</p>
+                  <p className="text-sm font-bold text-gray-900">{selectedMonitoria.monitor}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-gray-700">
@@ -147,7 +157,7 @@ const MisMonitorias = () => {
                 <p className="text-sm font-bold text-gray-700 uppercase tracking-widest text-[10px]">Enlaces de Acceso:</p>
                 <div className={`grid ${selectedMonitoria.whatsapp && selectedMonitoria.teams ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
                   {selectedMonitoria.whatsapp && (
-                    <a 
+                    <a
                       href={selectedMonitoria.whatsapp}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -157,7 +167,7 @@ const MisMonitorias = () => {
                     </a>
                   )}
                   {selectedMonitoria.teams && (
-                    <a 
+                    <a
                       href={selectedMonitoria.teams}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -179,7 +189,7 @@ const MisMonitorias = () => {
             )}
 
             <div className="pt-6 border-t mt-4">
-              <button 
+              <button
                 onClick={handleOpenDelete}
                 className="w-full flex items-center justify-center gap-2 py-4 px-4 rounded-xl text-red-600 font-extrabold border-2 border-red-100 hover:bg-red-50 hover:border-red-200 transition-all shadow-sm"
               >
@@ -191,21 +201,21 @@ const MisMonitorias = () => {
       </Modal>
 
       {/* Modal de Eliminación */}
-      <Modal 
-        isOpen={isDeleteOpen} 
-        onClose={() => setIsDeleteOpen(false)} 
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
         title="¿Deseas eliminar esta monitoría?"
       >
         <div className="space-y-6">
           <p className="text-gray-600">Por favor, cuéntanos el motivo de tu cancelación para mejorar nuestro servicio.</p>
-          
+
           <div className="space-y-3">
             {reasons.map((r, i) => (
               <label key={i} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors transition-all active:scale-[0.99]">
-                <input 
-                  type="radio" 
-                  name="reason" 
-                  value={r} 
+                <input
+                  type="radio"
+                  name="reason"
+                  value={r}
                   onChange={(e) => setDeleteReason(e.target.value)}
                   className="w-4 h-4 text-brand-blue border-gray-300 focus:ring-brand-blue"
                 />
@@ -215,13 +225,13 @@ const MisMonitorias = () => {
           </div>
 
           <div className="flex flex-col gap-3 pt-4">
-            <button 
+            <button
               onClick={confirmDelete}
               className="w-full py-4 rounded-xl bg-red-600 text-white font-bold text-lg hover:bg-red-700 shadow-lg active:scale-95 transition-all"
             >
               Confirmar Eliminación
             </button>
-            <button 
+            <button
               onClick={() => setIsDeleteOpen(false)}
               className="w-full py-3 rounded-xl text-gray-500 font-bold hover:bg-gray-100 transition-all"
             >

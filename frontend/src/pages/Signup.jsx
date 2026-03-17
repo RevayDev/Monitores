@@ -4,12 +4,12 @@ import { signupStudent, getSedes, getCuatrimestres, getMaintenanceConfig } from 
 import { ToastContext } from '../App';
 import {
   User,
+  UserCheck,
   Mail,
   Lock,
   UserPlus,
   ArrowRight,
   CheckCircle2,
-  Calendar,
   MapPin,
   GraduationCap,
   ShieldCheck
@@ -20,10 +20,10 @@ const Signup = () => {
   const { showToast } = React.useContext(ToastContext);
   const [formData, setFormData] = useState({
     nombre: '',
+    username: '',
     email: '',
     password: '',
     confirmarPassword: '',
-    edad: '',
     cuatrimestre: '',
     sede: ''
   });
@@ -34,24 +34,28 @@ const Signup = () => {
   const [dbCuatrimestres, setDbCuatrimestres] = useState([]);
 
   React.useEffect(() => {
-    // Check Maintenance
-    const config = getMaintenanceConfig();
-    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-    if (config?.registro && session?.baseRole !== 'dev' && session?.role !== 'dev') {
-      showToast('Esta función está en mantenimiento', 'error');
-      navigate('/');
-      return;
-    }
+    const fetchInitialData = async () => {
+      try {
+        const [config, sedesList, cuatsList] = await Promise.all([
+          getMaintenanceConfig(),
+          getSedes(),
+          getCuatrimestres()
+        ]);
 
-    const fetchSelectData = async () => {
-      const [sedesList, cuatsList] = await Promise.all([
-        getSedes(),
-        getCuatrimestres()
-      ]);
-      setDbSedes(sedesList || []);
-      setDbCuatrimestres(cuatsList || []);
+        const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+        if (config?.registro && session?.baseRole !== 'dev' && session?.role !== 'dev') {
+          showToast('Esta función está en mantenimiento', 'error');
+          navigate('/');
+          return;
+        }
+
+        setDbSedes(sedesList || []);
+        setDbCuatrimestres(cuatsList || []);
+      } catch (err) {
+        console.error("Error fetching signup data:", err);
+      }
     };
-    fetchSelectData();
+    fetchInitialData();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -79,7 +83,7 @@ const Signup = () => {
     }
   };
 
-  const inputClass = "w-full pl-10 pr-4 py-2 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-brand-blue/20 outline-none text-black font-bold text-[12px] shadow-inner transition-all";
+  const inputClass = "w-full pl-10 pr-4 py-2 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-brand-blue/20 outline-none text-gray-900 font-bold text-[12px] shadow-inner transition-all";
   const labelClass = "text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5";
 
   return (
@@ -154,20 +158,17 @@ const Signup = () => {
               </div>
 
               <div className="space-y-2.5">
-                <label className={labelClass}><Calendar size={12} /> Edad</label>
+                <label className={labelClass}><UserCheck size={12} /> Username</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-300 group-focus-within:text-brand-blue transition-colors">
-                    <Calendar size={14} />
+                    <UserCheck size={14} />
                   </div>
                   <input
                     required
-                    type="number"
-                    min="15"
-                    max="99"
                     className={inputClass}
-                    placeholder="Ej. 19"
-                    value={formData.edad}
-                    onChange={e => setFormData({ ...formData, edad: e.target.value })}
+                    placeholder="Ej. jdoe"
+                    value={formData.username}
+                    onChange={e => setFormData({ ...formData, username: e.target.value })}
                   />
                 </div>
               </div>

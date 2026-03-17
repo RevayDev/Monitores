@@ -33,10 +33,10 @@ export const switchRole = async (role, data = {}) => {
   return newUser;
 };
 
-export const login = async (email, role, password) => {
+export const login = async (username, role, password) => {
   const user = await request('/login', {
     method: 'POST',
-    body: JSON.stringify({ email, role, password })
+    body: JSON.stringify({ username, role, password })
   });
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
   return user;
@@ -51,6 +51,23 @@ export const signupStudent = async (userData) => {
   return user;
 };
 
+export const uploadImage = async (file) => {
+  const formData = new FormData();
+  formData.append('foto', file);
+  
+  const response = await fetch(`${API_URL}/upload`, {
+    method: 'POST',
+    body: formData
+    // Don't set Content-Type, fetch will set it with boundary
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Upload failed');
+  }
+  return response.json();
+};
+
 export const logout = () => {
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({ role: 'student' }));
   return Promise.resolve(true);
@@ -58,23 +75,37 @@ export const logout = () => {
 
 // --- Users & Staff ---
 export const getAllUsers = () => request('/users');
+export const getUserById = (id) => request(`/users/${id}`);
 
-export const createUser = (userData) => request('/users', {
-  method: 'POST',
-  body: JSON.stringify(userData)
-});
+export const createUser = (userData) => {
+  const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  return request('/users', {
+    method: 'POST',
+    body: JSON.stringify({ ...userData, currentUserId: currentUser.id })
+  });
+};
 
-export const updateUser = (userId, updatedData) => request(`/users/${userId}`, {
-  method: 'PUT',
-  body: JSON.stringify(updatedData)
-});
+export const updateUser = (userId, updatedData) => {
+  const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  return request(`/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ ...updatedData, currentUserId: currentUser.id })
+  });
+};
 
-export const deleteUser = (userId) => request(`/users/${userId}`, {
-  method: 'DELETE'
-});
+export const deleteUser = (userId) => {
+  const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  return request(`/users/${userId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ currentUserId: currentUser.id })
+  });
+};
 
 // --- Modules ---
-export const getMonitorias = () => request('/modules');
+export const getMonitorias = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/modules${query ? '?' + query : ''}`);
+};
 
 export const createMonitoria = (monitoriaData) => request('/modules', {
   method: 'POST',
@@ -123,21 +154,22 @@ export const updateMonitor = async (monitorId, updatedData) => {
 export const deleteMonitor = (monitorId) => deleteUser(monitorId);
 
 // --- Registrations ---
-export const getAllRegistrations = () => request('/registrations');
+export const getAllRegistrations = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/registrations${query ? '?' + query : ''}`);
+};
 
 export const registerMonitoria = (monitoria, usuario) => request('/register', {
   method: 'POST',
   body: JSON.stringify({ monitoria, usuario })
 });
 
-export const getMisMonitorias = async (email) => {
-  const regs = await request('/registrations');
-  return regs.filter(r => r.studentEmail === email || !email);
+export const getMisMonitorias = (email) => {
+  return getAllRegistrations({ studentEmail: email });
 };
 
-export const getStudentsByMonitor = async (monitorId) => {
-  const regs = await request('/registrations');
-  return regs.filter(r => r.monitorId === monitorId);
+export const getStudentsByMonitor = (monitorId) => {
+  return getAllRegistrations({ monitorUserId: monitorId });
 };
 
 export const deleteMonitoria = (id) => request(`/registrations/${id}`, {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getCurrentUser, updateUser, deleteUser, logout } from '../services/api';
+import { getCurrentUser, getUserById, updateUser, deleteUser, logout, uploadImage, getSedes, getCuatrimestres } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
   Mail,
@@ -11,33 +12,88 @@ import {
   ArrowLeft,
   Save,
   AlertCircle,
-  Check
+  Check,
+  MapPin,
+  BookOpen
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import { ToastContext } from '../App';
+import UserAvatar from '../components/UserAvatar';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', email: '' });
+  const [formData, setFormData] = useState({ nombre: '', email: '', sede: '', cuatrimestre: '' });
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const [dbSedes, setDbSedes] = useState([]);
+  const [dbCuatrimestres, setDbCuatrimestres] = useState([]);
+
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
 
   useEffect(() => {
     fetchUser();
+    fetchOptions();
   }, []);
 
-  const fetchUser = async () => {
-    const data = await getCurrentUser();
-    if (data) {
-      setUser(data);
-      setFormData({ nombre: data.nombre || '', email: data.email || '' });
-      setPhotoPreview(data.foto || null);
+  const fetchOptions = async () => {
+    try {
+      const [sedes, cuats] = await Promise.all([getSedes(), getCuatrimestres()]);
+      setDbSedes(sedes || []);
+      setDbCuatrimestres(cuats || []);
+    } catch (error) {
+      console.error("Error fetching options:", error);
     }
+  };
+
+  const fetchUser = async () => {
+    try {
+      const sessionUser = await getCurrentUser();
+      if (sessionUser && sessionUser.id) {
+        const dbUser = await getUserById(sessionUser.id);
+        if (dbUser) {
+          const syncedUser = { ...dbUser, baseRole: dbUser.role };
+          setUser(syncedUser);
+          setFormData({
+            nombre: dbUser.nombre || '',
+            email: dbUser.email || '',
+            sede: dbUser.sede || '',
+            cuatrimestre: dbUser.cuatrimestre || ''
+          });
+          setPhotoPreview(dbUser.foto || null);
+
+          // Update session to keep it synced
+          localStorage.setItem('monitores_current_role', JSON.stringify(syncedUser));
+          window.dispatchEvent(new Event('profile-updated'));
+          return;
+        }
+      }
+      if (sessionUser) {
+        setUser(sessionUser);
+        setFormData({
+          nombre: sessionUser.nombre || '',
+          email: sessionUser.email || '',
+          sede: sessionUser.sede || '',
+          cuatrimestre: sessionUser.cuatrimestre || ''
+        });
+        setPhotoPreview(sessionUser.foto || null);
+      }
+    } catch (error) {
+      console.error("Error fetching user from DB:", error);
+    }
+  };
+
+  const getRoleTheme = (role) => {
+    // Standardizing all roles to professional brand-blue as requested
+    return {
+      bg: 'bg-blue-50',
+      text: 'text-brand-blue',
+      border: 'border-brand-blue/10'
+    };
   };
 
   const handlePhotoChange = async (e) => {
@@ -55,24 +111,26 @@ const Profile = () => {
     }
 
     setUploadingPhoto(true);
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result;
-      setPhotoPreview(base64);
+    try {
+      const { url } = await uploadImage(file);
+      setPhotoPreview(url);
+
       // Save to user record
-      await updateUser(user.id, { foto: base64 });
-      // Update session user too
-      const users = JSON.parse(localStorage.getItem('monitores_users') || '[]');
+      await updateUser(user.id, { foto: url });
+
+      // Update session user
       const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-      const updatedSession = { ...currentSession, foto: base64 };
+      const updatedSession = { ...currentSession, foto: url };
       localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
       setUser(updatedSession);
-      setUploadingPhoto(false);
+
       showToast('¡Foto de perfil actualizada!', 'success');
-      // Notify other components (e.g. Navbar) that the profile was updated
       window.dispatchEvent(new Event('profile-updated'));
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      showToast('Error al subir la imagen.', 'error');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleDeletePhoto = async () => {
@@ -128,64 +186,81 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-gray-400 hover:text-brand-blue font-bold transition-all group"
         >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" /> Volver
+          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+          Volver
         </button>
 
         {/* Profile Header */}
         <header className="flex flex-col sm:flex-row gap-6 items-center bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100">
-          {/* Photo */}
-          <div className="relative group shrink-0">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-[32px] bg-brand-blue text-white flex items-center justify-center font-black text-4xl shadow-2xl shadow-brand-blue/30 overflow-hidden">
-              {photoPreview ? (
-                <img src={photoPreview} alt="Foto de perfil" className="w-full h-full object-cover" />
-              ) : (
-                user.nombre?.charAt(0).toUpperCase() || 'U'
-              )}
-            </div>
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoChange}
+
+          {/* Photo Management Area */}
+          <div className="relative shrink-0">
+
+            <UserAvatar
+              user={user}
+              size="xl"
+              className="ring-8 ring-white"
+              key={user.foto || 'no-photo'}
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingPhoto}
-              title="Cambiar foto de perfil"
-              className="absolute -bottom-2 -right-2 p-2.5 bg-white text-brand-blue rounded-2xl shadow-xl hover:scale-110 active:scale-95 transition-all border border-gray-100 disabled:opacity-50"
-            >
-              {uploadingPhoto ? (
-                <div className="w-5 h-5 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Camera size={18} />
-              )}
-            </button>
-            {photoPreview && (
-              <button
-                onClick={handleDeletePhoto}
-                title="Eliminar foto"
-                className="absolute -bottom-2 -left-2 p-2.5 bg-white text-red-500 rounded-2xl shadow-xl hover:scale-110 active:scale-95 transition-all border border-gray-100"
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
+
+            {/* Overlay Buttons */}
+            <div className="absolute inset-x-0 bottom-0 flex justify-between items-end p-0 pointer-events-none translate-y-3 px-3">
+
+              {/* Trash - Left */}
+              {user?.foto ? (
+                <motion.button
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={handleDeletePhoto}
+                  title="Eliminar foto"
+                  className="pointer-events-auto p-2.5 bg-white text-red-500 rounded-2xl shadow-xl hover:shadow-2xl border border-gray-100 flex items-center justify-center ring-4 ring-red-500/5 -translate-x-3"
+                >
+                  <Trash2 size={18} />
+                </motion.button>
+              ) : <div />}
+
+              {/* Camera - Right */}
+              <div className="relative pointer-events-auto translate-x-3">
+
+                <motion.button
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.15 }}
+                  title="Cambiar foto"
+                  className="relative p-2.5 bg-white text-brand-blue rounded-2xl shadow-xl hover:shadow-2xl border border-gray-100 flex items-center justify-center ring-4 ring-brand-blue/5 overflow-hidden"
+                >
+                  <Camera size={18} />
+
+                  <input
+                    type="file"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={handlePhotoChange}
+                    accept="image/*"
+                  />
+                </motion.button>
+
+              </div>
+
+            </div>
           </div>
 
           <div className="text-center sm:text-left space-y-2">
-            <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tighter">{user.nombre || 'Tu Perfil'}</h1>
-            <p className="text-gray-400 font-medium text-sm">{user.email}</p>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-blue/5 text-brand-blue rounded-full">
-              <ShieldCheck size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">{user.role} Institucional</span>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight">{user.nombre}</h1>
+            <div className="flex flex-wrap justify-center sm:justify-start gap-3 items-center">
+              <span className="text-gray-400 font-medium text-sm">{user.email || 'Sin correo configurado'}</span>
+              <span className={`text-[10px] bg-brand-blue/5 text-brand-blue px-3 py-1 rounded-full border border-brand-blue/10 flex items-center gap-1.5 font-bold`}>
+                <ShieldCheck size={12} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{user.role} Institucional</span>
+              </span>
             </div>
             <p className="text-[10px] text-gray-400 font-medium mt-1">
-              Toca el ícono <Camera size={11} className="inline" /> para cambiar tu foto · Máx. 2MB
+              Usa los botones <Camera size={11} className="inline text-brand-blue" /> y <Trash2 size={11} className="inline text-red-500" /> para gestionar tu foto · Máx. 2MB
             </p>
           </div>
         </header>
@@ -195,13 +270,18 @@ const Profile = () => {
           <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
             <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
               <User className="text-brand-blue" /> Datos Personales
+              {user.role !== 'admin' && user.role !== 'dev' && (
+                <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg border border-amber-100 flex items-center gap-1 font-bold">
+                  <Lock size={10} /> Solo Lectura
+                </span>
+              )}
             </h2>
             <form onSubmit={handleUpdateInfo} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
                 <input
-                  disabled={user.baseRole === 'student' || user.baseRole === 'monitor'}
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  readOnly={user.role !== 'admin' && user.role !== 'dev'}
+                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm read-only:text-gray-900 read-only:bg-gray-100/50 read-only:cursor-not-allowed"
                   value={formData.nombre}
                   onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                 />
@@ -209,14 +289,42 @@ const Profile = () => {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Institucional</label>
                 <input
-                  disabled={user.baseRole === 'student' || user.baseRole === 'monitor'}
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  readOnly={user.role !== 'admin' && user.role !== 'dev'}
+                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm read-only:text-gray-900 read-only:bg-gray-100/50 read-only:cursor-not-allowed"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
-              { (user.baseRole === 'admin' || user.baseRole === 'dev') && (
-                <button type="submit" className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-lg hover:bg-brand-dark-blue active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
+                  <select
+                    disabled={user.role !== 'admin' && user.role !== 'dev'}
+                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:text-gray-900 disabled:bg-gray-100/50 disabled:cursor-not-allowed appearance-none"
+                    value={formData.sede}
+                    onChange={e => setFormData({ ...formData, sede: e.target.value })}
+                  >
+                    <option value="">Seleccionar Sede</option>
+                    {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ciclo/Cuatrimestre</label>
+                  <select
+                    disabled={user.role !== 'admin' && user.role !== 'dev'}
+                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:text-gray-900 disabled:bg-gray-100/50 disabled:cursor-not-allowed appearance-none"
+                    value={formData.cuatrimestre}
+                    onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
+                  >
+                    <option value="">Seleccionar Cuatrimestre</option>
+                    {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {(user.role === 'admin' || user.role === 'dev') && (
+                <button type="submit" className="w-full py-4 bg-brand-blue hover:bg-brand-dark-blue text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
                   <Save size={18} /> Guardar Cambios
                 </button>
               )}
@@ -266,7 +374,7 @@ const Profile = () => {
           </section>
         </div>
 
-        {/* Account Deletion */}
+        {/* Account Deletion Area - Available to all to manage their own account */}
         <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-red-100 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center sm:text-left">
             <h2 className="text-xl font-black text-red-600">Zona de Peligro</h2>
@@ -276,7 +384,7 @@ const Profile = () => {
             onClick={() => setIsDeleteOpen(true)}
             className="shrink-0 px-6 py-4 bg-red-50 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-95 flex items-center gap-2 text-sm"
           >
-            <Trash2 size={18} /> Eliminar Cuenta
+            <Trash2 size={18} /> Eliminar Mi Cuenta
           </button>
         </section>
       </div>

@@ -25,7 +25,7 @@ const Monitorias = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const config = getMaintenanceConfig();
+      const config = await getMaintenanceConfig();
       const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
       if (config?.monitorias && session?.baseRole !== 'dev' && session?.role !== 'dev') {
         showToast('Esta función está en mantenimiento', 'error');
@@ -39,7 +39,7 @@ const Monitorias = () => {
 
         if (currentUser?.email) {
           const regs = await getMisMonitorias(currentUser.email);
-          setRegisteredIds(regs.map(r => r.id));
+          setRegisteredIds(regs.map(r => r.monitorId));
         }
 
         const [data, registrations] = await Promise.all([
@@ -54,8 +54,7 @@ const Monitorias = () => {
           filteredData = filteredData.filter(m => m.modulo === filteredFromRegistration);
         }
 
-        // Filter by Sede OR Virtual modality if user has a sede
-        if (currentUser?.sede) {
+        if (currentUser?.sede && currentUser.role !== 'admin' && currentUser.role !== 'dev') {
           filteredData = filteredData.filter(m => 
             m.sede === currentUser.sede || m.modalidad === 'Virtual'
           );
@@ -163,7 +162,7 @@ const Monitorias = () => {
                 actionLabel={registeredIds.includes(m.id) ? "Ir al Recurso" : "Registrarse"}
                 isRegistered={registeredIds.includes(m.id)}
                 showDescription={false}
-                registrationCount={allRegistrations.filter(r => r.id === m.id).length}
+                registrationCount={allRegistrations.filter(r => r.moduleId === m.id).length}
               />
             ))}
           </div>

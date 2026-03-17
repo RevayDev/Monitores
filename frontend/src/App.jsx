@@ -16,11 +16,40 @@ import Complaints from './pages/Complaints';
 import DevDashboard from './pages/DevDashboard';
 import Login from './pages/Login';
 import Toast from './components/Toast';
+import { getMaintenanceConfig, getCurrentUser } from './services/api';
+import { Wrench, ShieldAlert } from 'lucide-react';
 
 export const ToastContext = React.createContext();
 
-function AnimatedRoutes() {
+function AnimatedRoutes({ isMaintenance, userRole }) {
   const location = useLocation();
+
+  // Maintenance Guard: Only Devs can bypass
+  if (isMaintenance && userRole !== 'dev') {
+    return (
+      <div className="min-h-[calc(100vh-80px)] bg-white flex flex-col items-center justify-center p-6 text-center space-y-6">
+        <div className="w-24 h-24 bg-amber-100 text-amber-600 rounded-[32px] flex items-center justify-center animate-bounce shadow-xl shadow-amber-200/50">
+          <Wrench size={48} />
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight flex items-center justify-center gap-3">
+            <ShieldAlert className="text-brand-blue" /> Modo Mantenimiento
+          </h1>
+          <p className="text-gray-500 font-medium leading-relaxed">
+            Estamos realizando mejoras en la plataforma para brindarte una mejor experiencia. Solo personal autorizado (DEVS) puede acceder en este momento.
+          </p>
+        </div>
+        <div className="pt-4">
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="px-8 py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl hover:bg-brand-dark-blue active:scale-95 transition-all uppercase tracking-widest text-sm"
+          >
+            Reintentar Acceso
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <AnimatePresence mode="wait">
@@ -45,10 +74,32 @@ function AnimatedRoutes() {
 
 function App() {
   const [toast, setToast] = React.useState(null);
+  const [isMaintenance, setIsMaintenance] = React.useState(false);
+  const [userRole, setUserRole] = React.useState('student');
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
   };
+
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const [config, user] = await Promise.all([
+          getMaintenanceConfig(),
+          getCurrentUser()
+        ]);
+        if (config) setIsMaintenance(config.global);
+        if (user) setUserRole(user.role);
+      } catch (error) {
+        console.error("Status check failed:", error);
+      }
+    };
+    checkStatus();
+    
+    // Update on auth changes
+    window.addEventListener('profile-updated', checkStatus);
+    return () => window.removeEventListener('profile-updated', checkStatus);
+  }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
@@ -56,7 +107,7 @@ function App() {
         <div className="min-h-screen bg-gray-50 flex flex-col">
           <Navbar />
           <main className="flex-grow">
-            <AnimatedRoutes />
+            <AnimatedRoutes isMaintenance={isMaintenance} userRole={userRole} />
           </main>
           <footer className="bg-white border-t border-gray-100 py-8 text-center text-gray-400 text-sm font-medium">
             &copy; 2026 Gestión de Monitorías Universitarias - Todos los derechos reservados. Diseñado y programado por Roberto Jimenez

@@ -18,23 +18,29 @@
 
 ## 🛠️ Stack Tecnológico
 
-- **Frontend**: React 19 + Vite.
+- **Frontend**: React 19 + Vite (ES Modules).
+- **Backend**: Node.js + Express (ES Modules).
 - **Estilos**: Tailwind CSS 4 (Diseño Premium & Responsive).
 - **Iconografía**: Lucide React.
 - **Enrutamiento**: React Router 7.
-- **Estado/Almacenamiento**: Persistencia local mediante `localStorage`.
+- **Estado/Almacenamiento**: MySQL (Servidor persistente) con persistencia local en `localStorage` para la sesión del Frontend.
 
-## 📡 Arquitectura de API (Mock)
+## 📡 Arquitectura del Sistema
 
-> [!IMPORTANT]
-> Actualmente, la lógica de datos reside íntegramente en `src/services/api.js`.
+El proyecto utiliza una **Arquitectura por Capas** en el backend para facilitar el mantenimiento y la futura migración a bases de datos relacionales.
 
-Este archivo simula un backend completo utilizando el `localStorage` del navegador. Está diseñado de forma modular para que, en un futuro, las llamadas a funciones como `getMonitorias()` o `login()` puedan ser reemplazadas fácilmente por peticiones a un servidor real (REST API / GraphQL) sin afectar la lógica de los componentes.
+### Tecnologías Backend:
+- **Node.js**: Entorno de ejecución en modo ES Modules.
+- **Express**: Framework web.
+- **MySQL2**: Conexión robusta a base de datos relacional.
 
-### Plan de Migración Futura:
-- **Endpoints**: Sustitución de la lógica de `localStorage` por llamadas `fetch` o `axios`.
-- **Autenticación**: Implementación de JWT (JSON Web Tokens) o servicios como Firebase/Auth0.
-- **Persistencia**: Migración a una base de datos relacional (PostgreSQL/MySQL) o NoSQL (MongoDB).
+## 📚 Documentación Detallada
+Para aprender más sobre el funcionamiento interno, revisa:
+- [`FRONTEND.md`](file:///c:/Users/RevayDev/Desktop/Monitores/FRONTEND.md): Arquitectura de la interfaz.
+- [`BACKEND.md`](file:///c:/Users/RevayDev/Desktop/Monitores/BACKEND.md): Lógica del servidor y capas.
+- [`DATABASE.md`](file:///c:/Users/RevayDev/Desktop/Monitores/DATABASE.md): Esquema de tablas y SQL.
+- [`APRENDIZAJE.md`](file:///c:/Users/RevayDev/Desktop/Monitores/APRENDIZAJE.md): Temas recomendados para estudiar.
+- [`GUIA_PROYECTO.md`](file:///c:/Users/RevayDev/Desktop/Monitores/GUIA_PROYECTO.md): Evolución y lecciones del proyecto.
 
 ## 📥 Instalación y Desarrollo
 

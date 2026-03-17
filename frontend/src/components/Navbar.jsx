@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  GraduationCap, 
-  Menu, 
-  X, 
-  User, 
-  LogOut, 
+import {
+  GraduationCap,
+  Menu,
+  X,
+  User,
+  LogOut,
   HelpCircle,
   LogIn,
   UserPlus,
@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Wrench
 } from 'lucide-react';
+import UserAvatar from './UserAvatar';
 import { getCurrentUser, switchRole, logout as apiLogout } from '../services/api';
 import { ToastContext } from '../App';
 
@@ -93,10 +94,10 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            
+
             <div className="ml-4 pl-4 border-l border-gray-100 flex items-center gap-3">
               {/* Dedicated Panel Buttons based on baseRole */}
-              {!isGuest && (user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+              {!isGuest && (user.role === 'monitor' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/monitor-dashboard')}
                   className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/20"
@@ -105,7 +106,7 @@ const Navbar = () => {
                 </button>
               )}
 
-              {!isGuest && user.baseRole === 'admin' && (
+              {!isGuest && (user.role === 'admin' || user.baseRole === 'admin') && (
                 <button
                   onClick={() => navigate('/admin-dashboard')}
                   className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-amber-700 active:scale-95 transition-all shadow-md shadow-amber-600/20"
@@ -114,7 +115,7 @@ const Navbar = () => {
                 </button>
               )}
 
-              {!isGuest && user.baseRole === 'dev' && (
+              {!isGuest && (user.role === 'dev' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/dev-dashboard')}
                   className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-purple-700 active:scale-95 transition-all shadow-md shadow-purple-600/20"
@@ -125,13 +126,13 @@ const Navbar = () => {
 
               {isGuest ? (
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => navigate('/signup')}
                     className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white text-[11px] font-black rounded-lg shadow-md shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all uppercase tracking-widest"
                   >
                     <UserPlus size={14} /> Registrarse
                   </button>
-                  <button 
+                  <button
                     onClick={() => navigate('/login')}
                     className="flex items-center gap-2 px-4 py-2 bg-white text-brand-blue text-[11px] font-black rounded-lg border border-brand-blue/20 hover:bg-brand-blue/5 active:scale-95 transition-all uppercase tracking-widest"
                   >
@@ -140,27 +141,21 @@ const Navbar = () => {
                 </div>
               ) : (
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={() => setProfileOpen(!profileOpen)}
                     onBlur={() => setTimeout(() => setProfileOpen(false), 200)}
-                    className="flex items-center gap-2 p-1 pl-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200 group"
+                    className="flex items-center gap-2 p-1 pl-2 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200 group"
                   >
                     <div className="text-right hidden sm:block">
                       <p className="text-[9px] font-black text-gray-900 leading-none">{user.nombre || 'Usuario'}</p>
                       <p className="text-[8px] font-bold text-brand-blue uppercase leading-none mt-1 tracking-tighter">{user.role}</p>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-brand-blue text-white flex items-center justify-center text-[13px] font-black shadow-sm shadow-brand-blue/20 group-hover:scale-105 transition-transform overflow-hidden">
-                      {user.foto ? (
-                        <img src={user.foto} alt="avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        user.nombre?.charAt(0) || 'U'
-                      )}
-                    </div>
+                    <UserAvatar user={user} size="md" rounded="rounded-xl" />
                   </button>
 
                   {profileOpen && (
                     <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 animate-scale-in z-50">
-                      <button 
+                      <button
                         onClick={() => {
                           setProfileOpen(false);
                           navigate('/profile');
@@ -169,7 +164,7 @@ const Navbar = () => {
                       >
                         <User size={18} /> Mi Perfil
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           setProfileOpen(false);
                           showToast("Estamos trabajando en esta función", "info");
@@ -179,7 +174,7 @@ const Navbar = () => {
                         <HelpCircle size={18} /> Ayuda
                       </button>
                       <div className="h-px bg-gray-50 my-2 mx-3"></div>
-                      <button 
+                      <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
                       >
@@ -243,13 +238,7 @@ const Navbar = () => {
               <>
                 {/* User info */}
                 <div className="flex items-center gap-3 px-4 py-4 bg-gray-50 rounded-2xl">
-                  <div className="w-12 h-12 rounded-xl bg-brand-blue text-white flex items-center justify-center text-lg font-black shadow-sm shadow-brand-blue/20 shrink-0 overflow-hidden">
-                    {user.foto ? (
-                      <img src={user.foto} alt="avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      user.nombre?.charAt(0) || 'U'
-                    )}
-                  </div>
+                  <UserAvatar user={user} size="md" />
                   <div className="min-w-0 flex-grow">
                     <p className="text-sm font-black text-gray-900 leading-none truncate">{user.nombre || 'Usuario'}</p>
                     <p className="text-[10px] font-bold text-brand-blue uppercase tracking-widest mt-1.5 opacity-80">
@@ -274,7 +263,7 @@ const Navbar = () => {
 
                 {/* Mobile Dashboards Container */}
                 <div className="flex flex-col gap-2 pt-2 pb-1">
-                  {(user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+                  {(user.role === 'monitor' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/monitor-dashboard'); }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-600 text-white text-sm font-black rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 uppercase tracking-widest"
@@ -283,7 +272,7 @@ const Navbar = () => {
                     </button>
                   )}
 
-                  {user.baseRole === 'admin' && (
+                  {(user.role === 'admin' || user.baseRole === 'admin') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/admin-dashboard'); }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-amber-600 text-white text-sm font-black rounded-xl hover:bg-amber-700 transition-all shadow-md shadow-amber-600/20 uppercase tracking-widest"
@@ -292,7 +281,7 @@ const Navbar = () => {
                     </button>
                   )}
 
-                  {user.baseRole === 'dev' && (
+                  {(user.role === 'dev' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/dev-dashboard'); }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-purple-600 text-white text-sm font-black rounded-xl hover:bg-purple-700 transition-all shadow-md shadow-purple-600/20 uppercase tracking-widest"

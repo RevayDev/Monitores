@@ -14,22 +14,26 @@ const Home = () => {
   const [config, setConfig] = React.useState(null);
 
   React.useEffect(() => {
-    setConfig(getMaintenanceConfig());
-    const fetchStaff = async () => {
+    const fetchData = async () => {
       try {
-        const allUsers = await getAllUsers();
+        setLoading(true);
+        const [allUsers, configData] = await Promise.all([
+          getAllUsers(),
+          getMaintenanceConfig()
+        ]);
         const filteredStaff = allUsers.filter(u => u.role === 'monitor' || u.role === 'admin' || u.role === 'dev');
         setStaff(filteredStaff);
+        if (configData) setConfig(configData);
       } catch (error) {
-        console.error("Error fetching staff:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchStaff();
+    fetchData();
     // Re-fetch when admin updates data
-    window.addEventListener('data-updated', fetchStaff);
-    return () => window.removeEventListener('data-updated', fetchStaff);
+    window.addEventListener('data-updated', fetchData);
+    return () => window.removeEventListener('data-updated', fetchData);
   }, []);
 
   const filteredStaff = staff.filter(member => member.role === activeTab);
@@ -61,7 +65,7 @@ const Home = () => {
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
                 <span className={`w-2 h-2 rounded-full animate-pulse ${config?.global ? 'bg-yellow-400' : 'bg-green-400'}`}></span>
                 <span className={`text-[10px] font-black uppercase tracking-widest ${config?.global ? 'text-yellow-400' : 'text-white'}`}>
-                  {config?.global ? '🔧 SISTEMA EN MANTENIMIENTO' : 'Portal Académico Activo'}
+                  {config?.global ? 'SISTEMA EN MANTENIMIENTO' : 'Portal Académico Activo'}
                 </span>
               </div>
 
@@ -132,25 +136,22 @@ const Home = () => {
                 <div className="flex flex-wrap gap-2 p-1 bg-gray-50 rounded-2xl w-full sm:w-fit mt-2">
                   <button
                     onClick={() => setActiveTab('monitor')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
-                      activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                      }`}
                   >
                     MONITORES
                   </button>
                   <button
                     onClick={() => setActiveTab('admin')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
-                      activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                      }`}
                   >
                     ADMINS
                   </button>
                   <button
                     onClick={() => setActiveTab('dev')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
-                      activeTab === 'dev' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'dev' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                      }`}
                   >
                     DEVS
                   </button>

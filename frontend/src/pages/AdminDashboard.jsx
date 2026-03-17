@@ -39,8 +39,10 @@ import {
   ChevronRight,
   GraduationCap,
   MessageCircle,
-  Video
+  Video,
+  UserCheck
 } from 'lucide-react';
+import UserAvatar from '../components/UserAvatar';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -69,10 +71,12 @@ const AdminDashboard = () => {
 
   const [formData, setFormData] = useState({
     nombre: '',
+    username: '',
     email: '',
     role: 'monitor',
-    sede: 'Sede Centro',
-    cuatrimestre: '1° Cuatrimestre'
+    sede: '',
+    cuatrimestre: '',
+    foto: ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -81,24 +85,30 @@ const AdminDashboard = () => {
   });
 
   useEffect(() => {
-    // Check Maintenance
-    const config = getMaintenanceConfig();
-    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-    const currentUser = session;
-    
-    if (session?.baseRole !== 'admin' && session?.role !== 'admin') {
-      showToast('No tienes permisos de Administrador', 'error');
-      navigate('/');
-      return;
-    }
+    const checkAccessAndFetch = async () => {
+      try {
+        const config = await getMaintenanceConfig();
+        const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
 
-    if (config?.panelAdmin && session?.baseRole !== 'dev' && session?.role !== 'dev') {
-      showToast('Esta función está en mantenimiento', 'error');
-      navigate('/');
-      return;
-    }
+        if (session?.role !== 'admin' && session?.baseRole !== 'admin') {
+          showToast('No tienes permisos de Administrador', 'error');
+          navigate('/');
+          return;
+        }
 
-    fetchData();
+        if (config?.panelAdmin && session?.baseRole !== 'dev' && session?.role !== 'dev') {
+          showToast('Esta función está en mantenimiento', 'error');
+          navigate('/');
+          return;
+        }
+
+        fetchData();
+      } catch (error) {
+        console.error("Error in AdminDashboard init:", error);
+      }
+    };
+
+    checkAccessAndFetch();
     window.addEventListener('data-updated', fetchData);
     return () => {
       window.removeEventListener('data-updated', fetchData);
@@ -140,16 +150,23 @@ const AdminDashboard = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const currentUserId = session.id;
     const role = formData.role || 'monitor';
-    if (role === 'monitor') {
-      await createMonitor(formData);
-    } else {
-      await createUser({ ...formData, role: role });
+
+    try {
+      if (role === 'monitor') {
+        await createMonitor({ ...formData, currentUserId });
+      } else {
+        await createUser({ ...formData, role: role, currentUserId });
+      }
+      setIsNewMonitorOpen(false);
+      resetForm();
+      fetchData();
+      showToast('Registro creado correctamente', 'success');
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Error al crear', 'error');
     }
-    setIsNewMonitorOpen(false);
-    resetForm();
-    fetchData();
-    showToast('¡Registro creado exitosamente!', 'success');
   };
 
 
@@ -158,9 +175,10 @@ const AdminDashboard = () => {
     setFormData({
       nombre: monitor.nombre,
       email: monitor.email,
-      sede: monitor.sede || 'Sede Centro',
-      cuatrimestre: monitor.cuatrimestre || '1° Cuatrimestre',
-      role: monitor.role
+      sede: monitor.sede || (dbSedes[0] || ''),
+      cuatrimestre: monitor.cuatrimestre || (dbCuatrimestres[0] || ''),
+      role: monitor.role,
+      foto: monitor.foto || ''
     });
     setIsEditMonitorOpen(true);
   };
@@ -171,7 +189,7 @@ const AdminDashboard = () => {
     // If the edited monitor is the current session user, sync the session
     const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
     if (currentSession.id === selectedUser.id) {
-      const updated = { ...currentSession, nombre: formData.nombre, email: formData.email };
+      const updated = { ...currentSession, ...formData };
       localStorage.setItem('monitores_current_role', JSON.stringify(updated));
       window.dispatchEvent(new Event('profile-updated'));
     }
@@ -184,12 +202,13 @@ const AdminDashboard = () => {
 
   const handleEditUser = (user) => {
     setSelectedUser(user);
-    setFormData({ 
-      nombre: user.nombre, 
-      email: user.email, 
-      sede: user.sede || 'Sede Centro', 
-      cuatrimestre: user.cuatrimestre || '1° Cuatrimestre',
-      role: user.role
+    setFormData({
+      nombre: user.nombre,
+      email: user.email,
+      sede: user.sede || (dbSedes[0] || ''),
+      cuatrimestre: user.cuatrimestre || (dbCuatrimestres[0] || ''),
+      role: user.role,
+      foto: user.foto || ''
     });
     setPasswordData({ password: '', confirmPassword: '' });
     setIsEditUserOpen(true);
@@ -197,26 +216,33 @@ const AdminDashboard = () => {
 
   const confirmUpdateUser = async (e) => {
     e.preventDefault();
+    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const currentUserId = session.id;
+
     if (passwordData.password && passwordData.password !== passwordData.confirmPassword) {
       showToast("Las contraseñas no coinciden", "error");
       return;
     }
-    const updatePayload = { ...formData };
+    const updatePayload = { ...formData, currentUserId };
     if (passwordData.password) updatePayload.password = passwordData.password;
 
-    await updateUser(selectedUser.id, updatePayload);
-    // If editing the current session user, sync the session too
-    const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-    if (currentSession.id === selectedUser.id) {
-      const updated = { ...currentSession, ...updatePayload };
-      localStorage.setItem('monitores_current_role', JSON.stringify(updated));
-      window.dispatchEvent(new Event('profile-updated'));
+    try {
+      await updateUser(selectedUser.id, updatePayload);
+      // If editing the current session user, sync the session too
+      const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+      if (currentSession.id === selectedUser.id) {
+        const updated = { ...currentSession, ...updatePayload };
+        localStorage.setItem('monitores_current_role', JSON.stringify(updated));
+        window.dispatchEvent(new Event('profile-updated'));
+      }
+      setIsEditUserOpen(false);
+      resetForm();
+      fetchData();
+      showToast('¡Usuario actualizado correctamente!', 'success');
+      window.dispatchEvent(new Event('data-updated'));
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Error al actualizar', 'error');
     }
-    setIsEditUserOpen(false);
-    resetForm();
-    fetchData();
-    showToast('¡Usuario actualizado correctamente!', 'success');
-    window.dispatchEvent(new Event('data-updated'));
   };
 
   const openDeleteConfirm = (user, type) => {
@@ -238,26 +264,57 @@ const AdminDashboard = () => {
   const resetForm = () => {
     setFormData({
       nombre: '',
+      username: '',
       email: '',
       role: 'monitor',
-      sede: 'Sede Centro',
-      cuatrimestre: '1° Cuatrimestre'
+      sede: dbSedes[0] || '',
+      cuatrimestre: dbCuatrimestres[0] || '',
+      foto: ''
     });
     setPasswordData({ password: '', confirmPassword: '' });
   };
 
+  const getRoleColors = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'dev': return {
+        color: 'bg-purple-600',
+        textColor: 'text-purple-600',
+        lightBg: 'bg-purple-50',
+      };
+      case 'admin': return {
+        color: 'bg-amber-600',
+        textColor: 'text-amber-600',
+        lightBg: 'bg-amber-50',
+      };
+      case 'monitor': return {
+        color: 'bg-emerald-600',
+        textColor: 'text-emerald-600',
+        lightBg: 'bg-emerald-50',
+      };
+      case 'student': return {
+        color: 'bg-brand-blue',
+        textColor: 'text-brand-blue',
+        lightBg: 'bg-blue-50',
+      };
+      default: return {
+        color: 'bg-gray-400',
+        textColor: 'text-gray-400',
+        lightBg: 'bg-gray-50',
+      };
+    }
+  };
 
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="bg-amber-500 rounded-[32px] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="bg-amber-600 rounded-[32px] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-700/40 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
-          
+
           <div className="relative z-10 flex gap-5 items-center w-full">
-            <div className="w-14 h-14 bg-white/10 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0 shadow-inner">
-              <ShieldCheck size={28} className="text-white" />
+            <div className="w-24 h-24 bg-amber-600/50 backdrop-blur-md rounded-2xl flex items-center justify-center ring-4 ring-white/20 shadow-2xl">
+              <ShieldCheck size={48} className="text-amber-100" />
             </div>
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 backdrop-blur-sm border border-white/10">
@@ -272,7 +329,7 @@ const AdminDashboard = () => {
               </p>
             </div>
           </div>
-          
+
           {/* Action Button */}
           <button
             onClick={() => { resetForm(); setIsNewMonitorOpen(true); }}
@@ -284,10 +341,10 @@ const AdminDashboard = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <StatCard icon={<GraduationCap />} title="Estudiantes" value={students.length} color="blue" />
-          <StatCard icon={<Users />} title="Monitores" value={monitors.length} color="green" />
-          <StatCard icon={<ShieldCheck />} title="Administradores" value={admins.length} color="yellow" />
-          <StatCard icon={<Activity />} title="Developers" value={devs.length} color="purple" />
+          <StatCard icon={<GraduationCap />} title="Estudiantes" value={students.length} role="student" />
+          <StatCard icon={<Users />} title="Monitores" value={monitors.length} role="monitor" />
+          <StatCard icon={<ShieldCheck />} title="Administradores" value={admins.length} role="admin" />
+          <StatCard icon={<Activity />} title="Developers" value={devs.length} role="dev" />
         </div>
         {/* Management Tabs - Refined to Pill Style */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -343,37 +400,33 @@ const AdminDashboard = () => {
             >
               <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50">
-                    <th className="px-4 sm:px-8 py-4 sm:py-6">Información</th>
-                    {activeTab === 'monitors' && <th className="px-4 sm:px-8 py-4 sm:py-6">Módulo / Curso</th>}
-                    <th className="px-4 sm:px-8 py-4 sm:py-6">Estado / Sede</th>
+                  <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
+                    <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Usuario</th>
+                    <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Username</th>
+                    {activeTab === 'monitors' && <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Módulo / Curso</th>}
+                    <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Información Académica</th>
                     <th className="px-4 sm:px-8 py-4 sm:py-6 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {(activeTab === 'monitors' ? monitors : activeTab === 'admins' ? admins : activeTab === 'devs' ? devs : students).map(user => {
                     const mod = monitorModules.find(m => m.monitorId === user.id);
+                    const { lightBg, textColor } = getRoleColors(user.role);
                     return (
                       <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group">
                         <td className="px-4 sm:px-8 py-4 sm:py-6">
                           <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg overflow-hidden ${
-                                user.role === 'monitor' ? 'bg-green-600 text-white shadow-lg shadow-green-600/20' : 
-                                user.role === 'admin' ? 'bg-amber-100 text-amber-600' : 
-                                user.role === 'dev' ? 'bg-purple-100 text-purple-600' : 
-                                'bg-blue-100 text-brand-blue'
-                              }`}>
-                              {user.foto ? (
-                                <img src={user.foto} alt={user.nombre} className="w-full h-full object-cover" />
-                              ) : (
-                                user.nombre.charAt(0)
-                              )}
-                            </div>
+                            <UserAvatar user={user} size="md" rounded="rounded-xl" />
                             <div>
                               <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors">{user.nombre}</p>
                               <p className="text-xs text-gray-400 font-medium">{user.email}</p>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 sm:px-8 py-4 sm:py-6">
+                          <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-black uppercase tracking-wider italic">
+                            @{user.username}
+                          </span>
                         </td>
                         {activeTab === 'monitors' && (
                           <td className="px-4 sm:px-8 py-4 sm:py-6">
@@ -395,28 +448,49 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-4 sm:px-8 py-4 sm:py-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {user.role !== 'dev' && user.id !== JSON.parse(localStorage.getItem('monitores_current_role') || '{}').id ? (
-                              <>
-                                <button
-                                  onClick={() => user.role === 'monitor' ? handleEditMonitor(user) : handleEditUser(user)}
-                                  className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-xl transition-all"
-                                  title="Editar Información"
-                                >
-                                  <Edit3 size={18} />
-                                </button>
-                                <button
-                                  onClick={() => openDeleteConfirm(user, user.role)}
-                                  className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                  title="Eliminar Registro"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              </>
-                            ) : (
-                              <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black rounded-lg tracking-widest uppercase flex items-center gap-1.5">
-                                <Lock size={12} /> {user.id === JSON.parse(localStorage.getItem('monitores_current_role') || '{}').id ? 'Tu Perfil' : 'Protegido'}
-                              </span>
-                            )}
+                            {(() => {
+                              const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+                              const isDev = user.role === 'dev';
+                              const canModifyDev = session.role === 'dev' && session.is_principal;
+                              const isSelf = session.id === user.id;
+
+                              if (isDev && !canModifyDev) {
+                                return (
+                                  <span className={`px-3 py-1 ${lightBg} ${textColor} text-[10px] font-black rounded-lg tracking-widest uppercase flex items-center gap-1.5 focus:outline-none`}>
+                                    <Lock size={12} /> {isSelf ? 'Tu Perfil' : 'Protegido'}
+                                  </span>
+                                );
+                              }
+
+                              if (isSelf && !isDev) {
+                                return (
+                                  <span className={`px-3 py-1 ${lightBg} ${textColor} text-[10px] font-black rounded-lg tracking-widest uppercase flex items-center gap-1.5 focus:outline-none`}>
+                                    <Lock size={12} /> Tu Perfil
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <>
+                                  <button
+                                    onClick={() => user.role === 'monitor' ? handleEditMonitor(user) : handleEditUser(user)}
+                                    className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-xl transition-all"
+                                    title="Editar Información"
+                                  >
+                                    <Edit3 size={18} />
+                                  </button>
+                                  {!user.is_principal && (
+                                    <button
+                                      onClick={() => openDeleteConfirm(user, user.role)}
+                                      className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                      title="Eliminar Registro"
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -441,17 +515,27 @@ const AdminDashboard = () => {
             <select className="w-full p-4 bg-white border-2 border-transparent rounded-xl focus:border-brand-blue outline-none text-black font-bold transition-all text-sm cursor-pointer"
               value={formData.role || 'monitor'} onChange={e => setFormData({ ...formData, role: e.target.value })}>
               <option value="monitor">🧑‍🏫 Monitor Académico</option>
-              <option value="admin">🛡️ Administrador de Sistema</option>
-              {/* Dev role removed for Admin users */}
+              {(JSON.parse(localStorage.getItem('monitores_current_role') || '{}').is_principal || formData.role === 'admin') && (
+                <option value="admin">🛡️ Administrador de Sistema</option>
+              )}
+              {(JSON.parse(localStorage.getItem('monitores_current_role') || '{}').role === 'dev' && JSON.parse(localStorage.getItem('monitores_current_role') || '{}').is_principal) && (
+                <option value="dev">💻 Developer</option>
+              )}
             </select>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
             <InputField label="Nombre Completo" icon={<Users />} value={formData.nombre}
               onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
-            <InputField label="Email Institucional" icon={<Mail />} type="email" value={formData.email}
-              onChange={e => setFormData({ ...formData, email: e.target.value })} />
+            <InputField label="Username" icon={<UserCheck />} value={formData.username}
+              onChange={e => setFormData({ ...formData, username: e.target.value })} />
+          </div>
+          <InputField label="Email Institucional" icon={<Mail />} type="email" value={formData.email}
+            onChange={e => setFormData({ ...formData, email: e.target.value })} />
+
+          <div className="space-y-1.5">
+            <InputField label="URL Foto de Perfil" icon={<Activity />} value={formData.foto || ''}
+              onChange={e => setFormData({ ...formData, foto: e.target.value })} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -480,7 +564,10 @@ const AdminDashboard = () => {
       {/* Modal: Edit User/Student & Password */}
       <Modal isOpen={isEditUserOpen} onClose={() => setIsEditUserOpen(false)} title="Gestionar Usuario">
         <form onSubmit={confirmUpdateUser} className="space-y-6 py-4">
-          <InputField label="Nombre completo" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <InputField label="Nombre completo" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
+            <InputField label="Username" icon={<UserCheck />} value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
+          </div>
           <InputField label="Email institucional" icon={<Mail />} type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -538,16 +625,11 @@ const AdminDashboard = () => {
   );
 };
 
-const StatCard = ({ icon, title, value, color }) => {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600',
-    purple: 'bg-purple-50 text-purple-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600'
-  };
+const StatCard = ({ icon, title, value, role }) => {
+  const { lightBg, textColor } = getRoleColors(role);
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5 group hover:shadow-md transition-all">
-      <div className={`${colors[color]} p-4 rounded-xl group-hover:scale-110 transition-transform`}>
+      <div className={`${lightBg} ${textColor} p-4 rounded-xl group-hover:scale-110 transition-transform`}>
         {React.cloneElement(icon, { size: 28 })}
       </div>
       <div>
