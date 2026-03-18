@@ -376,7 +376,6 @@ const AdminDashboard = () => {
                   <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
                     <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Usuario</th>
                     <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Username</th>
-                    {activeTab === 'monitors' && <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Módulo / Curso</th>}
                     <th className="px-4 sm:px-8 py-4 sm:py-6 text-left">Información Académica</th>
                     <th className="px-4 sm:px-8 py-4 sm:py-6 text-right">Acciones</th>
                   </tr>
@@ -391,8 +390,8 @@ const AdminDashboard = () => {
                           <div className="flex items-center gap-4">
                             <UserAvatar user={user} size="md" rounded="rounded-xl" />
                             <div>
-                              <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors">{user.nombre}</p>
-                              <p className="text-xs text-gray-400 font-medium">{user.email}</p>
+                              <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors truncate max-w-[150px]">{user.nombre}</p>
+                              <p className="text-xs text-gray-400 font-medium truncate max-w-[150px]">{user.email}</p>
                             </div>
                           </div>
                         </td>
@@ -401,21 +400,19 @@ const AdminDashboard = () => {
                             @{user.username}
                           </span>
                         </td>
-                        {activeTab === 'monitors' && (
-                          <td className="px-4 sm:px-8 py-4 sm:py-6">
-                            <div className="space-y-1">
-                              <p className="text-sm font-black text-gray-800">{mod?.modulo || 'No asignado'}</p>
-                              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">{mod?.cuatrimestre}</p>
-                            </div>
-                          </td>
-                        )}
                         <td className="px-4 sm:px-8 py-4 sm:py-6">
                           <div className="flex flex-col gap-1.5">
-                            <span className="w-fit px-3 py-1 bg-gray-100 text-gray-600 text-[9px] font-black rounded-lg tracking-widest uppercase">
-                              {mod?.sede || 'Sin Sede'}
-                            </span>
-                            <span className="w-fit px-3 py-1 bg-green-50 text-green-600 text-[9px] font-black rounded-lg tracking-widest uppercase">
-                              {mod?.modalidad || 'Activo'}
+                            {user.is_active === 0 || user.is_active === false ? (
+                              <span className="w-fit px-3 py-1 bg-red-50 text-red-600 text-[9px] font-black rounded-lg tracking-widest uppercase">
+                                DADO DE BAJA
+                              </span>
+                            ) : (
+                              <span className="w-fit px-3 py-1 bg-green-50 text-green-600 text-[9px] font-black rounded-lg tracking-widest uppercase">
+                                ACTIVO
+                              </span>
+                            )}
+                            <span className="w-fit px-3 py-1 bg-gray-100 text-gray-600 text-[9px] font-black rounded-lg tracking-widest uppercase truncate max-w-[150px]">
+                              {mod?.sede || user.sede || 'Sin Sede'}
                             </span>
                           </div>
                         </td>
@@ -454,9 +451,31 @@ const AdminDashboard = () => {
                                   </button>
                                   {!user.is_principal && (
                                     <button
+                                      onClick={async () => {
+                                        if (window.confirm(user.is_active === 0 || user.is_active === false ? `¿Activar a ${user.nombre}?` : `¿Dar de baja a ${user.nombre}?`)) {
+                                          const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+                                          const newStatus = user.is_active === 0 || user.is_active === false ? true : false;
+                                          try {
+                                            await updateUser(user.id, { is_active: newStatus, currentUserId: session.id });
+                                            fetchData();
+                                            showToast(newStatus ? 'Usuario reactivado' : 'Usuario dado de baja', 'success');
+                                          } catch (error) {
+                                            showToast('Error al actualizar estado', 'error');
+                                          }
+                                        }
+                                      }}
+                                      className={`p-2.5 rounded-xl transition-all ${user.is_active === 0 || user.is_active === false ? 'text-green-500 hover:bg-green-50 hover:text-green-600' : 'text-orange-500 hover:bg-orange-50 hover:text-orange-600'}`}
+                                      title={user.is_active === 0 || user.is_active === false ? "Activar Usuario" : "Dar de Baja"}
+                                    >
+                                      <Lock size={18} />
+                                    </button>
+                                  )}
+                                  
+                                  {user.id !== session.id && !(user.is_principal && user.role === 'admin') && user.role !== 'dev' && (
+                                    <button
                                       onClick={() => openDeleteConfirm(user, user.role)}
                                       className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                      title="Eliminar Registro"
+                                      title="Eliminar Registro Permanentemente"
                                     >
                                       <Trash2 size={18} />
                                     </button>

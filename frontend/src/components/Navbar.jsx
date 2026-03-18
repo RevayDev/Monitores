@@ -201,7 +201,7 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 shadow-xl animate-fade-in">
+        <div className="md:hidden absolute left-0 right-0 top-full bg-white border-b border-gray-100 shadow-xl animate-fade-in z-50">
           <div className="px-4 pt-3 pb-6 space-y-1">
             {/* Nav links */}
             {currentLinks.map((link) => (

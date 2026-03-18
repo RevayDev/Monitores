@@ -8,6 +8,9 @@ class UsersService {
     if (!user || user.role !== role || user.password !== password) {
       throw new Error('Credenciales incorrectas');
     }
+    if (user.is_active === 0 || user.is_active === false) {
+      throw new Error('Tu cuenta ha sido dada de baja. No tienes acceso al sistema.');
+    }
     return { ...user, baseRole: user.role };
   }
 

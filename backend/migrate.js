@@ -45,6 +45,7 @@ async function migrate() {
         cuatrimestre VARCHAR(100),
         foto TEXT,
         is_principal BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -53,6 +54,12 @@ async function migrate() {
     const [cols] = await connection.query("SHOW COLUMNS FROM users LIKE 'is_principal'");
     if (cols.length === 0) {
       await connection.query("ALTER TABLE users ADD COLUMN is_principal BOOLEAN DEFAULT FALSE");
+    }
+
+    // Ensure is_active column exists
+    const [activeCols] = await connection.query("SHOW COLUMNS FROM users LIKE 'is_active'");
+    if (activeCols.length === 0) {
+      await connection.query("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE");
     }
 
     // ... (rest of tables)
@@ -133,22 +140,22 @@ async function migrate() {
         // Generate a simple username from email if not present in legacy data
         const generatedUsername = user.username || user.email.split('@')[0];
         await connection.query(
-          'INSERT INTO users (id, nombre, username, email, password, role, sede, cuatrimestre, foto, is_principal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE username=VALUES(username)',
-          [user.id, user.nombre, generatedUsername, user.email, user.password, user.role, user.sede, user.cuatrimestre, user.foto || null, user.is_principal || false]
+          'INSERT INTO users (id, nombre, username, email, password, role, sede, cuatrimestre, foto, is_principal, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE username=VALUES(username)',
+          [user.id, user.nombre, generatedUsername, user.email, user.password, user.role, user.sede, user.cuatrimestre, user.foto || null, user.is_principal || false, user.is_active !== undefined ? user.is_active : true]
         );
       }
     }
 
     // Create Principal Admin if not exists
     await connection.query(
-      'INSERT INTO users (nombre, username, email, password, role, is_principal) SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = "admin" AND is_principal = TRUE)',
-      ['Admin Principal', 'admin_principal', 'admin@monitores.com', 'admin123', 'admin', true]
+      'INSERT INTO users (nombre, username, email, password, role, is_principal, is_active) SELECT ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = "admin" AND is_principal = TRUE)',
+      ['Admin Principal', 'admin_principal', 'admin@monitores.com', 'admin123', 'admin', true, true]
     );
 
     // Create Principal Dev if not exists
     await connection.query(
-      'INSERT INTO users (nombre, username, email, password, role, is_principal) SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = "dev" AND is_principal = TRUE)',
-      ['Developer Principal', 'dev_principal', 'dev@monitores.com', 'dev123', 'dev', true]
+      'INSERT INTO users (nombre, username, email, password, role, is_principal, is_active) SELECT ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = "dev" AND is_principal = TRUE)',
+      ['Developer Principal', 'dev_principal', 'dev@monitores.com', 'dev123', 'dev', true, true]
     );
 
     console.log('Migrating modules...');
