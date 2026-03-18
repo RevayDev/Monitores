@@ -147,7 +147,7 @@ const Monitorias = () => {
               <MonitorCard
                 key={m.id}
                 data={m}
-                onAction={handleRegister}
+                onAction={registeredIds.includes(m.id) ? () => navigate('/mis-monitorias') : handleRegister}
                 actionLabel={registeredIds.includes(m.id) ? "Ir al Recurso" : "Registrarse"}
                 isRegistered={registeredIds.includes(m.id)}
                 showDescription={false}

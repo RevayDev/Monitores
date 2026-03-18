@@ -8,10 +8,8 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
   const isFull = registrationCount >= LIMIT;
 
   const handleAction = () => {
-    if (isRegistered) {
-      navigate('/mis-monitorias');
-    } else if (!isFull) {
-      onAction(data);
+    if (isRegistered || !isFull) {
+      if (onAction) onAction(data);
     }
   };
 
