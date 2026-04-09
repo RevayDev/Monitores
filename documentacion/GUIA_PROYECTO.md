@@ -105,19 +105,3 @@ Son clases que definen cómo luce un objeto (Usuario, Monitoría). Ayudan a que 
 
 ---
 *Documento generado para el aprendizaje y evolución del proyecto Monitores.*
-
-## Organización del proyecto
-
-- **frontend/**: aplicación React (Vite) con componentes, páginas y lógica de UI.
-- **backend/**: servidor Node.js + Express, estructurado en capas (routes, controllers, services, repositories) y usando MySQL (o JSON) para persistencia.
-- **scripts/**: scripts de utilidad y pruebas (check_db.js, disable_maintenance.js, test_*.js).
-- **documentacion/**: archivos Markdown que describen arquitectura, aprendizaje, guías y documentación del proyecto.
-- **dist/**: build de producción generado por Vite.
-- **APRENDIZAJE.md**: notas de aprendizaje y lecciones del desarrollo.
-- **BACKEND.md**: descripción detallada del backend.
-- **DATABASE.md**: esquema y configuración de la base de datos.
-- **FRONTEND.md**: guía del frontend.
-- **README.md**: información general del proyecto.
-
-Esta estructura permite separar claramente la lógica de presentación, la lógica de negocio y la persistencia, facilitando escalabilidad y mantenimiento.
-
