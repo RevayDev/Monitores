@@ -28,8 +28,13 @@ const Monitorias = () => {
     const fetchData = async () => {
       const config = await getMaintenanceConfig();
       const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-      if (config?.monitorias && session?.baseRole !== 'dev' && session?.role !== 'dev') {
-        showToast('Esta función está en mantenimiento', 'error');
+      
+      const restrictions = typeof session?.restrictions === 'string' 
+        ? JSON.parse(session.restrictions) 
+        : (session?.restrictions || {});
+
+      if ((config?.monitorias || restrictions.search) && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
+        showToast(restrictions.search ? 'Tu acceso a la búsqueda de monitorías ha sido restringido.' : 'Esta función está en mantenimiento', 'error');
         navigate('/');
         return;
       }

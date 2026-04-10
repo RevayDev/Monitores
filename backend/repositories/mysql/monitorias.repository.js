@@ -86,10 +86,11 @@ class MonitoriasRepositoryMySQL {
   }
 
   async createRegistration(data) {
-    const { studentName, studentEmail, modulo, monitorId, registeredAt } = data;
+    const { studentName, studentEmail, studentId, modulo, moduleId, monitorId, registeredAt } = data;
+    const resolvedModuleId = moduleId || monitorId;
     const [result] = await pool.query(
       'INSERT INTO registrations (studentName, studentEmail, modulo, monitorId, registeredAt) VALUES (?, ?, ?, ?, ?)',
-      [studentName, studentEmail, modulo, monitorId, registeredAt || new Date()]
+      [studentName, studentEmail, modulo, resolvedModuleId, registeredAt || new Date()]
     );
     return { id: result.insertId, ...data };
   }
@@ -141,6 +142,52 @@ class MonitoriasRepositoryMySQL {
       [monitorId, studentName, studentEmail, reason, details, date || new Date()]
     );
     return data;
+  }
+
+  async getRegistrationsByModule(moduleId) {
+    const [rows] = await pool.query(
+      `
+      SELECT id, studentName, studentEmail, registeredAt
+      FROM registrations
+      WHERE monitorId = ?
+      ORDER BY studentName ASC
+      `,
+      [moduleId]
+    );
+    return rows;
+  }
+
+  async getAttendanceSheetByDate(moduleId, dateValue) {
+    const [rows] = await pool.query(
+      `
+      SELECT id, studentName, rating, comment, date
+      FROM attendance
+      WHERE date = ?
+        AND comment LIKE ?
+      ORDER BY id ASC
+      `,
+      [dateValue, `MODULE_ID=${moduleId};%`]
+    );
+    return rows;
+  }
+
+  async saveAttendanceBatch(moduleId, dateValue, entries) {
+    for (const item of entries) {
+      await pool.query(
+        `
+        INSERT INTO attendance (monitorId, studentName, date, rating, comment)
+        VALUES (?, ?, ?, ?, ?)
+        `,
+        [
+          item.monitorUserId,
+          item.studentName,
+          dateValue,
+          item.present ? 1 : 0,
+          `MODULE_ID=${moduleId};EMAIL=${item.studentEmail};STATUS=${item.present ? 'present' : 'absent'}`
+        ]
+      );
+    }
+    return true;
   }
 
   async updateMonitorInfo(monitorId, { nombre, email }) {

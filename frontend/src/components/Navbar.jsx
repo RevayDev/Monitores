@@ -11,24 +11,52 @@ import {
   UserPlus,
   Users,
   ShieldCheck,
-  Wrench
+  Wrench,
+  Bell,
+  Trash2
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
-import { getCurrentUser, switchRole, logout as apiLogout } from '../services/api';
+import { getCurrentUser, switchRole, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
 import { ToastContext } from '../App';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
+  const notificationRef = React.useRef(null);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
 
   useEffect(() => {
     fetchUser();
+    const loadNotifications = async () => {
+      try {
+        const rows = await getNotifications();
+        setNotifications(rows || []);
+      } catch {
+        setNotifications([]);
+      }
+    };
+    loadNotifications();
     // Re-fetch user when profile is updated from another page
     window.addEventListener('profile-updated', fetchUser);
-    return () => window.removeEventListener('profile-updated', fetchUser);
+    window.addEventListener('notifications-updated', loadNotifications);
+    return () => {
+      window.removeEventListener('profile-updated', fetchUser);
+      window.removeEventListener('notifications-updated', loadNotifications);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
   async function fetchUser() {
@@ -53,6 +81,30 @@ const Navbar = () => {
   };
 
   const isGuest = !user?.nombre;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await markNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+    } catch {
+      // no-op
+    }
+  };
+
+  const handleDeleteNotification = async (id) => {
+    try {
+      await apiDeleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => Number(n.id) !== Number(id)));
+    } catch (error) {
+      showToast(error.message || 'No se pudo eliminar la notificacion.', 'error');
+    }
+  };
+
+  const handleNotificationClick = async (item) => {
+    setNotificationsOpen(false);
+    if (item?.link) navigate(item.link);
+  };
 
   const navLinks = {
     guest: [
@@ -83,6 +135,7 @@ const Navbar = () => {
             </Link>
           </div>
 
+
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-1">
             {currentLinks.map((link) => (
@@ -95,7 +148,45 @@ const Navbar = () => {
               </Link>
             ))}
 
+
+
             <div className="ml-4 pl-4 border-l border-gray-100 flex items-center gap-3">
+              {!isGuest && (
+                <div className="relative" ref={notificationRef}>
+                  <button
+                    onClick={() => {
+                      setNotificationsOpen(!notificationsOpen);
+                      if (!notificationsOpen) markAllNotificationsAsRead();
+                    }}
+                    className="relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue"
+                  >
+                    <Bell size={18} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black grid place-items-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {notificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 max-h-80 overflow-auto bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
+                      <div className="px-4 py-3 border-b border-gray-100 text-xs font-black uppercase tracking-widest text-gray-500">Notificaciones</div>
+                      <div className="divide-y divide-gray-100">
+                        {notifications.length ? notifications.map((n) => (
+                          <div key={n.id} className="px-4 py-3 flex items-start gap-2">
+                            <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
+                              <p className="text-xs font-black text-gray-900">{n.type}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                            </button>
+                            <button onClick={() => handleDeleteNotification(n.id)} className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        )) : <p className="px-4 py-8 text-sm text-gray-400 text-center">Sin notificaciones</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Dedicated Panel Buttons based on baseRole */}
               {!isGuest && (user.role === 'monitor' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button

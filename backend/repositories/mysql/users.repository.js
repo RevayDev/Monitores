@@ -22,11 +22,11 @@ class UsersRepositoryMySQL {
   }
 
   async create(userData) {
-    const { nombre, username, email, password, role, sede, cuatrimestre, foto, is_principal } = userData;
+    const { nombre, username, email, password, role, sede, cuatrimestre, foto, is_principal, restrictions } = userData;
     const createdAt = new Date().toISOString();
     const [result] = await pool.query(
-      'INSERT INTO users (nombre, username, email, password, role, sede, cuatrimestre, foto, is_principal, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [nombre, username, email, password, role, sede, cuatrimestre, foto || null, is_principal || false, createdAt]
+      'INSERT INTO users (nombre, username, email, password, role, sede, cuatrimestre, foto, restrictions, is_principal, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [nombre, username, email, password, role, sede, cuatrimestre, foto || null, restrictions || null, is_principal || false, createdAt]
     );
     return { id: result.insertId, ...userData, createdAt };
   }
@@ -52,6 +52,28 @@ class UsersRepositoryMySQL {
   async delete(id) {
     const [result] = await pool.query('DELETE FROM users WHERE id = ?', [id]);
     return result.affectedRows > 0;
+  }
+
+  async anonymize(id) {
+    const marker = `${id}_${Date.now()}`;
+    const anonName = `Usuario eliminado #${id}`;
+    const anonUser = `deleted_${marker}`;
+    const anonEmail = `deleted+${marker}@anon.local`;
+    await pool.query(
+      `
+      UPDATE users
+      SET nombre = ?,
+          username = ?,
+          email = ?,
+          password = ?,
+          foto = NULL,
+          is_active = 0,
+          restrictions = JSON_OBJECT('login', true, 'management', true, 'dashboards', true, 'search', true, 'registrations', true)
+      WHERE id = ?
+      `,
+      [anonName, anonUser, anonEmail, `deleted_${marker}`, id]
+    );
+    return this.findById(id);
   }
 }
 

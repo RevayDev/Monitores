@@ -27,6 +27,8 @@ router.get('/programas', monitoriasController.getProgramas);
 // Other
 router.post('/attendance', monitoriasController.submitAttendance);
 router.get('/attendance', monitoriasController.getAttendance);
+router.get('/modules/:id/attendance-sheet', monitoriasController.getAttendanceSheet);
+router.post('/modules/:id/attendance-sheet', monitoriasController.saveAttendanceSheet);
 router.post('/complaints', monitoriasController.submitComplaint);
 
 export default router;

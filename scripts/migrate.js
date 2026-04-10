@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import mysql from 'mysql2/promise';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, 'data', 'db.json');
+const dbPath = path.join(__dirname, '..', 'backend', 'data', 'db.json');
 
 // Re-using the config but initially without database
 const config = {

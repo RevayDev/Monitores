@@ -74,6 +74,28 @@ const submitComplaint = async (req, res) => {
   res.status(201).json({ success: true });
 };
 
+const getAttendanceSheet = async (req, res) => {
+  try {
+    const moduleId = Number(req.params.id);
+    const monitorUserId = Number(req.headers['x-user-id'] || req.query.userId || req.body?.userId);
+    const data = await monitoriasService.getAttendanceSheet(moduleId, monitorUserId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const saveAttendanceSheet = async (req, res) => {
+  try {
+    const moduleId = Number(req.params.id);
+    const monitorUserId = Number(req.headers['x-user-id'] || req.body?.userId);
+    const result = await monitoriasService.saveAttendanceSheet(moduleId, monitorUserId, req.body?.rows || []);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export default {
   getMonitorias,
   createMonitoria,
@@ -90,5 +112,7 @@ export default {
   getProgramas,
   getAttendance,
   submitAttendance,
-  submitComplaint
+  submitComplaint,
+  getAttendanceSheet,
+  saveAttendanceSheet
 };

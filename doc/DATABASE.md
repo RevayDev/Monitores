@@ -92,3 +92,14 @@ CREATE TABLE static_data (
 ## Tablas de Configuración
 - **settings**: Guarda pares clave-valor (ej. modo mantenimiento).
 - **static_data**: Almacena listas desplegables (sedes, programas, cuatrimestres).
+
+## Migracion QR + Foro
+Para habilitar QR dinamico, foro integrado por modulo e historial extendido ejecuta:
+
+`backend/data/mysql_migration_qr_forum.sql`
+
+Incluye:
+- `qr_codes`, `qr_scan_logs`
+- `forum_threads`, `forum_messages`
+- `activity_logs`
+- ampliaciones en `registrations`, `attendance`, `users`, `modules`

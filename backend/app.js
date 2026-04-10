@@ -3,6 +3,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import usersRoutes from './routes/users.routes.js';
 import monitoriasRoutes from './routes/monitorias.routes.js';
+import engagementRoutes from './routes/engagement.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -33,11 +34,13 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api', usersRoutes);
 app.use('/api', monitoriasRoutes);
+app.use('/api', engagementRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Something went wrong!' });
 });
 
 export default app;

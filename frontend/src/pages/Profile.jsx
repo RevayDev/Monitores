@@ -14,11 +14,20 @@ import {
   AlertCircle,
   Check,
   MapPin,
-  BookOpen
+  BookOpen,
+  LogOut as LogOutIcon,
+  Search,
+  Activity,
+  Settings,
+  AlertTriangle
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import { ToastContext } from '../App';
 import UserAvatar from '../components/UserAvatar';
+import InputField from '../components/InputField';
+import QrCard from '../components/QrCard';
+import ProfileMedicalHistory from '../components/ProfileMedicalHistory';
+import RoleStatsPanel from '../components/RoleStatsPanel';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -147,9 +156,17 @@ const Profile = () => {
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
+    const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const restrictions = typeof currentSession?.restrictions === 'string' 
+      ? JSON.parse(currentSession.restrictions) 
+      : (currentSession?.restrictions || {});
+
+    if (restrictions.management && currentSession?.baseRole !== 'dev' && currentSession?.role !== 'dev' && !currentSession?.is_principal) {
+      showToast('Tu capacidad de modificar datos ha sido restringida.', 'error');
+      return;
+    }
     await updateUser(user.id, formData);
     // Also update session
-    const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
     const updatedSession = { ...currentSession, ...formData };
     localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
     setUser(updatedSession);
@@ -194,6 +211,83 @@ const Profile = () => {
           <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
           Volver
         </button>
+
+        {/* Account Status / Restrictions Alert - ONLY show if there are active restrictions */}
+        {(() => {
+          const restrictions = typeof user.restrictions === 'string' 
+            ? JSON.parse(user.restrictions) 
+            : (user.restrictions || {});
+          
+          const activeRestrictions = Object.entries(restrictions).filter(([_, v]) => v);
+          
+          if (activeRestrictions.length === 0 && user.is_active !== 0 && user.is_active !== false) return null;
+
+          const isBlocked = user.is_active === 0 || user.is_active === false || restrictions.login;
+          const statusColor = isBlocked ? 'red' : 'amber';
+
+          return (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`bg-white border-2 border-${statusColor}-100 rounded-[32px] p-6 sm:p-8 shadow-xl shadow-${statusColor}-500/5 relative overflow-hidden group`}
+            >
+              <div className={`absolute top-0 right-0 p-8 text-${statusColor}-100/20 rotate-12 group-hover:scale-110 transition-transform`}>
+                <AlertTriangle size={120} />
+              </div>
+              
+              <div className="relative space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 bg-${statusColor}-100 text-${statusColor}-600 rounded-xl`}>
+                    <AlertTriangle size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-gray-900">Estado de tu Cuenta</h2>
+                    <p className={`text-sm font-bold text-${statusColor}-500 uppercase tracking-widest`}>
+                      {isBlocked ? 'Acceso al Sistema Bloqueado' : 'Restricciones de Acceso Activas'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                  {restrictions.login && (
+                    <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-center gap-3">
+                      <LogOutIcon size={18} className="text-red-600" />
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-tighter">Login Bloqueado</span>
+                    </div>
+                  )}
+                  {restrictions.search && (
+                    <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-center gap-3">
+                      <Search size={18} className="text-red-600" />
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-tighter">Búsqueda Restringida</span>
+                    </div>
+                  )}
+                  {restrictions.dashboards && (
+                    <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-center gap-3">
+                      <Activity size={18} className="text-red-600" />
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-tighter">Paneles Bloqueados</span>
+                    </div>
+                  )}
+                  {restrictions.registrations && (
+                    <div className={`bg-${statusColor}-50/50 p-4 rounded-2xl border border-${statusColor}-100 flex items-center gap-3`}>
+                      <BookOpen size={18} className={`text-${statusColor}-600`} />
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-tighter">Monitorías Restringidas</span>
+                    </div>
+                  )}
+                  {(user.is_active === 0 || user.is_active === false) && !restrictions.login && (
+                    <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-center gap-3">
+                      <Lock size={18} className="text-red-600" />
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-tighter">Cuenta Suspendida</span>
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-xs text-gray-400 font-medium italic">
+                  * Si crees que esto es un error, por favor contacta con el administrador principal de tu sede.
+                </p>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Profile Header */}
         <header className="flex flex-col sm:flex-row gap-6 items-center bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100">
@@ -265,6 +359,10 @@ const Profile = () => {
           </div>
         </header>
 
+        <QrCard />
+        <RoleStatsPanel />
+        <ProfileMedicalHistory />
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Personal Info */}
           <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
@@ -277,50 +375,39 @@ const Profile = () => {
               )}
             </h2>
             <form onSubmit={handleUpdateInfo} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre Completo</label>
-                <input
-                  readOnly={user.role !== 'admin' && user.role !== 'dev'}
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm read-only:text-gray-900 read-only:bg-gray-100/50 read-only:cursor-not-allowed"
-                  value={formData.nombre}
-                  onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Institucional</label>
-                <input
-                  readOnly={user.role !== 'admin' && user.role !== 'dev'}
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm read-only:text-gray-900 read-only:bg-gray-100/50 read-only:cursor-not-allowed"
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
+              <InputField 
+                label="Nombre Completo" 
+                icon={<User />} 
+                value={formData.nombre} 
+                onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, nombre: e.target.value })} 
+                placeholder="Tu nombre completo"
+              />
+              <InputField 
+                label="Email Institucional" 
+                icon={<Mail />} 
+                type="email" 
+                value={formData.email} 
+                onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, email: e.target.value })} 
+                placeholder="tu@u.edu"
+              />
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
-                  <select
-                    disabled={user.role !== 'admin' && user.role !== 'dev'}
-                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:text-gray-900 disabled:bg-gray-100/50 disabled:cursor-not-allowed appearance-none"
-                    value={formData.sede}
-                    onChange={e => setFormData({ ...formData, sede: e.target.value })}
-                  >
-                    <option value="">Seleccionar Sede</option>
-                    {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ciclo/Cuatrimestre</label>
-                  <select
-                    disabled={user.role !== 'admin' && user.role !== 'dev'}
-                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm disabled:text-gray-900 disabled:bg-gray-100/50 disabled:cursor-not-allowed appearance-none"
-                    value={formData.cuatrimestre}
-                    onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
-                  >
-                    <option value="">Seleccionar Cuatrimestre</option>
-                    {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+                <InputField 
+                  label="Sede" 
+                  icon={<MapPin />} 
+                  type="select" 
+                  value={formData.sede} 
+                  onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, sede: e.target.value })} 
+                  options={["Seleccionar Sede", ...dbSedes]}
+                />
+                <InputField 
+                  label="Ciclo/Cuatrimestre" 
+                  icon={<BookOpen />} 
+                  type="select" 
+                  value={formData.cuatrimestre} 
+                  onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, cuatrimestre: e.target.value })} 
+                  options={["Seleccionar Cuatrimestre", ...dbCuatrimestres]}
+                />
               </div>
 
               {(user.role === 'admin' || user.role === 'dev') && (
@@ -337,36 +424,30 @@ const Profile = () => {
               <Lock className="text-brand-blue" /> Seguridad
             </h2>
             <form onSubmit={handleChangePassword} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Contraseña Actual</label>
-                <input
-                  type="password"
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm"
-                  placeholder="••••••••"
-                  value={passwords.old}
-                  onChange={e => setPasswords({ ...passwords, old: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nueva Contraseña</label>
-                <input
-                  type="password"
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm"
-                  placeholder="••••••••"
-                  value={passwords.new}
-                  onChange={e => setPasswords({ ...passwords, new: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Confirmar Contraseña</label>
-                <input
-                  type="password"
-                  className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-black font-bold transition-all text-sm"
-                  placeholder="••••••••"
-                  value={passwords.confirm}
-                  onChange={e => setPasswords({ ...passwords, confirm: e.target.value })}
-                />
-              </div>
+              <InputField 
+                label="Contraseña Actual" 
+                icon={<Lock />} 
+                type="password" 
+                value={passwords.old} 
+                onChange={e => setPasswords({ ...passwords, old: e.target.value })} 
+                placeholder="••••••••"
+              />
+              <InputField 
+                label="Nueva Contraseña" 
+                icon={<Lock />} 
+                type="password" 
+                value={passwords.new} 
+                onChange={e => setPasswords({ ...passwords, new: e.target.value })} 
+                placeholder="••••••••"
+              />
+              <InputField 
+                label="Confirmar Contraseña" 
+                icon={<Lock />} 
+                type="password" 
+                value={passwords.confirm} 
+                onChange={e => setPasswords({ ...passwords, confirm: e.target.value })} 
+                placeholder="••••••••"
+              />
               <button type="submit" className="w-full py-4 bg-gray-50 text-gray-900 border-2 border-gray-100 font-black rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
                 <Check size={18} /> Actualizar Contraseña
               </button>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria, getModalidades, getCuatrimestres, getAllRegistrations } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../components/Modal';
-import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search } from 'lucide-react';
+import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search, UserCheck } from 'lucide-react';
 import { ToastContext } from '../App';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
@@ -30,7 +30,9 @@ const MonitorDashboard = () => {
     cuatrimestre: '',
     modalidad: 'Presencial',
     sede: 'Sede Centro',
-    horario: '',
+    dias: [],
+    horaInicio: '08:00',
+    horaFin: '10:00',
     descripcion: '',
     whatsapp: '',
     teams: ''
@@ -40,7 +42,9 @@ const MonitorDashboard = () => {
     sede: 'Sede Centro',
     modalidad: 'Presencial',
     salon: '',
-    horario: '',
+    dias: [],
+    horaInicio: '08:00',
+    horaFin: '10:00',
     whatsapp: '',
     teams: ''
   });
@@ -54,8 +58,12 @@ const MonitorDashboard = () => {
   useEffect(() => {
     const checkMaintenance = async () => {
       const config = await getMaintenanceConfig();
-      if (config?.panelMonitor && session?.baseRole !== 'dev' && session?.role !== 'dev') {
-        showToast('Esta función está en mantenimiento', 'error');
+      const restrictions = typeof session?.restrictions === 'string' 
+        ? JSON.parse(session.restrictions) 
+        : (session?.restrictions || {});
+
+      if ((config?.monitorPanel || restrictions.dashboards) && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
+        showToast(restrictions.dashboards ? 'Tu acceso a este panel ha sido restringido.' : 'El panel del monitor está restringido por mantenimiento.', 'error');
         navigate('/');
         return;
       }
@@ -94,21 +102,34 @@ const MonitorDashboard = () => {
       showToast("Por favor ingresa un comentario para la baja", "error");
       return;
     }
-    await deleteMonitoria(selectedStudent.id, "Baja por Monitor", deleteComment);
+    const targetId = deleteTargetId || selectedStudent.id;
+    await deleteMonitoria(targetId, "Baja por Monitor", deleteComment);
     setIsDeleteOpen(false);
     setSelectedStudent(null);
+    setDeleteTargetId(null);
     setDeleteComment('');
     fetchData();
+    showToast('Estudiante dado de baja correctamente', 'success');
   };
+
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const handleOpenEdit = (mod) => {
     setSelectedModule(mod);
+    // Parse horario: "Lunes, Martes 08:00 - 10:00"
+    const horarioMatch = mod.horario?.match(/^(.*?)\s(\d{2}:\d{2})\s-\s(\d{2}:\d{2})$/);
+    const dias = horarioMatch ? horarioMatch[1].split(', ') : [];
+    const horaInicio = horarioMatch ? horarioMatch[2] : '08:00';
+    const horaFin = horarioMatch ? horarioMatch[3] : '10:00';
+
     setEditFormData({
       descripcion: mod.descripcion || '',
       sede: mod.sede || 'Sede Centro',
       salon: mod.salon || '',
       modalidad: mod.modalidad || 'Presencial',
-      horario: mod.horario || '',
+      dias,
+      horaInicio,
+      horaFin,
       whatsapp: mod.whatsapp || '',
       teams: mod.teams || ''
     });
@@ -116,7 +137,9 @@ const MonitorDashboard = () => {
   };
 
   const saveModuleInfo = async () => {
-    await updateMonitoriaInfo(selectedModule.id, editFormData);
+    const horario = `${editFormData.dias.join(', ')} ${editFormData.horaInicio} - ${editFormData.horaFin}`;
+    const { dias, horaInicio, horaFin, ...submitData } = editFormData;
+    await updateMonitoriaInfo(selectedModule.id, { ...submitData, horario });
     setIsEditModuleOpen(false);
     fetchData();
     showToast('¡Información del módulo actualizada!', 'success');
@@ -143,17 +166,39 @@ const MonitorDashboard = () => {
   };
 
   const handleCopySurvey = (mod) => {
-    showToast("Esta función estará disponible próximamente", "info");
+    navigate(`/survey/${session.id}?modulo=${encodeURIComponent(mod.modulo)}`);
+  };
+
+  const exportStudentsCsv = () => {
+    const rows = students.map((s) => [s.studentName, s.studentEmail, s.modulo, s.registeredAt]);
+    const csv = [['Nombre', 'Email', 'Modulo', 'Fecha'], ...rows]
+      .map((line) => line.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `monitor-estudiantes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleCopyTemplate = (mod) => {
-    showToast("Esta función estará disponible próximamente", "info");
+    navigate(`/monitor-attendance/${mod.id}`);
   };
 
   const handleCreateModule = async (e) => {
     e.preventDefault();
+    if (createFormData.dias.length === 0) {
+      showToast("Por favor selecciona al menos un día", "error");
+      return;
+    }
+    const horario = `${createFormData.dias.join(', ')} ${createFormData.horaInicio} - ${createFormData.horaFin}`;
+    const { dias, horaInicio, horaFin, ...submitData } = createFormData;
+    
     await createMonitoria({
-      ...createFormData,
+      ...submitData,
+      horario,
       monitorId: session.id,
       monitor: session.nombre,
       monitorEmail: session.email
@@ -165,7 +210,9 @@ const MonitorDashboard = () => {
       modalidad: 'Presencial',
       sede: 'Sede Centro',
       salon: '',
-      horario: '',
+      dias: [],
+      horaInicio: '08:00',
+      horaFin: '10:00',
       descripcion: '',
       whatsapp: '',
       teams: ''
@@ -174,6 +221,36 @@ const MonitorDashboard = () => {
     showToast('¡Nueva monitoría creada!', 'success');
     window.dispatchEvent(new Event('data-updated'));
   };
+
+  const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+  const DayPicker = ({ selected, onChange }) => (
+    <div className="space-y-2">
+      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Días de la Monitoría</label>
+      <div className="flex flex-wrap gap-2">
+        {diasSemana.map(dia => (
+          <button
+            key={dia}
+            type="button"
+            onClick={() => {
+              if (selected.includes(dia)) {
+                onChange(selected.filter(d => d !== dia));
+              } else {
+                onChange([...selected, dia]);
+              }
+            }}
+            className={`px-3 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border-2 ${
+              selected.includes(dia)
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200'
+                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+            }`}
+          >
+            {dia.substring(0, 3)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
@@ -222,7 +299,7 @@ const MonitorDashboard = () => {
               {monitorModules.map(mod => (
                 <div key={mod.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group">
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-extrabold text-gray-900">{mod.modulo}</h3>
+                    <h3 className="font-extrabold text-gray-900 uppercase tracking-tight">{mod.modulo}</h3>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleOpenEdit(mod)}
@@ -292,19 +369,27 @@ const MonitorDashboard = () => {
             </div>
             {/* Student List Grid/Table Area */}
             <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
-              <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10">
+              <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
                 <h3 className="text-xl font-black text-gray-900">Estudiantes Registrados</h3>
-                <div className="relative w-full sm:w-64">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <Search size={16} />
+                <div className="w-full sm:w-auto flex items-center gap-2">
+                  <button
+                    onClick={exportStudentsCsv}
+                    className="px-3 py-2 rounded-xl bg-gray-900 text-white text-[11px] font-black uppercase tracking-wider"
+                  >
+                    Exportar CSV
+                  </button>
+                  <div className="relative w-full sm:w-64">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Search size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Buscar estudiante..."
+                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all shadow-inner"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Buscar estudiante..."
-                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
                 </div>
               </div>
 
@@ -320,7 +405,7 @@ const MonitorDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {(() => {
-                      const filteredStudents = students
+                      const filteredRegistrations = students
                         .filter(st => filterModulo === 'all' || st.modulo === filterModulo)
                         .filter(st =>
                           (st.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -328,7 +413,26 @@ const MonitorDashboard = () => {
                           (st.modulo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
                         );
 
-                      if (filteredStudents.length === 0) {
+                      // Group by student email
+                      const groupedMap = filteredRegistrations.reduce((acc, reg) => {
+                        if (!acc[reg.studentEmail]) {
+                          acc[reg.studentEmail] = {
+                            ...reg,
+                            modulos: [reg.modulo],
+                            regIds: [reg.id]
+                          };
+                        } else {
+                          if (!acc[reg.studentEmail].modulos.includes(reg.modulo)) {
+                            acc[reg.studentEmail].modulos.push(reg.modulo);
+                            acc[reg.studentEmail].regIds.push(reg.id);
+                          }
+                        }
+                        return acc;
+                      }, {});
+
+                      const uniqueStudents = Object.values(groupedMap);
+
+                      if (uniqueStudents.length === 0) {
                         return (
                           <tr>
                             <td colSpan="4" className="px-6 py-20 text-center">
@@ -341,11 +445,10 @@ const MonitorDashboard = () => {
                         );
                       }
 
-                      return filteredStudents.map(st => (
-                        <tr key={st.id} className="hover:bg-gray-50/50 transition-colors">
+                      return uniqueStudents.map(st => (
+                        <tr key={st.studentEmail} className="hover:bg-gray-50/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-
                               <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} rounded="rounded-xl" />
                               <div>
                                 <p className="font-bold text-gray-900">{st.studentName}</p>
@@ -354,9 +457,13 @@ const MonitorDashboard = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[10px] font-bold rounded-full uppercase">
-                              {st.modulo}
-                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {st.modulos.map((m, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
+                                  {m}
+                                </span>
+                              ))}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-xs text-gray-500">
                             {new Date(st.registeredAt).toLocaleDateString()}
@@ -389,11 +496,33 @@ const MonitorDashboard = () => {
         <div className="space-y-6">
           <div className="flex items-center gap-4 bg-red-50 p-4 rounded-2xl">
             <UserCircle2 size={40} className="text-red-500" />
-            <div>
-              <p className="font-bold text-red-900">{selectedStudent?.studentName}</p>
-              <p className="text-xs text-red-600">Se eliminará el registro de {selectedStudent?.modulo}</p>
+            <div className="flex-grow">
+              <p className="font-black text-red-900">{selectedStudent?.studentName}</p>
+              <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">
+                {selectedStudent?.modulos?.length > 1 ? 'Selecciona el módulo para dar de baja' : `Retirar de: ${selectedStudent?.modulo}`}
+              </p>
             </div>
           </div>
+
+          {selectedStudent?.modulos?.length > 1 && (
+            <div className="grid grid-cols-1 gap-2">
+              {selectedStudent.modulos.map((mod, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setDeleteTargetId(selectedStudent.regIds[idx])}
+                  className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between text-xs font-bold ${
+                    deleteTargetId === selectedStudent.regIds[idx]
+                      ? 'border-red-600 bg-red-50 text-red-900'
+                      : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
+                  }`}
+                >
+                  <span>{mod}</span>
+                  {deleteTargetId === selectedStudent.regIds[idx] && <UserCheck size={14} className="text-red-600" />}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-2 text-left">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -450,16 +579,36 @@ const MonitorDashboard = () => {
             options={dbCuatrimestres}
           />
 
-          <InputField
-            label="Horario / Fecha"
-            value={editFormData.horario}
-            onChange={(e) => setEditFormData({ ...editFormData, horario: e.target.value })}
-            placeholder="Ej. Martes 15:00 - 17:00"
+          <DayPicker
+            selected={editFormData.dias}
+            onChange={(dias) => setEditFormData({ ...editFormData, dias })}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Inicio</label>
+              <input
+                type="time"
+                value={editFormData.horaInicio}
+                onChange={(e) => setEditFormData({ ...editFormData, horaInicio: e.target.value })}
+                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Fin</label>
+              <input
+                type="time"
+                value={editFormData.horaFin}
+                onChange={(e) => setEditFormData({ ...editFormData, horaFin: e.target.value })}
+                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
+              />
+            </div>
+          </div>
 
           <InputField
             type="textarea"
             label="Descripción del Módulo"
+            required={false}
             value={editFormData.descripcion}
             onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
             placeholder="Describe los temas que tratas en esta monitoría..."
@@ -542,16 +691,36 @@ const MonitorDashboard = () => {
               />
             </div>
 
-          <InputField
-            label="Horario"
-            value={createFormData.horario}
-            onChange={(e) => setCreateFormData({ ...createFormData, horario: e.target.value })}
-            placeholder="Lunes 10-12"
+          <DayPicker
+            selected={createFormData.dias}
+            onChange={(dias) => setCreateFormData({ ...createFormData, dias })}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Inicio</label>
+              <input
+                type="time"
+                value={createFormData.horaInicio}
+                onChange={(e) => setCreateFormData({ ...createFormData, horaInicio: e.target.value })}
+                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Fin</label>
+              <input
+                type="time"
+                value={createFormData.horaFin}
+                onChange={(e) => setCreateFormData({ ...createFormData, horaFin: e.target.value })}
+                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
+              />
+            </div>
+          </div>
 
           <InputField
             type="textarea"
             label="Descripción"
+            required={false}
             value={createFormData.descripcion}
             onChange={(e) => setCreateFormData({ ...createFormData, descripcion: e.target.value })}
             placeholder="¿Qué temas enseñarás?"

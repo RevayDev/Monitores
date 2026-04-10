@@ -1,7 +1,6 @@
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,7 +19,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 2 * 1024 * 1024 } // 2MB
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB profile images
+  fileFilter: (req, file, cb) => {
+    const mime = file.mimetype || '';
+    if (mime.startsWith('image/')) {
+      return cb(null, true);
+    }
+    return cb(new Error('Solo se permiten imagenes de perfil.'));
+  }
 });
 
 export const deleteFile = (fileUrl) => {

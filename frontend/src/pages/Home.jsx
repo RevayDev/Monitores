@@ -63,9 +63,9 @@ const Home = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full py-14 sm:py-20">
             <div className="max-w-3xl space-y-4 sm:space-y-6 animate-fade-in">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
-                <span className={`w-2 h-2 rounded-full animate-pulse ${config?.global ? 'bg-yellow-400' : 'bg-green-400'}`}></span>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${config?.global ? 'text-yellow-400' : 'text-white'}`}>
-                  {config?.global ? 'SISTEMA EN MANTENIMIENTO' : 'Portal Académico Activo'}
+                <span className={`w-2 h-2 rounded-full animate-pulse ${config?.global || config?.monitorias ? 'bg-yellow-400' : 'bg-green-400'}`}></span>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${config?.global || config?.monitorias ? 'text-yellow-400' : 'text-white'}`}>
+                  {config?.global ? 'SISTEMA EN MANTENIMIENTO' : config?.monitorias ? 'PORTAL DE MONITORÍAS EN MANTENIMIENTO' : 'Portal Académico Activo'}
                 </span>
               </div>
 
@@ -86,7 +86,14 @@ const Home = () => {
                   Crear Mi Cuenta 🎓
                 </button>
                 <button
-                  onClick={() => navigate('/monitorias')}
+                  onClick={() => {
+                    const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+                    if (config?.monitorias && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
+                      showToast('El sistema de monitorías está en mantenimiento técnico.', 'error');
+                      return;
+                    }
+                    navigate('/monitorias');
+                  }}
                   className="px-6 py-3 sm:px-8 sm:py-4 bg-transparent border-2 border-white/30 text-white font-black rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-sm sm:text-base text-center"
                 >
                   Ver Monitorías 📋
@@ -103,7 +110,7 @@ const Home = () => {
               {[
                 { title: 'Excelencia Académica', desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.', color: 'bg-blue-50 text-brand-blue' },
                 { title: 'Flexibilidad Total', desc: 'Modalidades presenciales y virtuales adaptadas a tu ritmo de estudio.', color: 'bg-green-50 text-green-600' },
-                { title: 'Gestión Transparente', desc: 'Certificados automáticos y seguimiento en tiempo real.', color: 'bg-yellow-50 text-yellow-600' }
+                { title: 'Gestión Transparente', desc: 'Poder seleconar tu propia monitoria.', color: 'bg-yellow-50 text-yellow-600' }
               ].map((item, i) => (
                 <div key={i} className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-start gap-4 hover:shadow-lg transition-all group cursor-pointer">
                   <div className={`${item.color} w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-base sm:text-xl group-hover:rotate-6 transition-transform`}>
@@ -125,7 +132,6 @@ const Home = () => {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-blue/10 rounded-full border border-brand-blue/20">
-                  <Users size={14} className="text-brand-blue" />
                   <span className="text-brand-blue text-[10px] font-black uppercase tracking-widest">Nuestro Equipo</span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-900 tracking-tighter">
@@ -159,7 +165,14 @@ const Home = () => {
               </div>
 
               <button
-                onClick={() => navigate('/monitorias')}
+                onClick={() => {
+                  const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+                  if (config?.monitorias && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
+                    showToast('El sistema de monitorías está en mantenimiento técnico.', 'error');
+                    return;
+                  }
+                  navigate('/monitorias');
+                }}
                 className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-bold rounded-2xl border border-gray-100 hover:bg-gray-100 transition-all text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 Ver Monitorías <PlusCircle size={16} />

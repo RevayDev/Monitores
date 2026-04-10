@@ -3,13 +3,27 @@ const API_URL = 'http://localhost:3000/api';
 // Persistence for the current user (session) still uses localStorage for convenience,
 // but the data itself comes from the backend.
 const CURRENT_USER_KEY = 'monitores_current_role';
+const NOTIFICATIONS_KEY = 'monitores_notifications';
+
+const pushNotification = (item) => {
+  try {
+    const current = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) || '[]');
+    const next = [{ id: `${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString(), read: false, ...item }, ...current].slice(0, 80);
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event('notifications-updated'));
+  } catch {
+    // no-op
+  }
+};
 
 // Helper for fetch
 const request = async (endpoint, options = {}) => {
+  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(sessionUser?.id ? { 'x-user-id': String(sessionUser.id) } : {}),
       ...options.headers
     }
   });
@@ -17,7 +31,15 @@ const request = async (endpoint, options = {}) => {
     const error = await response.json();
     throw new Error(error.error || 'Request failed');
   }
-  return response.json();
+  const data = await response.json();
+  const method = (options.method || 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    pushNotification({
+      title: `${method} ${endpoint}`,
+      message: 'Operacion completada correctamente.'
+    });
+  }
+  return data;
 };
 
 // --- Auth & Roles ---
@@ -168,6 +190,15 @@ export const getMisMonitorias = (email) => {
   return getAllRegistrations({ studentEmail: email });
 };
 
+export const getMyModules = () => request('/my-modules');
+export const getMyAttendance = () => request('/my-attendance');
+export const getMyQrStatus = () => request('/my-qr-status');
+export const getMyForumHistory = () => request('/my-forum-history');
+export const getMyStats = () => request('/my-stats');
+export const getNotifications = () => request('/notifications');
+export const markNotificationsRead = () => request('/notifications/read', { method: 'POST', body: JSON.stringify({}) });
+export const deleteNotification = (id) => request(`/notifications/${id}`, { method: 'DELETE' });
+
 export const getStudentsByMonitor = (monitorId) => {
   return getAllRegistrations({ monitorUserId: monitorId });
 };
@@ -189,10 +220,81 @@ export const submitAttendance = (data) => request('/attendance', {
   body: JSON.stringify(data)
 });
 
+export const getModuleAttendanceSheet = (moduleId) => request(`/modules/${moduleId}/attendance-sheet`);
+export const saveModuleAttendanceSheet = (moduleId, rows) => request(`/modules/${moduleId}/attendance-sheet`, {
+  method: 'POST',
+  body: JSON.stringify({ rows })
+});
+
 export const submitComplaint = (data) => request('/complaints', {
   method: 'POST',
   body: JSON.stringify(data)
 });
+
+// --- QR ---
+export const generateQr = (moduleId = null) => request('/qr/generate', {
+  method: 'POST',
+  body: JSON.stringify(moduleId ? { moduleId } : {})
+});
+
+export const getCurrentQr = () => request('/qr/current');
+
+export const validateQr = ({ token, moduleId }) => request('/qr/validate', {
+  method: 'POST',
+  body: JSON.stringify({ token, moduleId })
+});
+export const scanQrLunch = ({ token }) => request('/qr/scan', {
+  method: 'POST',
+  body: JSON.stringify({ token })
+});
+
+// --- Forum ---
+export const getModuleForum = (moduleId) => request(`/modules/${moduleId}/forum`);
+
+export const createForumThread = (moduleId, payload) => request(`/modules/${moduleId}/forum/thread`, {
+  method: 'POST',
+  body: JSON.stringify(payload)
+});
+
+export const createForumMessage = (threadId, payload) => request(`/threads/${threadId}/message`, {
+  method: 'POST',
+  body: JSON.stringify(payload)
+});
+export const saveForumThread = (threadId) => request(`/threads/${threadId}/save`, { method: 'POST', body: JSON.stringify({}) });
+export const unsaveForumThread = (threadId) => request(`/threads/${threadId}/save`, { method: 'DELETE' });
+export const deleteForumThread = (threadId) => request(`/threads/${threadId}`, { method: 'DELETE' });
+export const deleteForumMessage = (messageId) => request(`/messages/${messageId}`, { method: 'DELETE' });
+export const getForums = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/forums${query ? '?' + query : ''}`);
+};
+export const createForum = (payload) => request('/forums', { method: 'POST', body: JSON.stringify(payload) });
+export const getForumById = (id) => request(`/forums/${id}`);
+export const createForumComment = (id, payload) => request(`/forums/${id}/comment`, { method: 'POST', body: JSON.stringify(payload) });
+
+// --- Stats by role ---
+export const getStudentStats = () => request('/stats/student');
+export const getMonitorAcademicStats = () => request('/stats/monitor-academic');
+export const getMonitorAdminStats = () => request('/stats/monitor-admin');
+export const getAdminStats = () => request('/stats/admin');
+
+export const uploadForumFile = async (file) => {
+  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_URL}/forum/upload`, {
+    method: 'POST',
+    headers: {
+      ...(sessionUser?.id ? { 'x-user-id': String(sessionUser.id) } : {})
+    },
+    body: formData
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Upload failed');
+  }
+  return response.json();
+};
 
 // --- Maintenance ---
 export const getMaintenanceConfig = async () => {

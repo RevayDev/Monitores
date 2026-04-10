@@ -1,11 +1,26 @@
 import usersRepository from '../repositories/mysql/users.repository.js';
 import monitoriasRepository from '../repositories/mysql/monitorias.repository.js';
+import engagementRepository from '../repositories/mysql/engagement.repository.js';
 import { deleteFile } from '../utils/upload.helper.js';
 
 class UsersService {
+  normalizeRole(role) {
+    const map = {
+      student: 'estudiante',
+      monitor: 'monitor_academico'
+    };
+    return map[role] || role;
+  }
+
+  isAdminRole(role) {
+    return ['admin', 'dev'].includes(role);
+  }
+
   async login(username, role, password) {
     const user = await usersRepository.findByUsername(username);
-    if (!user || user.role !== role || user.password !== password) {
+    const incoming = this.normalizeRole(role);
+    const stored = this.normalizeRole(user?.role);
+    if (!user || stored !== incoming || user.password !== password) {
       throw new Error('Credenciales incorrectas');
     }
     if (user.is_active === 0 || user.is_active === false) {
@@ -17,7 +32,14 @@ class UsersService {
   async signup(userData) {
     const user = await usersRepository.create({
       ...userData,
-      role: 'student'
+      role: 'estudiante'
+    });
+    await engagementRepository.createNotification({
+      userId: user.id,
+      type: 'account_created',
+      title: 'Cuenta creada',
+      body: 'Tu cuenta fue creada correctamente.',
+      metadata: { userId: user.id }
     });
     return { ...user, baseRole: 'student' };
   }
@@ -35,24 +57,34 @@ class UsersService {
     if (!creator) throw new Error('Usuario creador no encontrado.');
 
     // Only principal Admin can create other Admins
-    if (userData.role === 'admin') {
-      if (creator.role !== 'admin' || !creator.is_principal) {
+    const requestedRole = this.normalizeRole(userData.role);
+    const creatorRole = this.normalizeRole(creator.role);
+    if (requestedRole === 'admin') {
+      if (creatorRole !== 'admin' || !creator.is_principal) {
         throw new Error('Solo el Administrador Principal puede crear otros administradores.');
       }
     }
     // Any Admin can create Monitors
-    if (userData.role === 'monitor') {
-      if (creator.role !== 'admin') {
+    if (['monitor_academico', 'monitor_administrativo'].includes(requestedRole)) {
+      if (creatorRole !== 'admin') {
         throw new Error('Solo los administradores pueden crear monitores.');
       }
     }
     // Only principal Dev can create other Devs
-    if (userData.role === 'dev') {
-      if (creator.role !== 'dev' || !creator.is_principal) {
+    if (requestedRole === 'dev') {
+      if (creatorRole !== 'dev' || !creator.is_principal) {
         throw new Error('Solo el Developer Principal puede crear otros desarrolladores.');
       }
     }
-    return await usersRepository.create(userData);
+    const created = await usersRepository.create({ ...userData, role: requestedRole });
+    await engagementRepository.createNotification({
+      userId: created.id,
+      type: 'account_created_by_admin',
+      title: 'Cuenta agregada',
+      body: 'Un administrador creo tu cuenta.',
+      metadata: { userId: created.id }
+    });
+    return created;
   }
 
   async updateUser(id, userData, updaterId) {
@@ -63,31 +95,35 @@ class UsersService {
     if (!updater) throw new Error('Usuario actualizador no encontrado.');
 
     // If target is dev, only principal dev can modify
-    if (target.role === 'dev') {
-      if (updater.role !== 'dev' || !updater.is_principal) {
+    const targetRole = this.normalizeRole(target.role);
+    const updaterRole = this.normalizeRole(updater.role);
+    if (targetRole === 'dev') {
+      if (updaterRole !== 'dev' || !updater.is_principal) {
         throw new Error('Solo el Developer Principal puede modificar cuentas de desarrolladores.');
       }
     }
 
     // If target is admin, only principal admin can modify (excluding self)
-    if (target.role === 'admin' && target.id !== updater.id) {
-      if (!updater.is_principal || updater.role !== 'admin') {
+    if (targetRole === 'admin' && target.id !== updater.id) {
+      if (!updater.is_principal || updaterRole !== 'admin') {
         throw new Error('Solo el Administrador Principal puede modificar otros administradores.');
       }
     }
 
     // Role change guards
-    if (userData.role && userData.role !== target.role) {
-      if (userData.role === 'admin') {
-        if (updater.role !== 'admin' || !updater.is_principal) {
+    if (userData.role && this.normalizeRole(userData.role) !== targetRole) {
+      const nextRole = this.normalizeRole(userData.role);
+      if (nextRole === 'admin') {
+        if (updaterRole !== 'admin' || !updater.is_principal) {
           throw new Error('Solo el Administrador Principal puede asignar el rol de administradores.');
         }
       }
-      if (userData.role === 'dev') {
-        if (updater.role !== 'dev' || !updater.is_principal) {
+      if (nextRole === 'dev') {
+        if (updaterRole !== 'dev' || !updater.is_principal) {
           throw new Error('Solo el Developer Principal puede asignar el rol de desarrolladores.');
         }
       }
+      userData.role = nextRole;
     }
 
     // If updating photo, delete old one
@@ -96,7 +132,7 @@ class UsersService {
     }
 
     // Name & Email Sync: If monitor info changes, update modules table
-    if (target.role === 'monitor') {
+    if (['monitor', 'monitor_academico', 'monitor_administrativo'].includes(target.role)) {
       if ((userData.nombre && userData.nombre !== target.nombre) || (userData.email && userData.email !== target.email)) {
         await monitoriasRepository.updateMonitorInfo(id, {
           nombre: userData.nombre || target.nombre,
@@ -106,7 +142,7 @@ class UsersService {
     }
 
     // Name & Email Sync: If student info changes, update registrations table
-    if (target.role === 'student' || target.role === 'monitor') {
+    if (['student', 'estudiante', 'monitor', 'monitor_academico', 'monitor_administrativo'].includes(target.role)) {
       if ((userData.nombre && userData.nombre !== target.nombre) || (userData.email && userData.email !== target.email)) {
         await monitoriasRepository.updateStudentInfo(target.email, {
           nombre: userData.nombre || target.nombre,
@@ -128,7 +164,15 @@ class UsersService {
       deleteFile(user.foto);
     }
 
-    return await usersRepository.delete(id);
+    await usersRepository.anonymize(id);
+    await engagementRepository.createActivityLog({
+      userId: id,
+      action: 'USER_ANONYMIZED',
+      entityType: 'user',
+      entityId: id,
+      metadata: { strategy: 'soft-delete-anonymization' }
+    });
+    return true;
   }
 }
 
