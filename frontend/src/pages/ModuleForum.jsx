@@ -37,17 +37,15 @@ const allowedMimeTypes = new Set([
   'application/x-zip-compressed'
 ]);
 
-const roleChip = (role) => {
-  const value = String(role || '').toLowerCase();
-  if (value.includes('admin')) return 'bg-amber-100 text-amber-800';
-  if (value.includes('monitor')) return 'bg-emerald-100 text-emerald-800';
-  return 'bg-blue-100 text-blue-800';
+const roleChip = (vRole) => {
+  if (vRole === 'monitor') return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+  if (vRole === 'admin') return 'bg-amber-100 text-amber-800 border border-amber-200';
+  return 'bg-blue-100 text-blue-800 border border-blue-200';
 };
 
-const roleAvatar = (role) => {
-  const value = String(role || '').toLowerCase();
-  if (value.includes('admin')) return 'bg-amber-100 text-amber-800';
-  if (value.includes('monitor')) return 'bg-emerald-100 text-emerald-800';
+const roleAvatar = (vRole) => {
+  if (vRole === 'monitor') return 'bg-emerald-100 text-emerald-800';
+  if (vRole === 'admin') return 'bg-amber-100 text-amber-800';
   return 'bg-blue-100 text-blue-800';
 };
 
@@ -118,9 +116,8 @@ const roleUnderline = (vRole) => {
 const roleBadgeLabel = (userId, userRole, monitorId) => {
   if (Number(userId) === Number(monitorId)) return 'Monitor';
   const role = String(userRole || '').toLowerCase();
-  if (role.includes('monitor')) return 'Monitor';
   if (role.includes('admin') || role.includes('dev')) return 'Admin';
-  return null;
+  return 'Estudiante';
 };
 
 const UserAvatar = ({ photo, name, userId, userRole, monitorId, size = 'w-9 h-9', className = '' }) => {
