@@ -34,7 +34,8 @@ const allowedMimeTypes = new Set([
   'text/plain',
   'text/markdown',
   'application/zip',
-  'application/x-zip-compressed'
+  'application/x-zip-compressed',
+  'application/octet-stream'
 ]);
 
 const roleChip = (vRole) => {
@@ -161,7 +162,7 @@ const getMentionQuery = (value) => {
 
 const buildMentionToken = (member) => `@${member?.nombre || member?.username || 'Usuario'}#${member.id}`;
 
-const renderRichText = (text, members = []) => {
+const renderRichText = (text, members = [], monitorId) => {
   const value = String(text || '');
   const parts = value.split(/(!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s]+|@[^\s#@]+#\d+)/g);
   return parts.map((part, idx) => {
@@ -177,10 +178,11 @@ const renderRichText = (text, members = []) => {
       const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
       const member = (members || []).find((m) => Number(m.id) === id);
       const label = member ? `@${member.nombre}#${member.id}` : part;
+      const vRole = getVisualRole(member?.id, member?.role, monitorId);
       return (
         <span
           key={`m-${idx}`}
-          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${roleUnderline(member?.role)}`}
+          className={`inline-flex items-center px-1 py-0.5 rounded-md text-[11px] ${roleUnderline(vRole)}`}
         >
           {label}
         </span>
@@ -668,7 +670,7 @@ const ModuleForum = () => {
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{renderRichText(detail.content, members)}</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{renderRichText(detail.content, members, moduleMonitorId)}</p>
                   {!!detail.attachments?.length && <div className="space-y-2">{detail.attachments.map((item) => <div key={item.id}>{renderAttachment(item)}</div>)}</div>}
                 </div>
 
