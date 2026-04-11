@@ -106,8 +106,6 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, te
     </div>
   );
 };
-  );
-};
 
 const roleUnderline = (vRole) => {
   if (vRole === 'monitor') return 'bg-green-100 text-green-900 border border-green-200';
