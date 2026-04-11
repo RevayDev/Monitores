@@ -68,7 +68,7 @@ const MentionHighlighter = ({ value, members, onChange, onKeyDown, textareaRef, 
         const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
         const member = (members || []).find((m) => Number(m.id) === id);
         return (
-          <span key={i} className={`rounded px-1 text-[11px] font-black ${roleMentionStyle(member?.role)}`}>
+          <span key={i} className={`rounded px-1 text-[11px] ${roleMentionStyle(member?.role)}`}>
             {part}
           </span>
         );
@@ -81,7 +81,7 @@ const MentionHighlighter = ({ value, members, onChange, onKeyDown, textareaRef, 
     <div className="relative w-full">
       <div
         ref={scrollRef}
-        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden ${className} border-transparent text-transparent select-none`}
+        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden ${className} border-transparent text-gray-900 select-none`}
         aria-hidden="true"
       >
         <div className="px-3 py-2 leading-[1.4] min-h-full">
@@ -177,7 +177,7 @@ const renderRichText = (text, members = []) => {
       return (
         <span
           key={`m-${idx}`}
-          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-black ${roleUnderline(member?.role)}`}
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${roleUnderline(member?.role)}`}
         >
           {label}
         </span>
@@ -426,6 +426,16 @@ const ModuleForum = () => {
     else setReplyText(replaced);
     setMentionTarget(null);
     setMentionQuery('');
+    
+    // Auto-focus and set cursor after the inserted space
+    const ref = target === 'thread' ? threadTextRef.current : replyTextRef.current;
+    if (ref) {
+      setTimeout(() => {
+        ref.focus();
+        const newPos = replaced.length;
+        ref.setSelectionRange(newPos, newPos);
+      }, 0);
+    }
   };
 
   const handleCreate = async () => {
@@ -638,12 +648,12 @@ const ModuleForum = () => {
                     <div className="flex items-center gap-2">
                       <UserAvatar photo={detail.author_photo} name={detail.author_name} role={detail.author_role} size="w-9 h-9" />
                       <div>
-                      <p className="font-black text-gray-900">{detail.title}</p>
-                      <p className="text-xs text-gray-500">por {detail.author_name} · {detail.subject_name || moduleData?.modulo || `Modulo #${moduleId}`}</p>
+                        <p className="text-gray-900">{detail.title}</p>
+                        <p className="text-[10px] text-gray-500 line-clamp-1">por {detail.author_name} · {detail.subject_name || moduleData?.modulo || `Modulo #${moduleId}`}</p>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => handleSaveToggle(detail.id)} className={`px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 ${detail.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}>
+                      <button onClick={() => handleSaveToggle(detail.id)} className={`px-2 py-1 rounded-lg text-[11px] inline-flex items-center gap-1 ${detail.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}>
                         <Bookmark size={11} /> {detail.is_saved ? 'Guardado' : 'Guardar'}
                       </button>
                       {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && (
@@ -662,7 +672,7 @@ const ModuleForum = () => {
                     <div key={reply.id} className="rounded-2xl border border-gray-100 p-3">
                       <p className="text-xs text-gray-500 flex items-center gap-2">
                         <UserAvatar photo={reply.author_photo} name={reply.author_name} role={reply.author_role} size="w-6 h-6" />
-                        <span className="font-bold">{reply.author_name}</span> . respuesta
+                        <span>{reply.author_name}</span> . respuesta
                         {Number(reply.user_id) === Number(detail.user_id) && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase">Autor</span>}
                       </p>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">{renderRichText(reply.content, members)}</p>

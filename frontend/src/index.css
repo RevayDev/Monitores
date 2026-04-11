@@ -115,10 +115,17 @@ body {
 
 /* Mention Highlighter Caret and alignment */
 .caret-black {
-  caret-color: #1e3a8a !important; /* Brand Blue */
+  caret-color: #0f172a !important; /* brand-text */
 }
 
 textarea.bg-transparent {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+textarea.bg-transparent::selection {
+  background: rgba(30, 58, 138, 0.15) !important;
+  color: transparent !important;
   -webkit-text-fill-color: transparent !important;
 }
 
