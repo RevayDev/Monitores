@@ -18,9 +18,7 @@ import { ToastContext } from '../App';
 
 const getVisualRole = (userId, userRole, monitorId) => {
   if (Number(userId) === Number(monitorId)) return 'monitor';
-  const role = String(userRole || '').toLowerCase();
-  if (role.includes('admin') || role.includes('dev')) return 'admin';
-  return 'student';
+  return 'student'; // Everyone else is student by default in the forum
 };
 
 const allowedMimeTypes = new Set([
@@ -85,16 +83,15 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, te
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full overflow-hidden rounded-xl border border-gray-200">
       <div
         ref={scrollRef}
-        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden ${className} border-transparent text-gray-900 select-none`}
+        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-white text-gray-900 select-none px-3 py-2 leading-[1.4]`}
+        style={{ fontSize: '14px', fontFamily: 'inherit', letterSpacing: 'normal' }}
         aria-hidden="true"
       >
-        <div className="px-3 py-2 leading-[1.4] min-h-full">
-          {renderHighlights(value)}
-          {value?.endsWith('\n') ? ' ' : ''}
-        </div>
+        {renderHighlights(value)}
+        {value?.endsWith('\n') ? ' ' : ''}
       </div>
       <textarea
         ref={textareaRef}
@@ -103,10 +100,12 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, te
         onKeyDown={onKeyDown}
         onScroll={handleScroll}
         placeholder={placeholder}
-        className={`${className} bg-transparent relative z-10 caret-black leading-[1.4] resize-none px-3 py-2`}
-        style={{ minHeight }}
+        className={`w-full bg-transparent relative z-10 caret-black leading-[1.4] resize-none px-3 py-2 outline-none border-none`}
+        style={{ minHeight, fontSize: '14px', fontFamily: 'inherit', letterSpacing: 'normal' }}
       />
     </div>
+  );
+};
   );
 };
 
@@ -116,9 +115,11 @@ const roleUnderline = (vRole) => {
   return 'bg-blue-100 text-blue-900 border border-blue-200';
 };
 
-const roleBadgeLabel = (vRole) => {
-  if (vRole === 'admin') return 'Admin';
-  if (vRole === 'monitor') return 'Monitor';
+const roleBadgeLabel = (userId, userRole, monitorId) => {
+  if (Number(userId) === Number(monitorId)) return 'Monitor';
+  const role = String(userRole || '').toLowerCase();
+  if (role.includes('monitor')) return 'Monitor';
+  if (role.includes('admin') || role.includes('dev')) return 'Admin';
   return null;
 };
 
@@ -542,7 +543,7 @@ const ModuleForum = () => {
             <div className="min-w-0">
               <p className="text-sm text-gray-900 truncate">{buildMentionToken(member)}</p>
               <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] items-center gap-1 font-bold uppercase ${roleChip(getVisualRole(member.id, member.role, moduleMonitorId))}`}>
-                {roleBadgeLabel(getVisualRole(member.id, member.role, moduleMonitorId)) || member.role}
+                {roleBadgeLabel(member.id, member.role, moduleMonitorId) || member.role}
               </span>
             </div>
           </button>
@@ -700,7 +701,6 @@ const ModuleForum = () => {
                       onChange={(e) => onMentionAwareInput('reply', e.target.value)}
                       onKeyDown={(e) => handleSmartDelete('reply', e)}
                       placeholder="Responder pregunta... usa @ para mencionar"
-                      className="w-full border border-gray-200 rounded-xl text-sm min-h-[90px]"
                       minHeight="90px"
                     />
                     {renderMentionDropdown('reply')}
@@ -746,7 +746,6 @@ const ModuleForum = () => {
               monitorId={moduleMonitorId}
               onChange={(e) => onMentionAwareInput('thread', e.target.value)}
               onKeyDown={(e) => handleSmartDelete('thread', e)}
-              className="w-full border border-gray-200 rounded-xl text-sm min-h-[120px]"
               placeholder="Describe tu duda... usa @ para mencionar"
               minHeight="120px"
             />
