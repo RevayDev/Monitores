@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import pool from '../../utils/mysql.helper.js';
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const hashText = (text) => crypto.createHash('sha256').update(String(text || '')).digest('hex');
 
 class EngagementRepositoryMySQL {
   async getUserById(userId) {
@@ -128,8 +129,8 @@ class EngagementRepositoryMySQL {
   async createAttendance({ monitorId, studentId, studentName, moduleId, qrCodeId }) {
     const [result] = await pool.query(
       `
-      INSERT INTO attendance (monitorId, student_id, studentName, module_id, date, scan_time, attendance_status, qr_code_id, created_at)
-      VALUES (?, ?, ?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d'), NOW(), 'present', ?, NOW())
+      INSERT INTO attendance (monitorId, student_id, studentName, module_id, date, scan_time, attendance_status, qr_code_id)
+      VALUES (?, ?, ?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d'), NOW(), 'present', ?)
       `,
       [monitorId, studentId, studentName, moduleId, qrCodeId]
     );
@@ -381,8 +382,9 @@ class EngagementRepositoryMySQL {
   async createNotification({ userId, type, title, body, metadata }) {
     const message = [title, body].filter(Boolean).join(' - ');
     let link = null;
-    if (metadata?.forumId) link = `/forums/${metadata.forumId}`;
-    if (metadata?.threadId) link = `/mis-monitorias`;
+    if (metadata?.moduleId) link = `/modules/${metadata.moduleId}/forum`;
+    else if (metadata?.forumId) link = '/mis-monitorias';
+    if (metadata?.threadId) link = '/mis-monitorias';
     await pool.query(
       `
       INSERT INTO notifications (user_id, type, message, link, is_read, created_at)
@@ -444,7 +446,7 @@ class EngagementRepositoryMySQL {
     const params = [];
     let where = '';
     if (subjectId) {
-      where = 'WHERE f.subject_id = ?';
+      where = 'WHERE COALESCE(f.modulo_id, f.subject_id) = ?';
       params.push(subjectId);
     }
     const [rows] = await pool.query(
@@ -454,16 +456,18 @@ class EngagementRepositoryMySQL {
         f.title,
         f.content,
         f.user_id,
-        f.subject_id,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
         f.created_at,
         u.nombre AS author_name,
         u.foto AS author_photo,
-        COUNT(fc.id) AS responses_count
+        (
+          SELECT COUNT(*)
+          FROM replies r
+          WHERE r.forum_id = f.id
+        ) AS responses_count
       FROM forums f
       JOIN users u ON u.id = f.user_id
-      LEFT JOIN forum_comments fc ON fc.forum_id = f.id
       ${where}
-      GROUP BY f.id, f.title, f.content, f.user_id, f.subject_id, f.created_at, u.nombre, u.foto
       ORDER BY f.created_at DESC
       `,
       params
@@ -471,15 +475,78 @@ class EngagementRepositoryMySQL {
     return rows;
   }
 
-  async createForum({ title, content, userId, subjectId }) {
+  async getForumCardsForUser(subjectId = null, userId = null) {
+    const params = [];
+    let where = '';
+    if (subjectId) {
+      where = 'WHERE COALESCE(f.modulo_id, f.subject_id) = ?';
+      params.push(subjectId);
+    }
+    const [rows] = await pool.query(
+      `
+      SELECT
+        f.id,
+        f.title,
+        f.content,
+        f.user_id,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
+        f.created_at,
+        u.nombre AS author_name,
+        u.foto AS author_photo,
+        (
+          SELECT COUNT(*)
+          FROM replies r
+          WHERE r.forum_id = f.id
+        ) AS responses_count,
+        CASE
+          WHEN ? IS NULL THEN 0
+          WHEN EXISTS (SELECT 1 FROM forum_favorites ff WHERE ff.forum_id = f.id AND ff.user_id = ?) THEN 1
+          ELSE 0
+        END AS is_saved
+      FROM forums f
+      JOIN users u ON u.id = f.user_id
+      ${where}
+      ORDER BY f.created_at DESC
+      `,
+      [userId, userId, ...params]
+    );
+    return rows;
+  }
+
+  async createForum({ title, content, userId, subjectId, attachments = [] }) {
     const [result] = await pool.query(
       `
-      INSERT INTO forums (title, content, user_id, subject_id, created_at)
-      VALUES (?, ?, ?, ?, NOW())
+      INSERT INTO forums (title, content, user_id, subject_id, modulo_id, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
       `,
-      [title, content, userId, subjectId]
+      [title, content, userId, subjectId, subjectId]
     );
-    return result.insertId;
+    const forumId = result.insertId;
+    if (attachments?.length) {
+      await this.bulkCreateAttachments({
+        forumId,
+        replyId: null,
+        attachments
+      });
+    }
+    return forumId;
+  }
+
+  async findRecentForumDuplicate({ userId, title, content }) {
+    const contentHash = hashText(`${title}::${content}`);
+    const [rows] = await pool.query(
+      `
+      SELECT id
+      FROM forums
+      WHERE user_id = ?
+        AND SHA2(CONCAT(title, '::', content), 256) = ?
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 45 SECOND)
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [userId, contentHash]
+    );
+    return rows[0] || null;
   }
 
   async getForumById(forumId) {
@@ -489,10 +556,12 @@ class EngagementRepositoryMySQL {
         f.*,
         u.nombre AS author_name,
         u.foto AS author_photo,
-        m.modulo AS subject_name
+        u.role AS author_role,
+        m.modulo AS subject_name,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id
       FROM forums f
       JOIN users u ON u.id = f.user_id
-      LEFT JOIN modules m ON m.id = f.subject_id
+      LEFT JOIN modules m ON m.id = COALESCE(f.modulo_id, f.subject_id)
       WHERE f.id = ?
       LIMIT 1
       `,
@@ -501,38 +570,202 @@ class EngagementRepositoryMySQL {
     return rows[0] || null;
   }
 
-  async getForumComments(forumId) {
+  async getForumByIdForUser(forumId, userId) {
     const [rows] = await pool.query(
+      `
+      SELECT
+        f.*,
+        u.nombre AS author_name,
+        u.foto AS author_photo,
+        u.role AS author_role,
+        m.modulo AS subject_name,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
+        CASE
+          WHEN EXISTS (SELECT 1 FROM forum_favorites ff WHERE ff.forum_id = f.id AND ff.user_id = ?) THEN 1
+          ELSE 0
+        END AS is_saved
+      FROM forums f
+      JOIN users u ON u.id = f.user_id
+      LEFT JOIN modules m ON m.id = COALESCE(f.modulo_id, f.subject_id)
+      WHERE f.id = ?
+      LIMIT 1
+      `,
+      [userId, forumId]
+    );
+    return rows[0] || null;
+  }
+
+  async getForumAttachments({ forumId = null, replyId = null }) {
+    if (!forumId && !replyId) return [];
+    let query = `
+      SELECT id, forum_id, reply_id, file_url, file_type, created_at
+      FROM attachments
+      WHERE 1 = 1
+    `;
+    const params = [];
+    if (forumId) {
+      query += ' AND forum_id = ? ';
+      params.push(forumId);
+    }
+    if (replyId) {
+      query += ' AND reply_id = ? ';
+      params.push(replyId);
+    }
+    query += ' ORDER BY created_at ASC, id ASC ';
+    const [rows] = await pool.query(query, params);
+    return rows;
+  }
+
+  async getForumReplies(forumId) {
+    const [rows] = await pool.query(
+      `
+      SELECT
+        r.id,
+        r.forum_id,
+        r.user_id,
+        r.content,
+        r.created_at,
+        u.nombre AS author_name,
+        u.foto AS author_photo,
+        u.role AS author_role
+      FROM replies r
+      JOIN users u ON u.id = r.user_id
+      WHERE r.forum_id = ?
+      ORDER BY r.created_at ASC, r.id ASC
+      `,
+      [forumId]
+    );
+
+    if (rows.length) return rows;
+
+    const [legacyRows] = await pool.query(
       `
       SELECT
         c.id,
         c.forum_id,
         c.user_id,
         c.content,
-        c.media_url,
-        c.type,
         c.created_at,
         u.nombre AS author_name,
-        u.foto AS author_photo
+        u.foto AS author_photo,
+        u.role AS author_role
       FROM forum_comments c
       JOIN users u ON u.id = c.user_id
       WHERE c.forum_id = ?
-      ORDER BY c.created_at ASC
+      ORDER BY c.created_at ASC, c.id ASC
       `,
       [forumId]
+    );
+    return legacyRows;
+  }
+
+  async createForumReply({ forumId, userId, content, attachments = [] }) {
+    const [result] = await pool.query(
+      `
+      INSERT INTO replies (forum_id, user_id, content, created_at)
+      VALUES (?, ?, ?, NOW())
+      `,
+      [forumId, userId, content]
+    );
+
+    const replyId = result.insertId;
+    if (attachments?.length) {
+      await this.bulkCreateAttachments({
+        forumId: null,
+        replyId,
+        attachments
+      });
+    }
+    return replyId;
+  }
+
+  async findRecentReplyDuplicate({ forumId, userId, content }) {
+    const contentHash = hashText(content);
+    const [rows] = await pool.query(
+      `
+      SELECT id
+      FROM replies
+      WHERE forum_id = ?
+        AND user_id = ?
+        AND SHA2(content, 256) = ?
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 45 SECOND)
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [forumId, userId, contentHash]
+    );
+    return rows[0] || null;
+  }
+
+  async bulkCreateAttachments({ forumId = null, replyId = null, attachments = [] }) {
+    if (!attachments?.length) return;
+    const rows = attachments
+      .map((item) => ({
+        fileUrl: String(item?.file_url || item?.url || '').trim(),
+        fileType: String(item?.file_type || item?.type || 'file').toLowerCase()
+      }))
+      .filter((item) => item.fileUrl)
+      .map((item) => [forumId, replyId, item.fileUrl, ['image', 'file', 'link'].includes(item.fileType) ? item.fileType : 'file']);
+
+    if (!rows.length) return;
+    await pool.query(
+      `
+      INSERT INTO attachments (forum_id, reply_id, file_url, file_type, created_at)
+      VALUES ?
+      `,
+      [rows]
+    );
+  }
+
+  async getModuleMemberUserIds(moduleId, excludeUserId = null) {
+    const [rows] = await pool.query(
+      `
+      SELECT DISTINCT u.id
+      FROM users u
+      LEFT JOIN registrations r ON r.studentEmail = u.email AND r.monitorId = ?
+      LEFT JOIN modules m ON m.id = ? AND m.monitorId = u.id
+      WHERE (r.id IS NOT NULL OR m.id IS NOT NULL)
+        AND u.id <> ?
+      `,
+      [moduleId, moduleId, Number(excludeUserId || 0)]
+    );
+    return rows.map((row) => Number(row.id));
+  }
+
+  async getForumMentionableUsers(moduleId) {
+    const [rows] = await pool.query(
+      `
+      SELECT DISTINCT
+        u.id,
+        u.username,
+        u.nombre,
+        u.role,
+        u.foto
+      FROM users u
+      LEFT JOIN modules m ON m.id = ? AND m.monitorId = u.id
+      LEFT JOIN registrations r ON r.monitorId = ? AND r.studentEmail = u.email
+      WHERE m.id IS NOT NULL
+         OR r.id IS NOT NULL
+         OR LOWER(u.role) IN ('admin', 'monitor_administrativo')
+      ORDER BY u.nombre ASC
+      `,
+      [moduleId, moduleId]
     );
     return rows;
   }
 
-  async createForumComment({ forumId, userId, content, mediaUrl, type }) {
-    const [result] = await pool.query(
-      `
-      INSERT INTO forum_comments (forum_id, user_id, content, media_url, type, created_at)
-      VALUES (?, ?, ?, ?, ?, NOW())
-      `,
-      [forumId, userId, content, mediaUrl || null, type || 'text']
-    );
-    return result.insertId;
+  async getUsersByUsernamesInModule(moduleId, usernames = []) {
+    if (!usernames?.length) return [];
+    const all = await this.getForumMentionableUsers(moduleId);
+    const wanted = new Set(usernames.map((u) => String(u).toLowerCase()));
+    return all.filter((u) => wanted.has(String(u.username || '').toLowerCase()));
+  }
+
+  async getUsersByIdsInModule(moduleId, userIds = []) {
+    if (!userIds?.length) return [];
+    const all = await this.getForumMentionableUsers(moduleId);
+    const wanted = new Set(userIds.map((id) => Number(id)));
+    return all.filter((u) => wanted.has(Number(u.id)));
   }
 
   async setForumFavorite(userId, forumId) {
@@ -546,6 +779,84 @@ class EngagementRepositoryMySQL {
   async removeForumFavorite(userId, forumId) {
     await pool.query('DELETE FROM forum_favorites WHERE user_id = ? AND forum_id = ?', [userId, forumId]);
     return true;
+  }
+
+  async isForumFavorite(userId, forumId) {
+    const [rows] = await pool.query('SELECT 1 FROM forum_favorites WHERE user_id = ? AND forum_id = ? LIMIT 1', [userId, forumId]);
+    return rows.length > 0;
+  }
+
+  async getMyCreatedForums(userId) {
+    const [rows] = await pool.query(
+      `
+      SELECT
+        f.id,
+        f.title,
+        f.content,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
+        m.modulo AS module_name,
+        f.created_at,
+        (
+          SELECT COUNT(*)
+          FROM replies r
+          WHERE r.forum_id = f.id
+        ) AS responses_count
+      FROM forums f
+      LEFT JOIN modules m ON m.id = COALESCE(f.modulo_id, f.subject_id)
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+      `,
+      [userId]
+    );
+    return rows;
+  }
+
+  async getMySavedForums(userId) {
+    const [rows] = await pool.query(
+      `
+      SELECT
+        ff.created_at AS saved_at,
+        f.id,
+        f.title,
+        f.content,
+        f.user_id,
+        u.nombre AS author_name,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
+        m.modulo AS module_name,
+        f.created_at,
+        (
+          SELECT COUNT(*)
+          FROM replies r
+          WHERE r.forum_id = f.id
+        ) AS responses_count
+      FROM forum_favorites ff
+      JOIN forums f ON f.id = ff.forum_id
+      JOIN users u ON u.id = f.user_id
+      LEFT JOIN modules m ON m.id = COALESCE(f.modulo_id, f.subject_id)
+      WHERE ff.user_id = ?
+      ORDER BY ff.created_at DESC
+      `,
+      [userId]
+    );
+    return rows;
+  }
+
+  async deleteForum(forumId) {
+    await pool.query('DELETE FROM attachments WHERE forum_id = ?', [forumId]);
+    await pool.query(
+      `
+      DELETE a
+      FROM attachments a
+      JOIN replies r ON r.id = a.reply_id
+      WHERE r.forum_id = ?
+      `,
+      [forumId]
+    );
+    await pool.query('DELETE FROM replies WHERE forum_id = ?', [forumId]);
+    await pool.query('DELETE FROM forum_comments WHERE forum_id = ?', [forumId]);
+    await pool.query('DELETE FROM forum_favorites WHERE forum_id = ?', [forumId]);
+    const [result] = await pool.query('DELETE FROM forums WHERE id = ?', [forumId]);
+    return result.affectedRows > 0;
   }
 
   async getStudentStats(user) {
@@ -563,7 +874,7 @@ class EngagementRepositoryMySQL {
       FROM attendance a
       LEFT JOIN modules m ON m.id = a.module_id
       WHERE a.student_id = ? OR a.studentName = ?
-      ORDER BY COALESCE(a.scan_time, a.created_at, a.date) DESC
+      ORDER BY COALESCE(a.scan_time, a.date) DESC
       LIMIT 120
       `,
       [user.id, user.nombre || '']
@@ -609,14 +920,14 @@ class EngagementRepositoryMySQL {
     const [bySession] = await pool.query(
       `
       SELECT
-        DATE(COALESCE(a.scan_time, a.created_at, a.date)) AS session_date,
+        DATE(COALESCE(a.scan_time, a.date)) AS session_date,
         m.id AS module_id,
         m.modulo,
         COUNT(*) AS attendance_count
       FROM attendance a
       JOIN modules m ON m.id = a.module_id
       WHERE m.monitorId = ?
-      GROUP BY DATE(COALESCE(a.scan_time, a.created_at, a.date)), m.id, m.modulo
+      GROUP BY DATE(COALESCE(a.scan_time, a.date)), m.id, m.modulo
       ORDER BY session_date DESC, m.modulo ASC
       `,
       [user.id]
@@ -629,7 +940,7 @@ class EngagementRepositoryMySQL {
         FROM attendance a
         JOIN modules m ON m.id = a.module_id
         WHERE m.monitorId = ?
-        GROUP BY DATE(COALESCE(a.scan_time, a.created_at, a.date)), m.id
+        GROUP BY DATE(COALESCE(a.scan_time, a.date)), m.id
       ) x
       `,
       [user.id]
@@ -715,9 +1026,9 @@ class EngagementRepositoryMySQL {
       `
       SELECT COALESCE(AVG(day_count), 0) AS avg_assistances_per_day
       FROM (
-        SELECT DATE(COALESCE(scan_time, created_at, date)) AS d, COUNT(*) AS day_count
+        SELECT DATE(COALESCE(scan_time, date)) AS d, COUNT(*) AS day_count
         FROM attendance
-        GROUP BY DATE(COALESCE(scan_time, created_at, date))
+        GROUP BY DATE(COALESCE(scan_time, date))
       ) t
       `
     );

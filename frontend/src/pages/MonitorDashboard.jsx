@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria, getModalidades, getCuatrimestres, getAllRegistrations } from '../services/api';
+import React, { useEffect, useRef, useState } from 'react';
+import { getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria, getModalidades, getCuatrimestres, getAllRegistrations, getAcademicModuleStats, getAcademicSessionHistory, getAcademicSessionDetail, getDiningStats, getDiningStudentHistory, scanQrLunch, addAcademicAttendanceExcuse } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../components/Modal';
-import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search, UserCheck } from 'lucide-react';
+import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search, UserCheck, Clock3 } from 'lucide-react';
 import { ToastContext } from '../App';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
+import RoleStatsPanel from '../components/RoleStatsPanel';
 
 const MonitorDashboard = () => {
   const navigate = useNavigate();
@@ -50,10 +51,136 @@ const MonitorDashboard = () => {
   });
   const [filterModulo, setFilterModulo] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [topTab, setTopTab] = useState('');
+  const [selectedAnalyticsModuleId, setSelectedAnalyticsModuleId] = useState(null);
+  const [academicStats, setAcademicStats] = useState(null);
+  const [sessionCards, setSessionCards] = useState([]);
+  const [sessionDetail, setSessionDetail] = useState(null);
+  const [diningStats, setDiningStats] = useState(null);
+  const [diningStudentDetail, setDiningStudentDetail] = useState(null);
+  const [manualQrToken, setManualQrToken] = useState('');
+  const [scanResult, setScanResult] = useState(null);
+  const [diningDateFilter, setDiningDateFilter] = useState('');
+  const [diningStatusFilter, setDiningStatusFilter] = useState('ALL');
+  const [cameraAvailable, setCameraAvailable] = useState(null);
+  const [cameraDevices, setCameraDevices] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState('');
+  const [cameraStatus, setCameraStatus] = useState('checking');
+  const [cameraError, setCameraError] = useState('');
+  const [isValidatingScan, setIsValidatingScan] = useState(false);
+  const [excuseTarget, setExcuseTarget] = useState(null);
+  const [excuseReason, setExcuseReason] = useState('');
+  const [excuseDescription, setExcuseDescription] = useState('');
+  const videoRef = useRef(null);
+  const activeStreamRef = useRef(null);
+  const scanTimerRef = useRef(null);
+  const lastScannedRef = useRef({ token: '', at: 0 });
 
   const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+  const isDiningMonitor = ['monitor_administrativo'].includes(String(session?.role || '').toLowerCase()) || ['monitor_administrativo'].includes(String(session?.baseRole || '').toLowerCase());
 
   const monitorId = session.id; // Use real session ID now
+
+  useEffect(() => {
+    if (isDiningMonitor) setTopTab('scanner');
+  }, [isDiningMonitor]);
+
+  const stopCamera = () => {
+    if (scanTimerRef.current) {
+      clearInterval(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      activeStreamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const startCamera = async (deviceId = '') => {
+    stopCamera();
+    setCameraError('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraAvailable(false);
+      setCameraStatus('none');
+      return;
+    }
+
+    setCameraStatus('loading');
+    try {
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(
+          deviceId
+            ? { video: { deviceId: { exact: deviceId } } }
+            : { video: { facingMode: { ideal: 'environment' } } }
+        );
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
+      activeStreamRef.current = stream;
+      const track = stream.getVideoTracks()[0];
+      const activeDeviceId = track?.getSettings?.().deviceId || '';
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter((d) => d.kind === 'videoinput');
+      setCameraDevices(videos);
+      if (!selectedCameraId && activeDeviceId) setSelectedCameraId(activeDeviceId);
+      if (!selectedCameraId && videos.length && !activeDeviceId) setSelectedCameraId(videos[0].deviceId);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
+      }
+
+      setCameraAvailable(true);
+      setCameraStatus('ready');
+
+      if (!('BarcodeDetector' in window)) {
+        setCameraStatus('ready_no_detector');
+        return;
+      }
+
+      let detector = null;
+      try {
+        detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch {
+        setCameraStatus('ready_no_detector');
+        return;
+      }
+
+      scanTimerRef.current = setInterval(async () => {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        try {
+          const codes = await detector.detect(video);
+          const rawValue = String(codes?.[0]?.rawValue || '').trim();
+          if (!rawValue) return;
+          const now = Date.now();
+          if (lastScannedRef.current.token === rawValue && now - lastScannedRef.current.at < 3000) return;
+          lastScannedRef.current = { token: rawValue, at: now };
+          setManualQrToken(rawValue);
+          handleDiningScan(rawValue);
+        } catch {
+          // no-op: detector errors are transient while camera stabilizes.
+        }
+      }, 700);
+    } catch (error) {
+      setCameraAvailable(false);
+      setCameraStatus('error');
+      setCameraError(String(error?.message || 'No se detecto camara'));
+    }
+  };
+
+  useEffect(() => {
+    if (!isDiningMonitor || topTab !== 'scanner') {
+      stopCamera();
+      return;
+    }
+    startCamera(selectedCameraId);
+    return () => stopCamera();
+  }, [isDiningMonitor, topTab, selectedCameraId]);
 
   useEffect(() => {
     const checkMaintenance = async () => {
@@ -83,6 +210,7 @@ const MonitorDashboard = () => {
     ]);
 
     setMonitorModules(myModules);
+    if (myModules?.length && !selectedAnalyticsModuleId) setSelectedAnalyticsModuleId(myModules[0].id);
     setStudents(myRegistrations);
 
     setAllUsers(users);
@@ -91,6 +219,36 @@ const MonitorDashboard = () => {
     setDbCuatrimestres(cuats || []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    const loadAcademic = async () => {
+      if (!selectedAnalyticsModuleId || isDiningMonitor) return;
+      try {
+        const [statsData, sessionRows] = await Promise.all([
+          getAcademicModuleStats(selectedAnalyticsModuleId),
+          getAcademicSessionHistory(selectedAnalyticsModuleId)
+        ]);
+        setAcademicStats(statsData || null);
+        setSessionCards(sessionRows || []);
+      } catch (error) {
+        showToast(error.message || 'No se pudieron cargar estadisticas academicas.', 'error');
+      }
+    };
+    loadAcademic();
+  }, [selectedAnalyticsModuleId, isDiningMonitor]);
+
+  useEffect(() => {
+    const loadDining = async () => {
+      if (!isDiningMonitor) return;
+      try {
+        const data = await getDiningStats();
+        setDiningStats(data || null);
+      } catch (error) {
+        showToast(error.message || 'No se pudieron cargar estadisticas de comedor.', 'error');
+      }
+    };
+    loadDining();
+  }, [isDiningMonitor]);
 
   const handleOpenDelete = (student) => {
     setSelectedStudent(student);
@@ -187,6 +345,85 @@ const MonitorDashboard = () => {
     navigate(`/monitor-attendance/${mod.id}`);
   };
 
+  const openSessionDetail = async (sessionId) => {
+    try {
+      const data = await getAcademicSessionDetail(sessionId);
+      setSessionDetail(data);
+    } catch (error) {
+      showToast(error.message || 'No se pudo abrir el detalle de sesion.', 'error');
+    }
+  };
+
+  const openDiningStudentDetail = async (studentId) => {
+    try {
+      const rows = await getDiningStudentHistory(studentId);
+      setDiningStudentDetail(rows || []);
+    } catch (error) {
+      showToast(error.message || 'No se pudo abrir el historial del estudiante.', 'error');
+    }
+  };
+
+  const saveExcuse = async () => {
+    if (!excuseTarget?.id) return;
+    if (!excuseReason.trim()) return showToast('El motivo es obligatorio.', 'error');
+    try {
+      await addAcademicAttendanceExcuse(excuseTarget.id, {
+        reason: excuseReason.trim(),
+        description: excuseDescription.trim()
+      });
+      if (sessionDetail?.id) {
+        const refreshed = await getAcademicSessionDetail(sessionDetail.id);
+        setSessionDetail(refreshed);
+      }
+      setExcuseTarget(null);
+      setExcuseReason('');
+      setExcuseDescription('');
+      showToast('Excusa registrada correctamente.', 'success');
+    } catch (error) {
+      showToast(error.message || 'No se pudo guardar la excusa.', 'error');
+    }
+  };
+
+  const handleDiningScan = async (token) => {
+    const value = String(token || '').trim();
+    if (!value) return showToast('Ingresa o escanea un QR.', 'error');
+    if (isValidatingScan) return;
+    setIsValidatingScan(true);
+    try {
+      const result = await scanQrLunch({ token: value });
+      setScanResult({ status: 'VALID', message: 'QR valido', payload: result });
+      setManualQrToken('');
+      const updated = await getDiningStats();
+      setDiningStats(updated || null);
+    } catch (error) {
+      const msg = String(error?.message || '');
+      let status = 'INVALID';
+      if (msg.toLowerCase().includes('ya')) status = 'ALREADY_CLAIMED';
+      setScanResult({ status, message: msg || 'QR invalido', payload: null });
+    } finally {
+      setIsValidatingScan(false);
+    }
+  };
+
+  const diningRows = (diningStats?.recent_logs || []).filter((row) => {
+    const byDate = !diningDateFilter || String(row.date || row.created_at || '').slice(0, 10) === diningDateFilter;
+    const normalized = String(row.result || '').toUpperCase();
+    const byStatus = diningStatusFilter === 'ALL' || normalized === diningStatusFilter;
+    return byDate && byStatus;
+  });
+
+  const sessionDayCards = Object.values(
+    (sessionCards || []).reduce((acc, item) => {
+      const day = String(item.start_time || '').slice(0, 10);
+      if (!acc[day]) {
+        acc[day] = { day, total_attendees: 0, session_ids: [] };
+      }
+      acc[day].total_attendees += Number(item.total_attendees || 0);
+      acc[day].session_ids.push(item.id);
+      return acc;
+    }, {})
+  ).sort((a, b) => (a.day < b.day ? 1 : -1));
+
   const handleCreateModule = async (e) => {
     e.preventDefault();
     if (createFormData.dias.length === 0) {
@@ -252,9 +489,165 @@ const MonitorDashboard = () => {
     </div>
   );
 
+  if (isDiningMonitor) {
+    return (
+      <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="bg-teal-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight">Panel Administrativo</h1>
+              <p className="text-teal-100 text-sm mt-1">Control de comedor, escaneo QR y supervision de consumo.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setTopTab('scanner')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'scanner' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Escaner QR</button>
+              <button onClick={() => setTopTab('students')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'students' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Atendidos</button>
+              <button onClick={() => setTopTab('history')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'history' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Historial</button>
+              <button onClick={() => setTopTab('stats')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'stats' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Estadisticas</button>
+            </div>
+          </div>
+
+          {topTab === 'scanner' && (
+            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+              <h2 className="text-lg font-black text-gray-900">Escaner QR</h2>
+              <div className="rounded-2xl border border-dashed border-teal-200 p-4 bg-teal-50/50 space-y-3">
+                {cameraAvailable && (
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <select
+                      value={selectedCameraId}
+                      onChange={(e) => setSelectedCameraId(e.target.value)}
+                      className="border border-teal-200 rounded-xl px-3 py-2 text-xs font-semibold text-teal-800 bg-white"
+                    >
+                      {(cameraDevices || []).map((cam, idx) => (
+                        <option key={cam.deviceId || idx} value={cam.deviceId}>
+                          {cam.label || `Camara ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                    <button onClick={() => startCamera(selectedCameraId)} className="px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-black">
+                      Reiniciar camara
+                    </button>
+                  </div>
+                )}
+
+                <div className="relative w-full max-w-xl rounded-2xl overflow-hidden border border-teal-200 bg-black/90 aspect-video">
+                  {cameraAvailable ? (
+                    <>
+                      <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div className="w-[56%] h-[62%] border-2 border-emerald-300 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center px-6 text-center text-sm font-semibold text-amber-100">
+                      No se detecto camara disponible. Usa el token escrito.
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-sm font-semibold">
+                  {cameraStatus === 'loading' && <p className="text-gray-700">Activando camara...</p>}
+                  {cameraStatus === 'ready' && <p className="text-emerald-700">Camara activa. Escaneo automatico habilitado.</p>}
+                  {cameraStatus === 'ready_no_detector' && <p className="text-amber-700">Camara activa, pero tu navegador no permite escaneo automatico. Usa ingreso manual.</p>}
+                  {cameraStatus === 'none' && <p className="text-amber-700">Este navegador no soporta acceso a camara. Usa ingreso manual.</p>}
+                  {cameraStatus === 'error' && <p className="text-amber-700">No fue posible abrir camara. {cameraError || 'Usa ingreso manual.'}</p>}
+                  {cameraStatus === 'checking' && <p className="text-gray-600">Verificando camara...</p>}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Token QR" />
+                <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-sm font-black disabled:opacity-50">
+                  {isValidatingScan ? 'Validando...' : 'Validar QR'}
+                </button>
+              </div>
+              {scanResult && (
+                <div className={`rounded-2xl border p-4 ${scanResult.status === 'VALID' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+                  <p className="font-black text-sm">{scanResult.status === 'VALID' ? 'VALIDO' : scanResult.status === 'ALREADY_CLAIMED' ? 'YA RECLAMO' : 'INVALIDO'}</p>
+                  <p className="text-xs text-gray-600 mt-1">{scanResult.message}</p>
+                </div>
+              )}
+            </section>
+          )}
+
+          {topTab === 'students' && (
+            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+              <h2 className="text-lg font-black text-gray-900">Lista de estudiantes atendidos</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input type="date" value={diningDateFilter} onChange={(e) => setDiningDateFilter(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                <select value={diningStatusFilter} onChange={(e) => setDiningStatusFilter(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                  <option value="ALL">Todos</option>
+                  <option value="ACCEPTED">VALIDO</option>
+                  <option value="DUPLICATE">YA RECLAMO</option>
+                  <option value="INVALID">INVALIDO</option>
+                  <option value="EXPIRED">EXPIRADO</option>
+                </select>
+                <button onClick={() => { setDiningDateFilter(''); setDiningStatusFilter('ALL'); }} className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-black">Limpiar</button>
+              </div>
+              <div className="max-h-96 overflow-auto rounded-2xl border border-gray-100">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <tr><th className="px-3 py-2 text-left">Estudiante</th><th className="px-3 py-2 text-left">Hora</th><th className="px-3 py-2 text-left">Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {diningRows.map((row) => (
+                      <tr key={row.id} className="border-t border-gray-100">
+                        <td className="px-3 py-2">{row.student_name}</td>
+                        <td className="px-3 py-2">{new Date(row.created_at).toLocaleString()}</td>
+                        <td className="px-3 py-2">{String(row.result || '').toUpperCase()}</td>
+                      </tr>
+                    ))}
+                    {!diningRows.length && <tr><td colSpan="3" className="px-3 py-6 text-gray-400">Sin registros.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {topTab === 'history' && (
+            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+              <h2 className="text-lg font-black text-gray-900">Historial de recoleccion</h2>
+              <div className="space-y-2 max-h-96 overflow-auto">
+                {diningRows.map((row) => (
+                  <div key={row.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+                    <p className="font-bold text-gray-900">{row.student_name}</p>
+                    <p className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</p>
+                    <p className="text-xs text-gray-600 mt-1">Resultado: {String(row.result || '').toUpperCase()}</p>
+                  </div>
+                ))}
+                {!diningRows.length && <p className="text-sm text-gray-500">Sin historial.</p>}
+              </div>
+            </section>
+          )}
+
+          {topTab === 'stats' && (
+            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+              <h2 className="text-lg font-black text-gray-900">Estadisticas de comedor</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total atendidos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_students_served || 0}</p></div>
+                <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total consumos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_served || 0}</p></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <p className="text-xs uppercase font-black text-gray-500 mb-2">Frecuencia por estudiante</p>
+                  {(diningStats?.history_by_student || []).slice(0, 10).map((row) => <p key={row.student_id} className="text-sm text-gray-700">{row.student_name}: <span className="font-black">{row.meals_count}</span></p>)}
+                </div>
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <p className="text-xs uppercase font-black text-gray-500 mb-2">Rechazos</p>
+                  {(diningStats?.rejected_attempts || []).map((r) => <p key={r.result} className="text-sm text-gray-700">{r.result}: <span className="font-black">{r.total}</span></p>)}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold">
+          ← Volver
+        </button>
         {/* Header */}
         <div className="bg-emerald-600 rounded-[32px] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
@@ -270,7 +663,7 @@ const MonitorDashboard = () => {
                 <span className="text-emerald-50 text-center">Bienvenido, {session?.nombre || 'Monitor'}</span>
               </div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tighter leading-tight mb-1.5">
-                Panel de Monitor
+                Panel Monitor Academico
               </h1>
               <p className="text-emerald-100 text-sm font-medium leading-relaxed max-w-lg">
                 Gestiona tus monitorías, comparte enlaces y supervisa tus asistencias.
@@ -278,9 +671,117 @@ const MonitorDashboard = () => {
             </div>
           </div>
 
-          {/* Action Buttons Removed as per user request */}
+          <div className="relative z-10 flex gap-2 self-end md:self-start">
+            <button
+              onClick={() => setTopTab((prev) => (prev === 'stats' ? '' : 'stats'))}
+              className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'stats' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white'}`}
+            >
+              Estadisticas
+            </button>
+            <button
+              onClick={() => setTopTab((prev) => (prev === 'history' ? '' : 'history'))}
+              className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'history' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white'}`}
+            >
+              Asistencia
+            </button>
+          </div>
         </div>
 
+        {!isDiningMonitor && (topTab === 'stats' || topTab === 'history') && (
+          <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-2 justify-between">
+              <h2 className="text-lg font-black text-gray-900">{topTab === 'stats' ? 'Estadisticas por modulo' : 'Historial de sesiones'}</h2>
+              <select
+                value={selectedAnalyticsModuleId || ''}
+                onChange={(e) => setSelectedAnalyticsModuleId(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm"
+              >
+                {(monitorModules || []).map((m) => (
+                  <option key={m.id} value={m.id}>{m.modulo}</option>
+                ))}
+              </select>
+            </div>
+
+            {topTab === 'stats' ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">% Promedio</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.avg_rating || 0}</p></div>
+                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Presentes</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.present_count || 0}</p></div>
+                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Ausentes</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.absent_count || 0}</p></div>
+                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Excusas</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.excuse_count || 0}</p></div>
+                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Horas monitor</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.total_monitor_hours || 0}</p></div>
+                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Sesiones</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.total_sessions || 0}</p></div>
+                </div>
+                <div className="max-h-64 overflow-auto border border-gray-100 rounded-2xl">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                      <tr><th className="px-3 py-2 text-left">Estudiante</th><th className="px-3 py-2 text-left">% Asistencia</th><th className="px-3 py-2 text-left">Presentes</th><th className="px-3 py-2 text-left">Ausentes</th><th className="px-3 py-2 text-left">Excusas</th></tr>
+                    </thead>
+                    <tbody>
+                      {(academicStats?.students || []).map((st) => (
+                        <tr key={st.student_key} className="border-t border-gray-100">
+                          <td className="px-3 py-2">{st.student_name}</td>
+                          <td className="px-3 py-2">{st.attendance_percent}%</td>
+                          <td className="px-3 py-2">{st.present_count}</td>
+                          <td className="px-3 py-2">{st.absent_count}</td>
+                          <td className="px-3 py-2">{st.excuse_count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {sessionDayCards.map((card) => (
+                  <button key={card.day} onClick={() => openSessionDetail(card.session_ids[0])} className="text-left rounded-2xl border border-gray-100 p-4 bg-gray-50 hover:border-brand-blue">
+                    <p className="font-black text-gray-900">Fecha: {new Date(`${card.day}T00:00:00`).toLocaleDateString('es-CO')}</p>
+                    <p className="text-xs text-gray-500 mt-1">Total asistentes: {card.total_attendees}</p>
+                    <p className="text-xs text-gray-500">Sesiones del dia: {card.session_ids.length}</p>
+                  </button>
+                ))}
+                {!sessionDayCards.length && <p className="text-sm text-gray-500">Sin sesiones registradas.</p>}
+              </div>
+            )}
+          </section>
+        )}
+
+        {isDiningMonitor && (
+          <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
+            <h2 className="text-lg font-black text-gray-900">{topTab === 'stats' ? 'Estadisticas de comedor' : 'Historial por estudiante'}</h2>
+            {topTab === 'stats' ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total atendidos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_students_served || 0}</p></div>
+                  <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total consumos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_served || 0}</p></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs uppercase font-black text-gray-500 mb-2">Intentos rechazados</p>
+                    {(diningStats?.rejected_attempts || []).map((r) => <p key={r.result} className="text-sm text-gray-700">{r.result}: <span className="font-black">{r.total}</span></p>)}
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 p-4">
+                    <p className="text-xs uppercase font-black text-gray-500 mb-2">Estudiantes inactivos</p>
+                    <div className="max-h-28 overflow-auto">{(diningStats?.inactive_students || []).map((s) => <p key={s.student_id} className="text-sm text-gray-700">{s.student_name}</p>)}</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {(diningStats?.history_by_student || []).map((row) => (
+                  <button key={row.student_id} onClick={() => openDiningStudentDetail(row.student_id)} className="text-left rounded-2xl border border-gray-100 p-4 bg-gray-50">
+                    <p className="font-black text-gray-900">{row.student_name}</p>
+                    <p className="text-xs text-gray-500">Consumos: {row.meals_count}</p>
+                    <p className="text-xs text-gray-500">Ultimo: {row.last_meal_at ? new Date(row.last_meal_at).toLocaleString() : '-'}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {!isDiningMonitor && (topTab === 'manage' || !topTab) && (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Managed Modules */}
           <div className="lg:col-span-1 space-y-4">
@@ -485,6 +986,10 @@ const MonitorDashboard = () => {
             </div>
           </div>
         </div>
+
+        <RoleStatsPanel />
+        </>
+        )}
       </div>
 
       {/* Modal Baja Estudiante */}
@@ -544,6 +1049,64 @@ const MonitorDashboard = () => {
               Confirmar Baja
             </button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de sesion">
+        {sessionDetail ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">{sessionDetail.modulo} · {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
+            <div className="max-h-80 overflow-auto space-y-2">
+              {(sessionDetail.attendance || []).map((a) => (
+                <div key={a.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+                  <p className="font-bold text-gray-900">{a.student_name || `ID ${a.student_id}`}</p>
+                  <p className="text-xs text-gray-500">{a.status}</p>
+                  {a.status === 'EXCUSA' && (
+                    <p className="text-xs text-gray-600">Excusa: {a.excuse_reason} - {a.excuse_description}</p>
+                  )}
+                  {a.status !== 'EXCUSA' && (
+                    <button onClick={() => setExcuseTarget(a)} className="mt-2 px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[11px] font-black">
+                      Agregar excusa
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal isOpen={!!excuseTarget} onClose={() => setExcuseTarget(null)} title="Agregar excusa">
+        <div className="space-y-3">
+          <input
+            value={excuseReason}
+            onChange={(e) => setExcuseReason(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+            placeholder="Motivo"
+          />
+          <textarea
+            value={excuseDescription}
+            onChange={(e) => setExcuseDescription(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[90px]"
+            placeholder="Descripcion"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setExcuseTarget(null)} className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold">Cancelar</button>
+            <button onClick={saveExcuse} className="px-3 py-2 rounded-xl bg-brand-blue text-white text-sm font-bold">Guardar</button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!diningStudentDetail} onClose={() => setDiningStudentDetail(null)} title="Historial de comedor">
+        <div className="space-y-2 max-h-80 overflow-auto">
+          {(diningStudentDetail || []).map((row) => (
+            <div key={row.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+              <p className="font-bold text-gray-900">{row.student_name}</p>
+              <p className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Registrado por: {row.scanner_name || '-'}</p>
+            </div>
+          ))}
+          {!diningStudentDetail?.length && <p className="text-sm text-gray-500">Sin historial.</p>}
         </div>
       </Modal>
 

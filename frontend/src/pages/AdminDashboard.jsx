@@ -17,7 +17,10 @@ import {
   getProgramas,
   getModalidades,
   getCuatrimestres,
-  setMaintenanceConfig
+  setMaintenanceConfig,
+  getGlobalStats,
+  getUserStats,
+  getUserStatsById
 } from '../services/api';
 import { ToastContext } from '../App';
 import Modal from '../components/Modal';
@@ -98,6 +101,11 @@ const AdminDashboard = () => {
     global: false
   });
   const [loading, setLoading] = useState(true);
+  const [globalStats, setGlobalStats] = useState(null);
+  const [memberStats, setMemberStats] = useState(null);
+  const [selectedStatsUserId, setSelectedStatsUserId] = useState('');
+  const [userStatsModal, setUserStatsModal] = useState(null);
+  const [userStatsTab, setUserStatsTab] = useState('personal');
 
   // Modals state
   const [isNewMonitorOpen, setIsNewMonitorOpen] = useState(false);
@@ -202,9 +210,9 @@ const AdminDashboard = () => {
         getModalidades(),
         getCuatrimestres()
       ]);
-      setMonitors(users.filter(u => u.role === 'monitor'));
+      setMonitors(users.filter(u => ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(String(u.role || ''))));
       setAdmins(users.filter(u => u.role === 'admin'));
-      setStudents(users.filter(u => u.role === 'student'));
+      setStudents(users.filter(u => ['student', 'estudiante'].includes(String(u.role || ''))));
       setDevs(users.filter(u => u.role === 'dev'));
       setMonitorModules(modules || []);
       setDbSedes(sedesList || []);
@@ -215,10 +223,39 @@ const AdminDashboard = () => {
         totalRegs: regs.length,
         totalAttendance: att.length
       });
+      try {
+        const gStats = await getGlobalStats();
+        setGlobalStats(gStats || null);
+      } catch {
+        setGlobalStats(null);
+      }
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadMemberStats = async () => {
+      if (!selectedStatsUserId) return setMemberStats(null);
+      try {
+        const data = await getUserStats(selectedStatsUserId);
+        setMemberStats(data || null);
+      } catch {
+        setMemberStats(null);
+      }
+    };
+    loadMemberStats();
+  }, [selectedStatsUserId]);
+
+  const openUserStatsModal = async (user) => {
+    try {
+      const data = await getUserStatsById(user.id);
+      setUserStatsModal({ user, data });
+      setUserStatsTab('personal');
+    } catch (error) {
+      showToast(error.message || 'No se pudieron cargar estadisticas.', 'error');
     }
   };
 
@@ -394,6 +431,53 @@ const AdminDashboard = () => {
           <StatCard icon={<ShieldCheck />} title="Administradores" value={admins.length} role="admin" />
           <StatCard icon={<Activity />} title="Developers" value={devs.length} role="dev" />
         </div>
+
+        <section className="bg-white rounded-3xl border border-gray-100 p-6 space-y-4">
+          <h3 className="text-lg font-black text-gray-900">Estadisticas de monitoreo</h3>
+          {globalStats ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-gray-100 p-3 bg-gray-50">
+                <p className="text-[11px] uppercase font-black text-gray-500">Total asistencias</p>
+                <p className="text-xl font-black text-brand-blue">{globalStats?.totals?.total_assistances || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-100 p-3 bg-gray-50">
+                <p className="text-[11px] uppercase font-black text-gray-500">Promedio rating</p>
+                <p className="text-xl font-black text-brand-blue">{globalStats?.totals?.average_rating || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-100 p-3 bg-gray-50">
+                <p className="text-[11px] uppercase font-black text-gray-500">Estudiantes unicos</p>
+                <p className="text-xl font-black text-brand-blue">{globalStats?.totals?.unique_students || 0}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No se pudo cargar estadistica global.</p>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+            <div>
+              <label className="text-xs font-black uppercase text-gray-500">Ver estadisticas de miembro</label>
+              <select
+                value={selectedStatsUserId}
+                onChange={(e) => setSelectedStatsUserId(e.target.value)}
+                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              >
+                <option value="">Selecciona un miembro</option>
+                {[...students, ...monitors, ...admins, ...devs].map((u) => (
+                  <option key={u.id} value={u.id}>{u.nombre} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+            {memberStats && (
+              <div className="rounded-2xl border border-gray-100 p-3 bg-gray-50 text-sm text-gray-700">
+                {memberStats.role === 'student' ? (
+                  <p className="font-bold">Asistencias: {memberStats?.totals?.total_attendances || 0} · Promedio rating: {memberStats?.totals?.average_rating_given || 0}</p>
+                ) : (
+                  <p className="font-bold">Estudiantes atendidos: {memberStats?.totals?.total_students_attended || 0} · Sesiones: {memberStats?.totals?.sessions_count || 0}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
         {/* Management Tabs - Refined to Pill Style */}
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="bg-gray-50/50 p-4 border-b border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -621,6 +705,13 @@ const AdminDashboard = () => {
 
                               return (
                                 <>
+                                  <button
+                                    onClick={() => openUserStatsModal(user)}
+                                    className="px-2 py-1 rounded-lg bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider"
+                                    title="Ver estadísticas"
+                                  >
+                                    Stats
+                                  </button>
                                   <button
                                     onClick={() => handleEditUser(user)}
                                     className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-xl transition-all"
@@ -929,6 +1020,45 @@ const AdminDashboard = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal isOpen={!!userStatsModal} onClose={() => setUserStatsModal(null)} title="Estadísticas de usuario">
+        {userStatsModal ? (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <button onClick={() => setUserStatsTab('personal')} className={`px-3 py-2 rounded-xl text-xs font-black ${userStatsTab === 'personal' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}>Personal</button>
+              <button onClick={() => setUserStatsTab('role')} className={`px-3 py-2 rounded-xl text-xs font-black ${userStatsTab === 'role' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}>Rol</button>
+            </div>
+            {userStatsTab === 'personal' ? (
+              <div className="space-y-2 text-sm">
+                <p className="font-bold text-gray-900">Asistencia: {userStatsModal.data?.academic?.total_assistances || 0}</p>
+                <p className="text-gray-700">Faltas: {userStatsModal.data?.academic?.total_absences || 0}</p>
+                <p className="text-gray-700">Excusas: {userStatsModal.data?.academic?.total_excuses || 0}</p>
+                <p className="text-gray-700">Frecuencia: {userStatsModal.data?.academic?.attendance_frequency || 0}%</p>
+                <p className="font-bold text-gray-900 pt-2">Comidas: {userStatsModal.data?.meals?.total_meals || 0}</p>
+                <p className="text-gray-700">Ultima comida: {userStatsModal.data?.meals?.last_meal_at ? new Date(userStatsModal.data.meals.last_meal_at).toLocaleString() : '-'}</p>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                {!userStatsModal.data?.monitor_activity ? (
+                  <p className="text-gray-500">Sin actividad de monitor.</p>
+                ) : userStatsModal.data.monitor_activity.type === 'MONITOR_ACADEMICO' ? (
+                  <>
+                    <p className="font-bold text-gray-900">Sesiones: {userStatsModal.data.monitor_activity.sessions_count || 0}</p>
+                    <p className="text-gray-700">Estudiantes atendidos: {userStatsModal.data.monitor_activity.students_attended || 0}</p>
+                    <p className="text-gray-700">Promedio rating: {userStatsModal.data.monitor_activity.average_rating_received || 0}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-gray-900">Registros de comedor: {userStatsModal.data.monitor_activity.total_served || 0}</p>
+                    <p className="text-gray-700">Escaneos válidos: {userStatsModal.data.monitor_activity.accepted_scans || 0}</p>
+                    <p className="text-gray-700">Escaneos rechazados: {userStatsModal.data.monitor_activity.rejected_scans || 0}</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
       </Modal>
 
       {/* Modal: Confirm Delete */}

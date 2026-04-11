@@ -27,7 +27,7 @@ import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
 import QrCard from '../components/QrCard';
 import ProfileMedicalHistory from '../components/ProfileMedicalHistory';
-import RoleStatsPanel from '../components/RoleStatsPanel';
+import ProfilePersonalStats from '../components/ProfilePersonalStats';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -36,6 +36,7 @@ const Profile = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [activeTab, setActiveTab] = useState('info');
 
   const [dbSedes, setDbSedes] = useState([]);
   const [dbCuatrimestres, setDbCuatrimestres] = useState([]);
@@ -157,8 +158,8 @@ const Profile = () => {
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
     const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-    const restrictions = typeof currentSession?.restrictions === 'string' 
-      ? JSON.parse(currentSession.restrictions) 
+    const restrictions = typeof currentSession?.restrictions === 'string'
+      ? JSON.parse(currentSession.restrictions)
       : (currentSession?.restrictions || {});
 
     if (restrictions.management && currentSession?.baseRole !== 'dev' && currentSession?.role !== 'dev' && !currentSession?.is_principal) {
@@ -214,19 +215,19 @@ const Profile = () => {
 
         {/* Account Status / Restrictions Alert - ONLY show if there are active restrictions */}
         {(() => {
-          const restrictions = typeof user.restrictions === 'string' 
-            ? JSON.parse(user.restrictions) 
+          const restrictions = typeof user.restrictions === 'string'
+            ? JSON.parse(user.restrictions)
             : (user.restrictions || {});
-          
+
           const activeRestrictions = Object.entries(restrictions).filter(([_, v]) => v);
-          
+
           if (activeRestrictions.length === 0 && user.is_active !== 0 && user.is_active !== false) return null;
 
           const isBlocked = user.is_active === 0 || user.is_active === false || restrictions.login;
           const statusColor = isBlocked ? 'red' : 'amber';
 
           return (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               className={`bg-white border-2 border-${statusColor}-100 rounded-[32px] p-6 sm:p-8 shadow-xl shadow-${statusColor}-500/5 relative overflow-hidden group`}
@@ -234,7 +235,7 @@ const Profile = () => {
               <div className={`absolute top-0 right-0 p-8 text-${statusColor}-100/20 rotate-12 group-hover:scale-110 transition-transform`}>
                 <AlertTriangle size={120} />
               </div>
-              
+
               <div className="relative space-y-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 bg-${statusColor}-100 text-${statusColor}-600 rounded-xl`}>
@@ -280,7 +281,7 @@ const Profile = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <p className="text-xs text-gray-400 font-medium italic">
                   * Si crees que esto es un error, por favor contacta con el administrador principal de tu sede.
                 </p>
@@ -359,115 +360,153 @@ const Profile = () => {
           </div>
         </header>
 
-        <QrCard />
-        <RoleStatsPanel />
-        <ProfileMedicalHistory />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Personal Info */}
-          <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
-            <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
-              <User className="text-brand-blue" /> Datos Personales
-              {user.role !== 'admin' && user.role !== 'dev' && (
-                <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg border border-amber-100 flex items-center gap-1 font-bold">
-                  <Lock size={10} /> Solo Lectura
-                </span>
-              )}
-            </h2>
-            <form onSubmit={handleUpdateInfo} className="space-y-4">
-              <InputField 
-                label="Nombre Completo" 
-                icon={<User />} 
-                value={formData.nombre} 
-                onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, nombre: e.target.value })} 
-                placeholder="Tu nombre completo"
-              />
-              <InputField 
-                label="Email Institucional" 
-                icon={<Mail />} 
-                type="email" 
-                value={formData.email} 
-                onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, email: e.target.value })} 
-                placeholder="tu@u.edu"
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <InputField 
-                  label="Sede" 
-                  icon={<MapPin />} 
-                  type="select" 
-                  value={formData.sede} 
-                  onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, sede: e.target.value })} 
-                  options={["Seleccionar Sede", ...dbSedes]}
-                />
-                <InputField 
-                  label="Ciclo/Cuatrimestre" 
-                  icon={<BookOpen />} 
-                  type="select" 
-                  value={formData.cuatrimestre} 
-                  onChange={e => (user.role === 'admin' || user.role === 'dev') && setFormData({ ...formData, cuatrimestre: e.target.value })} 
-                  options={["Seleccionar Cuatrimestre", ...dbCuatrimestres]}
-                />
-              </div>
-
-              {(user.role === 'admin' || user.role === 'dev') && (
-                <button type="submit" className="w-full py-4 bg-brand-blue hover:bg-brand-dark-blue text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
-                  <Save size={18} /> Guardar Cambios
-                </button>
-              )}
-            </form>
-          </section>
-
-          {/* Security */}
-          <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
-            <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
-              <Lock className="text-brand-blue" /> Seguridad
-            </h2>
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <InputField 
-                label="Contraseña Actual" 
-                icon={<Lock />} 
-                type="password" 
-                value={passwords.old} 
-                onChange={e => setPasswords({ ...passwords, old: e.target.value })} 
-                placeholder="••••••••"
-              />
-              <InputField 
-                label="Nueva Contraseña" 
-                icon={<Lock />} 
-                type="password" 
-                value={passwords.new} 
-                onChange={e => setPasswords({ ...passwords, new: e.target.value })} 
-                placeholder="••••••••"
-              />
-              <InputField 
-                label="Confirmar Contraseña" 
-                icon={<Lock />} 
-                type="password" 
-                value={passwords.confirm} 
-                onChange={e => setPasswords({ ...passwords, confirm: e.target.value })} 
-                placeholder="••••••••"
-              />
-              <button type="submit" className="w-full py-4 bg-gray-50 text-gray-900 border-2 border-gray-100 font-black rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
-                <Check size={18} /> Actualizar Contraseña
-              </button>
-            </form>
-          </section>
+        <div className="bg-white p-2 rounded-2xl border border-gray-100 inline-flex gap-2">
+          <button
+            onClick={() => setActiveTab('info')}
+            className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'info' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
+          >
+            Informacion del usuario
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'stats' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
+          >
+            Estadisticas e historial
+          </button>
         </div>
 
-        {/* Account Deletion Area - Available to all to manage their own account */}
-        <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-red-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="space-y-2 text-center sm:text-left">
-            <h2 className="text-xl font-black text-red-600">Zona de Peligro</h2>
-            <p className="text-sm text-gray-400 font-medium">Una vez eliminada la cuenta, no hay vuelta atrás. Tus datos serán borrados permanentemente.</p>
-          </div>
-          <button
-            onClick={() => setIsDeleteOpen(true)}
-            className="shrink-0 px-6 py-4 bg-red-50 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-95 flex items-center gap-2 text-sm"
-          >
-            <Trash2 size={18} /> Eliminar Mi Cuenta
-          </button>
-        </section>
+        {activeTab === 'stats' && (
+          <>
+
+            <ProfilePersonalStats />
+            <ProfileMedicalHistory />
+          </>
+        )}
+
+        {activeTab === 'info' && (
+          <>
+            <QrCard />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Personal Info */}
+              <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
+                <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
+                  <User className="text-brand-blue" /> Datos Personales
+                  <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg border border-amber-100 flex items-center gap-1 font-bold">
+                    <Lock size={10} /> Solo Lectura
+                  </span>
+                </h2>
+                <form className="space-y-4">
+                  <InputField
+                    label="Nombre Completo"
+                    icon={<User />}
+                    value={formData.nombre}
+                    onChange={() => { }}
+                    placeholder="Tu nombre completo"
+                    disabled
+                  />
+                  <InputField
+                    label="Email Institucional"
+                    icon={<Mail />}
+                    type="email"
+                    value={formData.email}
+                    onChange={() => { }}
+                    placeholder="tu@u.edu"
+                    disabled
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputField
+                      label="Username"
+                      icon={<User />}
+                      value={user.username || '-'}
+                      onChange={() => { }}
+                      disabled
+                    />
+                    <InputField
+                      label="Rol"
+                      icon={<ShieldCheck />}
+                      value={String(user.role || 'monitor').toUpperCase()}
+                      onChange={() => { }}
+                      disabled
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputField
+                      label="Sede"
+                      icon={<MapPin />}
+                      type="select"
+                      value={formData.sede}
+                      onChange={() => { }}
+                      options={formData.sede ? [formData.sede] : ['No registrada']}
+                      disabled
+                    />
+                    <InputField
+                      label="Ciclo/Cuatrimestre"
+                      icon={<BookOpen />}
+                      type="select"
+                      value={formData.cuatrimestre}
+                      onChange={() => { }}
+                      options={formData.cuatrimestre ? [formData.cuatrimestre] : ['No registrado']}
+                      disabled
+                    />
+                  </div>
+                </form>
+              </section>
+
+              {/* Security */}
+              <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
+                <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
+                  <Lock className="text-brand-blue" /> Seguridad
+                </h2>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <InputField
+                    label="Contraseña Actual"
+                    icon={<Lock />}
+                    type="password"
+                    value={passwords.old}
+                    onChange={e => setPasswords({ ...passwords, old: e.target.value })}
+                    placeholder="••••••••"
+                  />
+                  <InputField
+                    label="Nueva Contraseña"
+                    icon={<Lock />}
+                    type="password"
+                    value={passwords.new}
+                    onChange={e => setPasswords({ ...passwords, new: e.target.value })}
+                    placeholder="••••••••"
+                  />
+                  <InputField
+                    label="Confirmar Contraseña"
+                    icon={<Lock />}
+                    type="password"
+                    value={passwords.confirm}
+                    onChange={e => setPasswords({ ...passwords, confirm: e.target.value })}
+                    placeholder="••••••••"
+                  />
+                  <button type="submit" className="w-full py-4 bg-gray-50 text-gray-900 border-2 border-gray-100 font-black rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
+                    <Check size={18} /> Actualizar Contraseña
+                  </button>
+                </form>
+              </section>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'info' && (
+          <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-red-100 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center sm:text-left">
+              <h2 className="text-xl font-black text-red-600">Zona de Peligro</h2>
+              <p className="text-sm text-gray-400 font-medium">Una vez eliminada la cuenta, no hay vuelta atrás. Tus datos serán borrados permanentemente.</p>
+            </div>
+            <button
+              onClick={() => setIsDeleteOpen(true)}
+              className="shrink-0 px-6 py-4 bg-red-50 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-95 flex items-center gap-2 text-sm"
+            >
+              <Trash2 size={18} /> Eliminar Mi Cuenta
+            </button>
+          </section>
+        )}
       </div>
 
       <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="¿Confirmar Eliminación?">

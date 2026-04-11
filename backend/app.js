@@ -4,6 +4,8 @@ import bodyParser from 'body-parser';
 import usersRoutes from './routes/users.routes.js';
 import monitoriasRoutes from './routes/monitorias.routes.js';
 import engagementRoutes from './routes/engagement.routes.js';
+import statsRoutes from './routes/stats.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -35,6 +37,8 @@ app.use((req, res, next) => {
 app.use('/api', usersRoutes);
 app.use('/api', monitoriasRoutes);
 app.use('/api', engagementRoutes);
+app.use('/api', statsRoutes);
+app.use('/api', analyticsRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

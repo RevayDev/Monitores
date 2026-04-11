@@ -218,10 +218,30 @@ const getForums = async (req, res) => {
   }
 };
 
+const getForumsByModule = async (req, res) => {
+  try {
+    const moduleId = Number(req.params.moduleId);
+    const data = await engagementService.listForumsByModule(moduleId, req.userContext.userId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getForumMembers = async (req, res) => {
+  try {
+    const moduleId = Number(req.params.moduleId);
+    const data = await engagementService.listForumMembers(moduleId, req.userContext.userId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const createForum = async (req, res) => {
   try {
     const data = await engagementService.createForum(req.userContext.userId, req.body, getClientContext(req));
-    res.status(201).json(data);
+    res.status(201).json({ success: true, data });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -238,13 +258,45 @@ const getForum = async (req, res) => {
 
 const createForumComment = async (req, res) => {
   try {
-    const data = await engagementService.createForumComment(
+    const data = await engagementService.createForumReply(
       Number(req.params.id),
       req.userContext.userId,
       req.body,
       getClientContext(req)
     );
-    res.status(201).json(data);
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const createForumReply = async (req, res) => {
+  try {
+    const data = await engagementService.createForumReply(
+      Number(req.params.id),
+      req.userContext.userId,
+      req.body,
+      getClientContext(req)
+    );
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const toggleForumSave = async (req, res) => {
+  try {
+    const data = await engagementService.toggleForumSave(Number(req.params.id), req.userContext.userId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const deleteForum = async (req, res) => {
+  try {
+    const data = await engagementService.deleteForum(Number(req.params.id), req.userContext.userId);
+    res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -307,9 +359,14 @@ export default {
   readNotifications,
   deleteNotification,
   getForums,
+  getForumsByModule,
+  getForumMembers,
   createForum,
   getForum,
   createForumComment,
+  createForumReply,
+  toggleForumSave,
+  deleteForum,
   getStudentStats,
   getMonitorAcademicStats,
   getMonitorAdminStats,

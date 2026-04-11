@@ -265,13 +265,8 @@ const MisMonitorias = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="text-center">
           <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Mis Monitorias</h1>
-          <p className="text-gray-600 mt-1">Modulos y foro en un solo lugar.</p>
+          <p className="text-gray-600 mt-1">Gestiona tus modulos y abre el foro nuevo por modulo.</p>
         </header>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-2 flex gap-2 w-full sm:w-fit">
-          <button onClick={() => setTab('modules')} className={`px-5 py-2 rounded-xl text-sm font-bold ${tab === 'modules' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Mis modulos</button>
-          <button onClick={() => setTab('forum')} className={`px-5 py-2 rounded-xl text-sm font-bold ${tab === 'forum' ? 'bg-brand-blue text-white' : 'text-gray-600'}`}>Foro</button>
-        </div>
 
         {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div></div>
@@ -314,6 +309,14 @@ const MisMonitorias = () => {
             <div className="bg-white rounded-2xl border border-gray-100 p-2 flex gap-2 w-full sm:w-fit">
               <button onClick={() => setForumPanel('questions')} className={`px-5 py-2 rounded-xl text-sm font-bold ${forumPanel === 'questions' ? 'bg-brand-blue text-white' : 'text-gray-600'}`}>Preguntas</button>
               <button onClick={() => setForumPanel('create')} className={`px-5 py-2 rounded-xl text-sm font-bold ${forumPanel === 'create' ? 'bg-brand-blue text-white' : 'text-gray-600'}`}>Crear foro</button>
+              {!!activeModuleId && (
+                <button
+                  onClick={() => navigate(`/modules/${activeModuleId}/forum`)}
+                  className="px-5 py-2 rounded-xl text-sm font-bold bg-gray-900 text-white"
+                >
+                  Foro nuevo
+                </button>
+              )}
             </div>
 
             {forumPanel === 'questions' ? (
@@ -327,29 +330,29 @@ const MisMonitorias = () => {
                   {!forumThreads.length && <p className="text-sm text-gray-500">No hay foros en este modulo.</p>}
 
                   <div className="space-y-3">
-                  {forumThreads.map((thread) => {
-                    const isActive = Number(selectedThreadId) === Number(thread.id);
-                    const firstMessage = thread.content || '';
-                    return (
-                      <article key={thread.id} className={`rounded-2xl border p-4 transition-all ${isActive ? 'border-brand-blue bg-blue-50/40 shadow-sm' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1 min-w-0">
-                            <p className="font-black text-gray-900 truncate">{thread.title}</p>
-                            <p className="text-xs text-gray-500">por {thread.author_name}</p>
-                            <p className="text-sm text-gray-600 line-clamp-2">{firstMessage.replace(/\[(.*?)\]\((.*?)\)|!\[(.*?)\]\((.*?)\)/g, '').trim() || 'Sin descripcion'}</p>
+                    {forumThreads.map((thread) => {
+                      const isActive = Number(selectedThreadId) === Number(thread.id);
+                      const firstMessage = thread.content || '';
+                      return (
+                        <article key={thread.id} className={`rounded-2xl border p-4 transition-all ${isActive ? 'border-brand-blue bg-blue-50/40 shadow-sm' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1 min-w-0">
+                              <p className="font-black text-gray-900 truncate">{thread.title}</p>
+                              <p className="text-xs text-gray-500">por {thread.author_name}</p>
+                              <p className="text-sm text-gray-600 line-clamp-2">{firstMessage.replace(/\[(.*?)\]\((.*?)\)|!\[(.*?)\]\((.*?)\)/g, '').trim() || 'Sin descripcion'}</p>
+                            </div>
+                            <span className="text-[10px] uppercase font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                              OPEN
+                            </span>
                           </div>
-                          <span className="text-[10px] uppercase font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                            OPEN
-                          </span>
-                        </div>
 
-                        <div className="mt-3 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500"><MessageSquare size={13} /> {thread.responses_count || 0} respuestas</span>
-                          <button onClick={() => openThread(thread.id)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-blue text-white text-xs font-bold">
-                            <Eye size={13} /> Entrar <ChevronRight size={13} />
-                          </button>
-                        </div>
-                      </article>
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 text-xs text-gray-500"><MessageSquare size={13} /> {thread.responses_count || 0} respuestas</span>
+                            <button onClick={() => openThread(thread.id)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-blue text-white text-xs font-bold">
+                              <Eye size={13} /> Entrar <ChevronRight size={13} />
+                            </button>
+                          </div>
+                        </article>
                       );
                     })}
                   </div>
@@ -358,8 +361,8 @@ const MisMonitorias = () => {
                 <aside className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-black text-gray-900">Detalle de pregunta</h3>
-                  <span className="text-xs text-gray-500">{selectedThread ? 'Abierta' : 'Selecciona una card'}</span>
-                </div>
+                    <span className="text-xs text-gray-500">{selectedThread ? 'Abierta' : 'Selecciona una card'}</span>
+                  </div>
 
                   {selectedThread && forumDetail ? (
                     <div className="space-y-3">
@@ -476,11 +479,10 @@ const MisMonitorias = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
               <button
                 onClick={() => {
-                  setActiveModuleId(selectedMonitoria.id);
-                  setTab('forum');
+                  navigate(`/modules/${selectedMonitoria.id}/forum`);
                   setIsDetailOpen(false);
                 }}
                 className="w-full py-3 rounded-xl bg-brand-blue text-white font-bold"

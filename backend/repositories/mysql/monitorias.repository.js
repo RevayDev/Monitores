@@ -223,6 +223,11 @@ class MonitoriasRepositoryMySQL {
       await pool.query(`UPDATE registrations SET ${updates.join(', ')} WHERE studentEmail = ?`, values);
     }
   }
+
+  async deleteModulesByMonitorUserId(monitorUserId) {
+    await pool.query('DELETE FROM modules WHERE monitorId = ?', [monitorUserId]);
+    return true;
+  }
 }
 
 export default new MonitoriasRepositoryMySQL();

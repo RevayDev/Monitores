@@ -9,7 +9,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
   const [formData, setFormData] = useState({
-    username: '',
+    identifier: '',
     password: '',
     role: 'student'
   });
@@ -31,11 +31,11 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(formData.username, formData.role, formData.password);
+      await login(formData.identifier, formData.role, formData.password);
       navigate('/');
       window.location.reload();
     } catch (error) {
-      showToast(typeof error === 'string' ? error : 'Credenciales incorrectas. Intenta de nuevo.', 'error');
+      showToast(error?.message || 'Credenciales incorrectas. Intenta de nuevo.', 'error');
     } finally {
       setLoading(false);
     }
@@ -165,11 +165,11 @@ const Login = () => {
 
             <div className="space-y-4">
               <InputField 
-                label="Nombre de Usuario" 
+                label="Email o Usuario" 
                 icon={<UserCheck />} 
-                value={formData.username} 
-                onChange={e => setFormData({ ...formData, username: e.target.value })} 
-                placeholder="usuario"
+                value={formData.identifier} 
+                onChange={e => setFormData({ ...formData, identifier: e.target.value })} 
+                placeholder="correo@u.edu o usuario"
               />
               <InputField 
                 label="Contraseña" 

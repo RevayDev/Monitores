@@ -1,12 +1,44 @@
 import crypto from 'crypto';
 import engagementRepository, { hashToken } from '../repositories/mysql/engagement.repository.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const QR_VALIDITY_HOURS = 2;
 const DUPLICATE_SCAN_MINUTES = 5;
 const toYmd = (date) => date.toISOString().slice(0, 10);
 const todayBogota = () => new Date().toISOString().slice(0, 10);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FORUM_UPLOADS_DIR = path.resolve(__dirname, '../uploads/forum');
 
 class EngagementService {
+  normalizeAttachments(items = []) {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((item) => ({
+        file_url: String(item?.file_url || item?.url || '').trim(),
+        file_type: String(item?.file_type || item?.type || 'file').toLowerCase()
+      }))
+      .filter((item) => item.file_url)
+      .map((item) => ({
+        file_url: item.file_url,
+        file_type: ['image', 'file', 'link'].includes(item.file_type) ? item.file_type : 'file'
+      }));
+  }
+
+  extractMentionIds(text = '') {
+    const value = String(text || '');
+    const ids = [];
+    for (const match of value.matchAll(/@\{(\d+)\}/g)) {
+      ids.push(Number(match[1]));
+    }
+    for (const match of value.matchAll(/@[^#\n\r]+#(\d+)/g)) {
+      ids.push(Number(match[1]));
+    }
+    return [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))];
+  }
+
   async getCurrentQr(userId) {
     await engagementRepository.revokeExpiredQrs(userId);
     const current = await engagementRepository.getCurrentQrByUser(userId);
@@ -227,23 +259,83 @@ class EngagementService {
   async scanQrForLunch({ token, scannerUserId }, context = {}) {
     if (!token) throw new Error('Token QR obligatorio.');
     const qr = await engagementRepository.findQrByToken(token);
-    if (!qr) throw new Error('QR invalido.');
+    const tokenHash = hashToken(token);
+    if (!qr) {
+      await engagementRepository.createQrScanLog({
+        qrCodeId: null,
+        tokenHash,
+        scannerUserId,
+        studentUserId: null,
+        moduleId: 0,
+        result: 'invalid',
+        reason: 'token_not_found',
+        clientIp: context.ip,
+        userAgent: context.userAgent
+      });
+      throw new Error('QR invalido.');
+    }
 
     const now = new Date();
     if (qr.status === 'revoked' || qr.status === 'expired') {
+      await engagementRepository.createQrScanLog({
+        qrCodeId: qr.id,
+        tokenHash,
+        scannerUserId,
+        studentUserId: qr.user_id,
+        moduleId: 0,
+        result: 'expired',
+        reason: 'status_not_active',
+        clientIp: context.ip,
+        userAgent: context.userAgent
+      });
       throw new Error('QR no activo para almuerzo.');
     }
     if (now < new Date(qr.valid_from) || now > new Date(qr.expires_at)) {
+      await engagementRepository.createQrScanLog({
+        qrCodeId: qr.id,
+        tokenHash,
+        scannerUserId,
+        studentUserId: qr.user_id,
+        moduleId: 0,
+        result: 'expired',
+        reason: 'outside_window',
+        clientIp: context.ip,
+        userAgent: context.userAgent
+      });
       throw new Error('QR fuera de ventana valida.');
     }
 
     const already = await engagementRepository.getLunchUsageToday(qr.user_id);
-    if (already) throw new Error('Este usuario ya recibio almuerzo hoy.');
+    if (already) {
+      await engagementRepository.createQrScanLog({
+        qrCodeId: qr.id,
+        tokenHash,
+        scannerUserId,
+        studentUserId: qr.user_id,
+        moduleId: 0,
+        result: 'duplicate',
+        reason: 'lunch_already_claimed_today',
+        clientIp: context.ip,
+        userAgent: context.userAgent
+      });
+      throw new Error('Este usuario ya recibio almuerzo hoy.');
+    }
 
     const lunchId = await engagementRepository.createLunchUsage({
       userId: qr.user_id,
       qrCodeId: qr.id,
       scannerUserId
+    });
+    await engagementRepository.createQrScanLog({
+      qrCodeId: qr.id,
+      tokenHash,
+      scannerUserId,
+      studentUserId: qr.user_id,
+      moduleId: 0,
+      result: 'accepted',
+      reason: 'lunch_registered',
+      clientIp: context.ip,
+      userAgent: context.userAgent
     });
 
     const scanner = await engagementRepository.getUserById(scannerUserId);
@@ -365,15 +457,15 @@ class EngagementService {
   }
 
   async getMyForumHistory(userId) {
-    const [messages, ownThreads, savedThreads] = await Promise.all([
+    const [legacyMessages, ownForums, savedForums] = await Promise.all([
       engagementRepository.getMyForumHistory(userId),
-      engagementRepository.getMyForumThreads(userId),
-      engagementRepository.getSavedForumThreads(userId)
+      engagementRepository.getMyCreatedForums(userId),
+      engagementRepository.getMySavedForums(userId)
     ]);
     return {
-      messages,
-      ownThreads,
-      savedThreads
+      messages: legacyMessages,
+      own_forums: ownForums,
+      saved_forums: savedForums
     };
   }
 
@@ -433,28 +525,85 @@ class EngagementService {
 
   async listForums({ subjectId }, userId) {
     const subject = subjectId ? Number(subjectId) : null;
-    const forums = await engagementRepository.getForumCards(subject);
+    const forums = await engagementRepository.getForumCardsForUser(subject, userId);
     return forums;
   }
 
-  async createForum(userId, payload, context = {}) {
-    const { title, content, subject_id } = payload || {};
-    if (!title || !content || !subject_id) throw new Error('title, content y subject_id son obligatorios.');
+  async listForumsByModule(moduleId, userId) {
+    if (!Number.isInteger(moduleId) || moduleId <= 0) throw new Error('Modulo invalido.');
     const user = await engagementRepository.getUserById(userId);
-    const canAccess = await engagementRepository.canAccessModule(userId, Number(subject_id), user?.email);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+    if (!canAccess) throw new Error('No tienes acceso a este modulo.');
+    return engagementRepository.getForumCardsForUser(moduleId, userId);
+  }
+
+  async listForumMembers(moduleId, userId) {
+    if (!Number.isInteger(moduleId) || moduleId <= 0) throw new Error('Modulo invalido.');
+    const user = await engagementRepository.getUserById(userId);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+    if (!canAccess) throw new Error('No tienes acceso a este modulo.');
+    return engagementRepository.getForumMentionableUsers(moduleId);
+  }
+
+  async createForum(userId, payload, context = {}) {
+    const { title, content, subject_id, modulo_id, attachments } = payload || {};
+    const moduleId = Number(modulo_id || subject_id);
+    if (!title || !content || !moduleId) throw new Error('title, content y modulo_id son obligatorios.');
+    const user = await engagementRepository.getUserById(userId);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
     if (!canAccess) throw new Error('No tienes acceso al modulo del foro.');
+    const duplicate = await engagementRepository.findRecentForumDuplicate({
+      userId,
+      title: String(title).trim(),
+      content: String(content).trim()
+    });
+    if (duplicate?.id) return { id: duplicate.id, duplicated: true };
+
     const forumId = await engagementRepository.createForum({
       title: String(title).trim(),
       content: String(content).trim(),
       userId,
-      subjectId: Number(subject_id)
+      subjectId: moduleId,
+      attachments: this.normalizeAttachments(attachments)
     });
+
+    const recipients = await engagementRepository.getModuleMemberUserIds(moduleId, userId);
+    await Promise.all(
+      recipients.map((recipientId) =>
+        engagementRepository.createNotification({
+          userId: recipientId,
+          type: 'forum_new_question',
+          title: 'Nueva pregunta en tu modulo',
+          body: String(title).trim(),
+          metadata: { forumId, moduleId }
+        })
+      )
+    );
+
+    const mentionIds = this.extractMentionIds(content);
+    if (mentionIds.length) {
+      const mentionedUsers = await engagementRepository.getUsersByIdsInModule(moduleId, mentionIds);
+      await Promise.all(
+        mentionedUsers
+          .filter((member) => Number(member.id) !== Number(userId))
+          .map((member) =>
+            engagementRepository.createNotification({
+              userId: member.id,
+              type: 'forum_mention',
+              title: 'Te mencionaron en una pregunta',
+              body: String(title).trim(),
+              metadata: { forumId, moduleId }
+            })
+          )
+      );
+    }
+
     await engagementRepository.createActivityLog({
       userId,
       action: 'FORUM_CREATED_V2',
       entityType: 'forum',
       entityId: forumId,
-      metadata: { subject_id: Number(subject_id) },
+      metadata: { subject_id: moduleId },
       ip: context.ip,
       userAgent: context.userAgent
     });
@@ -462,40 +611,76 @@ class EngagementService {
   }
 
   async getForumById(forumId, userId) {
-    const forum = await engagementRepository.getForumById(Number(forumId));
+    const forum = await engagementRepository.getForumByIdForUser(Number(forumId), userId);
     if (!forum) throw new Error('Foro no encontrado.');
     const user = await engagementRepository.getUserById(userId);
-    const canAccess = await engagementRepository.canAccessModule(userId, Number(forum.subject_id), user?.email);
+    const moduleId = Number(forum.modulo_id || forum.subject_id);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
     if (!canAccess) throw new Error('No tienes acceso a este foro.');
-    const comments = await engagementRepository.getForumComments(Number(forumId));
-    return { ...forum, comments };
+    const [replies, attachments] = await Promise.all([
+      engagementRepository.getForumReplies(Number(forumId)),
+      engagementRepository.getForumAttachments({ forumId: Number(forumId) })
+    ]);
+    const enrichedReplies = await Promise.all(
+      (replies || []).map(async (reply) => ({
+        ...reply,
+        attachments: await engagementRepository.getForumAttachments({ replyId: Number(reply.id) })
+      }))
+    );
+    return { ...forum, modulo_id: moduleId, attachments, comments: enrichedReplies, replies: enrichedReplies };
   }
 
-  async createForumComment(forumId, userId, payload, context = {}) {
+  async createForumReply(forumId, userId, payload, context = {}) {
     const forum = await engagementRepository.getForumById(Number(forumId));
     if (!forum) throw new Error('Foro no encontrado.');
     const user = await engagementRepository.getUserById(userId);
-    const canAccess = await engagementRepository.canAccessModule(userId, Number(forum.subject_id), user?.email);
+    const moduleId = Number(forum.modulo_id || forum.subject_id);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
     if (!canAccess) throw new Error('No tienes acceso a este foro.');
 
-    const { content, media_url, type } = payload || {};
+    const { content, attachments } = payload || {};
     if (!content) throw new Error('content es obligatorio.');
-    const commentId = await engagementRepository.createForumComment({
+
+    const duplicate = await engagementRepository.findRecentReplyDuplicate({
+      forumId: Number(forumId),
+      userId,
+      content: String(content).trim()
+    });
+    if (duplicate?.id) return { id: duplicate.id, duplicated: true };
+
+    const commentId = await engagementRepository.createForumReply({
       forumId: Number(forumId),
       userId,
       content: String(content).trim(),
-      mediaUrl: media_url || null,
-      type: type || 'text'
+      attachments: this.normalizeAttachments(attachments)
     });
 
     if (Number(forum.user_id) !== Number(userId)) {
       await engagementRepository.createNotification({
         userId: forum.user_id,
-        type: 'forum_comment',
-        title: 'Nuevo comentario en tu foro',
+        type: 'forum_reply',
+        title: 'Respondieron tu pregunta',
         body: forum.title,
-        metadata: { forumId: Number(forumId) }
+        metadata: { forumId: Number(forumId), moduleId }
       });
+    }
+
+    const mentionIds = this.extractMentionIds(content);
+    if (mentionIds.length) {
+      const mentionedUsers = await engagementRepository.getUsersByIdsInModule(moduleId, mentionIds);
+      await Promise.all(
+        mentionedUsers
+          .filter((member) => Number(member.id) !== Number(userId))
+          .map((member) =>
+            engagementRepository.createNotification({
+              userId: member.id,
+              type: 'forum_mention',
+              title: 'Te mencionaron en un foro',
+              body: forum.title,
+              metadata: { forumId: Number(forumId), moduleId }
+            })
+          )
+      );
     }
 
     await engagementRepository.createActivityLog({
@@ -508,6 +693,68 @@ class EngagementService {
       userAgent: context.userAgent
     });
     return { id: commentId };
+  }
+
+  async createForumComment(forumId, userId, payload, context = {}) {
+    return this.createForumReply(forumId, userId, payload, context);
+  }
+
+  async toggleForumSave(forumId, userId) {
+    const forum = await engagementRepository.getForumById(Number(forumId));
+    if (!forum) throw new Error('Foro no encontrado.');
+    const isSaved = await engagementRepository.isForumFavorite(userId, Number(forumId));
+    if (isSaved) {
+      await engagementRepository.removeForumFavorite(userId, Number(forumId));
+      return { saved: false };
+    }
+    await engagementRepository.setForumFavorite(userId, Number(forumId));
+    return { saved: true };
+  }
+
+  async deleteForum(forumId, userId) {
+    const forum = await engagementRepository.getForumById(Number(forumId));
+    if (!forum) throw new Error('Foro no encontrado.');
+    const actor = await engagementRepository.getUserById(userId);
+    const role = String(actor?.role || '').toLowerCase();
+    const canModerate = ['monitor', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'].includes(role);
+    if (Number(forum.user_id) !== Number(userId) && !canModerate) {
+      throw new Error('No autorizado para borrar este foro.');
+    }
+
+    // Recolecta URLs de adjuntos y contenido markdown para borrar archivos físicos locales.
+    const [forumAttachments, forumReplies] = await Promise.all([
+      engagementRepository.getForumAttachments({ forumId: Number(forumId) }),
+      engagementRepository.getForumReplies(Number(forumId))
+    ]);
+    const replyAttachmentLists = await Promise.all(
+      (forumReplies || []).map((reply) => engagementRepository.getForumAttachments({ replyId: Number(reply.id) }))
+    );
+    const attachmentUrls = [
+      ...(forumAttachments || []).map((a) => a.file_url),
+      ...replyAttachmentLists.flat().map((a) => a.file_url)
+    ];
+    const markdownUrls = [
+      ...(String(forum.content || '').match(/https?:\/\/[^\s)]+/g) || []),
+      ...(forumReplies || []).flatMap((r) => String(r.content || '').match(/https?:\/\/[^\s)]+/g) || [])
+    ];
+    const allUrls = [...new Set([...attachmentUrls, ...markdownUrls])];
+
+    await engagementRepository.deleteForum(Number(forumId));
+
+    for (const url of allUrls) {
+      if (!url || !url.includes('/uploads/forum/')) continue;
+      const fileName = url.split('/uploads/forum/')[1];
+      if (!fileName) continue;
+      const target = path.resolve(FORUM_UPLOADS_DIR, fileName);
+      if (!target.startsWith(FORUM_UPLOADS_DIR)) continue;
+      try {
+        if (fs.existsSync(target)) fs.unlinkSync(target);
+      } catch {
+        // no-op
+      }
+    }
+
+    return { success: true };
   }
 
   async getMyStats(userId) {

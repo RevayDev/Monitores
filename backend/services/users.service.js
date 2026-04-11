@@ -7,7 +7,12 @@ class UsersService {
   normalizeRole(role) {
     const map = {
       student: 'estudiante',
-      monitor: 'monitor_academico'
+      monitor: 'monitor_academico',
+      administrativo: 'monitor_administrativo',
+      ADMINISTRATIVO: 'monitor_administrativo',
+      MONITOR_ACADEMICO: 'monitor_academico',
+      MONITOR_ADMINISTRATIVO: 'monitor_administrativo',
+      STUDENT: 'estudiante'
     };
     return map[role] || role;
   }
@@ -16,11 +21,29 @@ class UsersService {
     return ['admin', 'dev'].includes(role);
   }
 
-  async login(username, role, password) {
-    const user = await usersRepository.findByUsername(username);
+  isAdministrativeSelection(role) {
+    return ['administrativo', 'monitor', 'monitor_academico', 'monitor_administrativo'].includes(String(role || '').toLowerCase());
+  }
+
+  async assertUniqueUser({ email, username }, excludeUserId = null) {
+    const conflict = await usersRepository.existsByEmailOrUsername(email, username, excludeUserId);
+    if (!conflict) return;
+    throw new Error('El usuario o correo ya existe');
+  }
+
+  async login(identifier, role, password) {
+    if (!identifier || !password) throw new Error('Credenciales incorrectas');
+    const user = await usersRepository.findByEmailOrUsername(identifier);
+    if (!user || user.password !== password) {
+      throw new Error('Credenciales incorrectas');
+    }
     const incoming = this.normalizeRole(role);
     const stored = this.normalizeRole(user?.role);
-    if (!user || stored !== incoming || user.password !== password) {
+    if (this.isAdministrativeSelection(incoming)) {
+      if (!['monitor_academico', 'monitor_administrativo'].includes(stored)) {
+        throw new Error('Credenciales incorrectas');
+      }
+    } else if (incoming && incoming !== stored) {
       throw new Error('Credenciales incorrectas');
     }
     if (user.is_active === 0 || user.is_active === false) {
@@ -30,6 +53,7 @@ class UsersService {
   }
 
   async signup(userData) {
+    await this.assertUniqueUser({ email: userData.email, username: userData.username });
     const user = await usersRepository.create({
       ...userData,
       role: 'estudiante'
@@ -76,6 +100,7 @@ class UsersService {
         throw new Error('Solo el Developer Principal puede crear otros desarrolladores.');
       }
     }
+    await this.assertUniqueUser({ email: userData.email, username: userData.username });
     const created = await usersRepository.create({ ...userData, role: requestedRole });
     await engagementRepository.createNotification({
       userId: created.id,
@@ -110,9 +135,13 @@ class UsersService {
       }
     }
 
+    const monitorRoles = new Set(['monitor', 'monitor_academico', 'monitor_administrativo']);
+    const previousRole = this.normalizeRole(target.role);
+    let nextRole = previousRole;
+
     // Role change guards
     if (userData.role && this.normalizeRole(userData.role) !== targetRole) {
-      const nextRole = this.normalizeRole(userData.role);
+      nextRole = this.normalizeRole(userData.role);
       if (nextRole === 'admin') {
         if (updaterRole !== 'admin' || !updater.is_principal) {
           throw new Error('Solo el Administrador Principal puede asignar el rol de administradores.');
@@ -151,7 +180,18 @@ class UsersService {
       }
     }
 
-    return await usersRepository.update(id, userData);
+    const nextEmail = userData.email || target.email;
+    const nextUsername = userData.username || target.username;
+    await this.assertUniqueUser({ email: nextEmail, username: nextUsername }, id);
+
+    const updated = await usersRepository.update(id, userData);
+
+    if (previousRole !== nextRole && monitorRoles.has(previousRole) && !monitorRoles.has(nextRole)) {
+      // El usuario conserva historial, pero pierde sus modulos activos de monitor.
+      await monitoriasRepository.deleteModulesByMonitorUserId(id);
+    }
+
+    return updated;
   }
 
   async deleteUser(id) {
@@ -173,6 +213,39 @@ class UsersService {
       metadata: { strategy: 'soft-delete-anonymization' }
     });
     return true;
+  }
+
+  async getMeStats(userId) {
+    const user = await usersRepository.findById(userId);
+    if (!user) throw new Error('Usuario no encontrado.');
+
+    const [academic, meals] = await Promise.all([
+      usersRepository.getPersonalAcademicStats(user.id, user.nombre),
+      usersRepository.getPersonalMealStats(user.id)
+    ]);
+
+    const role = this.normalizeRole(user.role);
+    let monitorActivity = null;
+    if (['monitor', 'monitor_academico'].includes(role)) {
+      monitorActivity = await usersRepository.getMonitorAcademicActivity(user.id);
+    } else if (role === 'monitor_administrativo') {
+      monitorActivity = await usersRepository.getMonitorAdministrativeActivity(user.id);
+    }
+
+    return {
+      academic,
+      meals,
+      monitor_activity: monitorActivity
+    };
+  }
+
+  async getUserStatsById(requesterId, targetId) {
+    const requester = await usersRepository.findById(requesterId);
+    if (!requester) throw new Error('Usuario solicitante no encontrado.');
+    if (!this.isAdminRole(this.normalizeRole(requester.role))) {
+      throw new Error('No autorizado para consultar estadisticas de otro usuario.');
+    }
+    return this.getMeStats(targetId);
   }
 }
 

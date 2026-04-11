@@ -54,9 +54,14 @@ router.delete('/notifications/:id', requireUserContext, engagementController.del
 router.post('/forum/upload', requireUserContext, forumUpload.single('file'), engagementController.uploadForumFile);
 
 router.get('/forums', requireUserContext, engagementController.getForums);
+router.get('/forums/module/:moduleId', requireUserContext, engagementController.getForumsByModule);
+router.get('/forums/module/:moduleId/members', requireUserContext, engagementController.getForumMembers);
 router.post('/forums', requireUserContext, engagementController.createForum);
 router.get('/forums/:id', requireUserContext, engagementController.getForum);
 router.post('/forums/:id/comment', requireUserContext, engagementController.createForumComment);
+router.post('/forums/:id/reply', requireUserContext, engagementController.createForumReply);
+router.post('/forums/:id/save', requireUserContext, engagementController.toggleForumSave);
+router.delete('/forums/:id', requireUserContext, engagementController.deleteForum);
 
 router.get('/stats/student', requireUserContext, engagementController.getStudentStats);
 router.get('/stats/monitor-academic', requireUserContext, engagementController.getMonitorAcademicStats);

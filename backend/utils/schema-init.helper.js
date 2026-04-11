@@ -79,11 +79,32 @@ const statements = [
     content LONGTEXT NOT NULL,
     user_id INT NOT NULL,
     subject_id INT NOT NULL,
+    modulo_id INT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_forums_subject (subject_id),
+    INDEX idx_forums_modulo (modulo_id),
     INDEX idx_forums_user (user_id),
     INDEX idx_forums_created (created_at)
+  )`,
+  `CREATE TABLE IF NOT EXISTS replies (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    forum_id BIGINT NOT NULL,
+    user_id INT NOT NULL,
+    content LONGTEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_replies_forum (forum_id, created_at),
+    INDEX idx_replies_user (user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS attachments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    forum_id BIGINT NULL,
+    reply_id BIGINT NULL,
+    file_url VARCHAR(255) NOT NULL,
+    file_type ENUM('image','file','link') NOT NULL DEFAULT 'file',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_attach_forum (forum_id),
+    INDEX idx_attach_reply (reply_id)
   )`,
   `CREATE TABLE IF NOT EXISTS forum_comments (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -131,6 +152,39 @@ const statements = [
     is_read TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS academic_sessions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    module_id INT NOT NULL,
+    monitor_id INT NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    rating_average DECIMAL(4,2) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_academic_sessions_module (module_id, start_time),
+    INDEX idx_academic_sessions_monitor (monitor_id, start_time)
+  )`,
+  `CREATE TABLE IF NOT EXISTS academic_session_attendance (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    session_id BIGINT NOT NULL,
+    student_id INT NULL,
+    student_name VARCHAR(180) NULL,
+    status ENUM('PRESENTE','AUSENTE','EXCUSA') NOT NULL,
+    excuse_reason VARCHAR(180) NULL,
+    excuse_description TEXT NULL,
+    rating INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_academic_attendance_session (session_id),
+    INDEX idx_academic_attendance_student (student_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS forum_dedup_requests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    action_type ENUM('create_post','create_reply') NOT NULL,
+    content_hash CHAR(64) NOT NULL,
+    resource_id BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_forum_dedup (user_id, action_type, content_hash)
+  )`,
   `ALTER TABLE registrations ADD COLUMN module_id INT NULL`,
   `ALTER TABLE registrations ADD COLUMN student_id INT NULL`,
   `ALTER TABLE registrations ADD COLUMN status ENUM('active','dropped','completed') NOT NULL DEFAULT 'active'`,
@@ -139,7 +193,11 @@ const statements = [
   `ALTER TABLE attendance ADD COLUMN qr_code_id BIGINT NULL`,
   `ALTER TABLE attendance ADD COLUMN scan_time DATETIME NULL`,
   `ALTER TABLE attendance ADD COLUMN attendance_status ENUM('present','rejected_duplicate','rejected_expired','rejected_out_window') NOT NULL DEFAULT 'present'`,
-  `ALTER TABLE forum_messages MODIFY COLUMN role_snapshot VARCHAR(40) NOT NULL`
+  `ALTER TABLE forums ADD COLUMN modulo_id INT NULL`,
+  `ALTER TABLE users MODIFY COLUMN role ENUM('student','estudiante','monitor','monitor_academico','monitor_administrativo','admin','dev') NOT NULL`,
+  `ALTER TABLE forum_messages MODIFY COLUMN role_snapshot VARCHAR(40) NOT NULL`,
+  `ALTER TABLE users ADD UNIQUE KEY uq_users_email (email)`,
+  `ALTER TABLE users ADD UNIQUE KEY uq_users_username (username)`
 ];
 
 export const ensureSchema = async () => {
@@ -161,6 +219,27 @@ export const ensureSchema = async () => {
     await pool.query('UPDATE registrations SET module_id = monitorId WHERE module_id IS NULL');
   } catch (error) {
     console.warn('Schema sync warning:', error.message);
+  }
+
+  try {
+    await pool.query('UPDATE forums SET modulo_id = subject_id WHERE modulo_id IS NULL');
+  } catch (error) {
+    console.warn('Forum sync warning:', error.message);
+  }
+
+  try {
+    await pool.query(
+      `
+      INSERT INTO users (nombre, username, email, password, role, sede, cuatrimestre, is_principal, createdAt)
+      SELECT 'Admin Administrativo Demo', 'admin_comedor', 'admin_comedor@demo.local', '123456', 'monitor_administrativo', 'Sede Centro', 'N/A', 0, NOW()
+      FROM DUAL
+      WHERE NOT EXISTS (
+        SELECT 1 FROM users WHERE username = 'admin_comedor'
+      )
+      `
+    );
+  } catch (error) {
+    console.warn('Administrative seed warning:', error.message);
   }
 
   try {

@@ -29,7 +29,7 @@ const request = async (endpoint, options = {}) => {
   });
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Request failed');
+    throw new Error(error.error || error.message || 'Request failed');
   }
   const data = await response.json();
   const method = (options.method || 'GET').toUpperCase();
@@ -55,10 +55,10 @@ export const switchRole = async (role, data = {}) => {
   return newUser;
 };
 
-export const login = async (username, role, password) => {
+export const login = async (identifier, role, password) => {
   const user = await request('/login', {
     method: 'POST',
-    body: JSON.stringify({ username, role, password })
+    body: JSON.stringify({ identifier, role, password })
   });
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
   return user;
@@ -98,6 +98,8 @@ export const logout = () => {
 // --- Users & Staff ---
 export const getAllUsers = () => request('/users');
 export const getUserById = (id) => request(`/users/${id}`);
+export const getMeUserStats = () => request('/users/me/stats');
+export const getUserStatsById = (id) => request(`/users/${id}/stats`);
 
 export const createUser = (userData) => {
   const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
@@ -268,15 +270,42 @@ export const getForums = (params = {}) => {
   const query = new URLSearchParams(params).toString();
   return request(`/forums${query ? '?' + query : ''}`);
 };
+export const getForumsByModule = (moduleId) => request(`/forums/module/${moduleId}`);
+export const getForumMembers = (moduleId) => request(`/forums/module/${moduleId}/members`);
 export const createForum = (payload) => request('/forums', { method: 'POST', body: JSON.stringify(payload) });
 export const getForumById = (id) => request(`/forums/${id}`);
 export const createForumComment = (id, payload) => request(`/forums/${id}/comment`, { method: 'POST', body: JSON.stringify(payload) });
+export const createForumReply = (id, payload) => request(`/forums/${id}/reply`, { method: 'POST', body: JSON.stringify(payload) });
+export const toggleForumSave = (id) => request(`/forums/${id}/save`, { method: 'POST', body: JSON.stringify({}) });
+export const deleteForum = (id) => request(`/forums/${id}`, { method: 'DELETE' });
 
 // --- Stats by role ---
 export const getStudentStats = () => request('/stats/student');
 export const getMonitorAcademicStats = () => request('/stats/monitor-academic');
 export const getMonitorAdminStats = () => request('/stats/monitor-admin');
 export const getAdminStats = () => request('/stats/admin');
+export const getGlobalStats = () => request('/stats/global');
+export const getUserStats = (userId) => request(`/stats/user/${userId}`);
+
+// --- Analytics v2 (Academic / Dining / Admin) ---
+export const getAcademicModules = () => request('/academic/modules');
+export const getAcademicModuleStats = (moduleId) => request(`/academic/modules/${moduleId}/stats`);
+export const getAcademicSessionHistory = (moduleId) => request(`/academic/modules/${moduleId}/sessions`);
+export const getAcademicSessionDetail = (sessionId) => request(`/academic/sessions/${sessionId}`);
+export const addAcademicAttendanceExcuse = (attendanceId, payload) => request(`/academic/attendance/${attendanceId}/excuse`, {
+  method: 'PATCH',
+  body: JSON.stringify(payload)
+});
+export const createAcademicSession = (moduleId, payload) => request(`/academic/modules/${moduleId}/sessions`, {
+  method: 'POST',
+  body: JSON.stringify(payload)
+});
+
+export const getDiningStats = () => request('/dining/stats');
+export const getDiningStudentHistory = (studentId) => request(`/dining/students/${studentId}/history`);
+
+export const getAdminOverview = () => request('/admin/overview');
+export const getAdminUserFullStats = (userId) => request(`/admin/users/${userId}/stats`);
 
 export const uploadForumFile = async (file) => {
   const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');

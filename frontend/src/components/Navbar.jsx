@@ -26,6 +26,7 @@ const Navbar = () => {
   const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
   const notificationRef = React.useRef(null);
+  const prevUnreadRef = React.useRef(0);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
 
@@ -48,6 +49,27 @@ const Navbar = () => {
       window.removeEventListener('notifications-updated', loadNotifications);
     };
   }, []);
+
+  useEffect(() => {
+    const currentUnread = notifications.filter((n) => !n.is_read).length;
+    if (currentUnread > prevUnreadRef.current) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.value = 0.04;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch {
+        // no-op
+      }
+    }
+    prevUnreadRef.current = currentUnread;
+  }, [notifications]);
 
   useEffect(() => {
     const onClickOutside = (event) => {
@@ -171,8 +193,8 @@ const Navbar = () => {
                     <div className="absolute right-0 mt-2 w-80 max-h-80 overflow-auto bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
                       <div className="px-4 py-3 border-b border-gray-100 text-xs font-black uppercase tracking-widest text-gray-500">Notificaciones</div>
                       <div className="divide-y divide-gray-100">
-                        {notifications.length ? notifications.map((n) => (
-                          <div key={n.id} className="px-4 py-3 flex items-start gap-2">
+                        {notifications.length ? notifications.map((n, idx) => (
+                          <div key={n.id} className={`px-4 py-3 flex items-start gap-2 ${!n.is_read && idx === 0 ? 'bg-amber-50' : ''}`}>
                             <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
                               <p className="text-xs font-black text-gray-900">{n.type}</p>
                               <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
@@ -188,7 +210,7 @@ const Navbar = () => {
                 </div>
               )}
               {/* Dedicated Panel Buttons based on baseRole */}
-              {!isGuest && (user.role === 'monitor' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+              {!isGuest && (user.role === 'monitor' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/monitor-dashboard')}
                   className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/20"
@@ -354,7 +376,7 @@ const Navbar = () => {
 
                 {/* Mobile Dashboards Container */}
                 <div className="flex flex-col gap-2 pt-2 pb-1">
-                  {(user.role === 'monitor' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+                  {(user.role === 'monitor' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/monitor-dashboard'); }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-600 text-white text-sm font-black rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 uppercase tracking-widest"
