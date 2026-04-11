@@ -164,7 +164,8 @@ const buildMentionToken = (member) => `@${member?.nombre || member?.username || 
 
 const renderRichText = (text, members = [], monitorId) => {
   const value = String(text || '');
-  const parts = value.split(/(!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s]+|@[^\s#@]+#\d+)/g);
+  // Expresion regular corregida: No captura el URL por separado dentro de la imagen
+  const parts = value.split(/(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[^\s#@]+#\d+)/g);
   return parts.map((part, idx) => {
     if (!part) return null;
     const mdImage = part.match(/^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/);
@@ -190,6 +191,31 @@ const renderRichText = (text, members = [], monitorId) => {
     }
     return <React.Fragment key={`t-${idx}`}>{part}</React.Fragment>;
   });
+};
+
+const extractImagesFromMarkdown = (text) => {
+  const regex = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g;
+  const urls = [];
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    urls.push(match[1]);
+  }
+  return [...new Set(urls)];
+};
+
+const LiveImagePreview = ({ text }) => {
+  const urls = extractImagesFromMarkdown(text);
+  if (!urls.length) return null;
+  return (
+    <div className="flex gap-2 p-2 bg-gray-50/50 rounded-xl overflow-x-auto border border-gray-100 mb-2">
+      {urls.map((url, i) => (
+        <div key={i} className="relative flex-shrink-0">
+          <img src={url} alt="preview" className="h-20 w-auto rounded-lg border border-gray-200 shadow-sm" />
+          <div className="absolute top-1 left-1 bg-white/80 px-1 rounded text-[8px] font-bold text-gray-500 uppercase border border-gray-100">Vista previa</div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const ModuleForum = () => {
@@ -699,12 +725,15 @@ const ModuleForum = () => {
                       monitorId={moduleMonitorId}
                       onChange={(e) => onMentionAwareInput('reply', e.target.value)}
                       onKeyDown={(e) => handleSmartDelete('reply', e)}
-                      placeholder="Responder pregunta... usa @ para mencionar"
-                      minHeight="90px"
+                      placeholder="Escribe una respuesta... usa @ para mencionar"
+                      minHeight="100px"
                     />
                     {renderMentionDropdown('reply')}
                   </div>
+                  
+                  <LiveImagePreview text={replyText} />
                   {attachmentGrid(replyAttachments, 'reply')}
+
                   <div className="flex flex-wrap gap-2 items-center">
                     {insertMenu('reply')}
                     <input ref={replyFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'reply')} />
@@ -751,6 +780,7 @@ const ModuleForum = () => {
             {renderMentionDropdown('thread')}
           </div>
 
+          <LiveImagePreview text={content} />
           {attachmentGrid(attachments, 'thread')}
 
           <div className="flex flex-wrap gap-2 items-center">
