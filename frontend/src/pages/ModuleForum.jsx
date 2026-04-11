@@ -16,6 +16,13 @@ import {
 } from '../services/api';
 import { ToastContext } from '../App';
 
+const getVisualRole = (userId, userRole, monitorId) => {
+  if (Number(userId) === Number(monitorId)) return 'monitor';
+  const role = String(userRole || '').toLowerCase();
+  if (role.includes('admin') || role.includes('dev')) return 'admin';
+  return 'student';
+};
+
 const allowedMimeTypes = new Set([
   'application/pdf',
   'application/msword',
@@ -45,14 +52,13 @@ const roleAvatar = (role) => {
 };
 
 
-const roleMentionStyle = (role) => {
-  const value = String(role || '').toLowerCase();
-  if (value.includes('admin')) return 'bg-orange-100 text-orange-900 border border-orange-200';
-  if (value.includes('monitor')) return 'bg-green-100 text-green-900 border border-green-200';
+const roleMentionStyle = (vRole) => {
+  if (vRole === 'monitor') return 'bg-green-100 text-green-900 border border-green-200';
+  if (vRole === 'admin') return 'bg-orange-100 text-orange-900 border border-orange-200';
   return 'bg-blue-100 text-blue-900 border border-blue-200';
 };
 
-const MentionHighlighter = ({ value, members, onChange, onKeyDown, textareaRef, scrollRef, placeholder, className, minHeight }) => {
+const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, textareaRef, scrollRef, placeholder, className, minHeight }) => {
   const handleScroll = (e) => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = e.target.scrollTop;
@@ -67,8 +73,9 @@ const MentionHighlighter = ({ value, members, onChange, onKeyDown, textareaRef, 
       if (part.match(regex)) {
         const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
         const member = (members || []).find((m) => Number(m.id) === id);
+        const vRole = getVisualRole(member?.id, member?.role, monitorId);
         return (
-          <span key={i} className={`rounded px-1 text-[11px] ${roleMentionStyle(member?.role)}`}>
+          <span key={i} className={`rounded px-1 text-[11px] ${roleMentionStyle(vRole)}`}>
             {part}
           </span>
         );
@@ -103,21 +110,19 @@ const MentionHighlighter = ({ value, members, onChange, onKeyDown, textareaRef, 
   );
 };
 
-const roleUnderline = (role) => {
-  const value = String(role || '').toLowerCase();
-  if (value.includes('admin')) return 'bg-orange-100 text-orange-900 border border-orange-200';
-  if (value.includes('monitor')) return 'bg-green-100 text-green-900 border border-green-200';
+const roleUnderline = (vRole) => {
+  if (vRole === 'monitor') return 'bg-green-100 text-green-900 border border-green-200';
+  if (vRole === 'admin') return 'bg-orange-100 text-orange-900 border border-orange-200';
   return 'bg-blue-100 text-blue-900 border border-blue-200';
 };
 
-const roleBadgeLabel = (role, isModuleMonitor = false) => {
-  const value = String(role || '').toLowerCase();
-  if (value === 'admin') return 'Admin';
-  if (isModuleMonitor && value === 'monitor_academico') return 'Monitor';
+const roleBadgeLabel = (vRole) => {
+  if (vRole === 'admin') return 'Admin';
+  if (vRole === 'monitor') return 'Monitor';
   return null;
 };
 
-const UserAvatar = ({ photo, name, role, size = 'w-9 h-9', className = '' }) => {
+const UserAvatar = ({ photo, name, userId, userRole, monitorId, size = 'w-9 h-9', className = '' }) => {
   if (photo) {
     return (
       <div className={`${size} rounded-full overflow-hidden bg-gray-100 ${className}`}>
@@ -126,14 +131,14 @@ const UserAvatar = ({ photo, name, role, size = 'w-9 h-9', className = '' }) => 
     );
   }
   const initial = String(name || 'U').trim().charAt(0).toUpperCase();
-  const roleClasses = (role) => {
-    const value = String(role || '').toLowerCase();
-    if (value.includes('admin')) return 'bg-amber-500 text-white';
-    if (value.includes('monitor')) return 'bg-emerald-500 text-white';
+  const roleClasses = (vRole) => {
+    if (vRole === 'admin') return 'bg-amber-500 text-white';
+    if (vRole === 'monitor') return 'bg-emerald-500 text-white';
     return 'bg-brand-blue text-white';
   };
+  const vRole = getVisualRole(userId, userRole, monitorId);
   return (
-    <div className={`${size} rounded-full flex items-center justify-center text-xs font-black ${roleClasses(role)} ${className}`}>
+    <div className={`${size} rounded-full flex items-center justify-center text-xs font-black ${roleClasses(vRole)} ${className}`}>
       {initial}
     </div>
   );
@@ -531,12 +536,14 @@ const ModuleForum = () => {
             onClick={() => insertMention(target, member)}
             className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black overflow-hidden ${roleAvatar(member?.role)}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black overflow-hidden ${roleAvatar(getVisualRole(member.id, member.role, moduleMonitorId))}`}>
               {member?.foto ? <img src={member.foto} alt={member.nombre} className="w-full h-full object-cover" /> : String(member.nombre || member.username || 'U').trim().charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-black text-gray-900 truncate">{buildMentionToken(member)}</p>
-              <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${roleChip(member.role)}`}>{member.role}</span>
+              <p className="text-sm text-gray-900 truncate">{buildMentionToken(member)}</p>
+              <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] items-center gap-1 font-bold uppercase ${roleChip(getVisualRole(member.id, member.role, moduleMonitorId))}`}>
+                {roleBadgeLabel(getVisualRole(member.id, member.role, moduleMonitorId)) || member.role}
+              </span>
             </div>
           </button>
         ))}
@@ -618,7 +625,7 @@ const ModuleForum = () => {
               {threads.map((thread) => (
                 <div key={thread.id} className={`w-full text-left rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
                   <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
-                    <p className="font-black text-sm text-gray-900 line-clamp-1">{thread.title}</p>
+                    <p className="text-sm text-gray-900 line-clamp-1">{thread.title}</p>
                     <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{thread.content}</p>
                     <p className="text-[11px] text-gray-400 mt-2">{thread.responses_count || 0} respuestas</p>
                   </button>
@@ -646,7 +653,7 @@ const ModuleForum = () => {
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <UserAvatar photo={detail.author_photo} name={detail.author_name} role={detail.author_role} size="w-9 h-9" />
+                      <UserAvatar photo={detail.author_photo} name={detail.author_name} userId={detail.user_id} userRole={detail.author_role} monitorId={moduleMonitorId} size="w-9 h-9" />
                       <div>
                         <p className="text-gray-900">{detail.title}</p>
                         <p className="text-[10px] text-gray-500 line-clamp-1">por {detail.author_name} · {detail.subject_name || moduleData?.modulo || `Modulo #${moduleId}`}</p>
@@ -671,11 +678,11 @@ const ModuleForum = () => {
                   {(detail.replies || detail.comments || []).map((reply) => (
                     <div key={reply.id} className="rounded-2xl border border-gray-100 p-3">
                       <p className="text-xs text-gray-500 flex items-center gap-2">
-                        <UserAvatar photo={reply.author_photo} name={reply.author_name} role={reply.author_role} size="w-6 h-6" />
+                        <UserAvatar photo={reply.author_photo} name={reply.author_name} userId={reply.user_id} userRole={reply.author_role} monitorId={moduleMonitorId} size="w-6 h-6" />
                         <span>{reply.author_name}</span> . respuesta
                         {Number(reply.user_id) === Number(detail.user_id) && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase">Autor</span>}
                       </p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">{renderRichText(reply.content, members)}</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">{renderRichText(reply.content, members, moduleMonitorId)}</p>
                       {!!reply.attachments?.length && <div className="space-y-2 mt-2">{reply.attachments.map((item) => <div key={item.id}>{renderAttachment(item)}</div>)}</div>}
                     </div>
                   ))}
@@ -689,6 +696,7 @@ const ModuleForum = () => {
                       scrollRef={replyScrollRef}
                       value={replyText}
                       members={members}
+                      monitorId={moduleMonitorId}
                       onChange={(e) => onMentionAwareInput('reply', e.target.value)}
                       onKeyDown={(e) => handleSmartDelete('reply', e)}
                       placeholder="Responder pregunta... usa @ para mencionar"
@@ -735,6 +743,7 @@ const ModuleForum = () => {
               scrollRef={threadScrollRef}
               value={content}
               members={members}
+              monitorId={moduleMonitorId}
               onChange={(e) => onMentionAwareInput('thread', e.target.value)}
               onKeyDown={(e) => handleSmartDelete('thread', e)}
               className="w-full border border-gray-200 rounded-xl text-sm min-h-[120px]"
