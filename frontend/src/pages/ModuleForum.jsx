@@ -18,7 +18,9 @@ import { ToastContext } from '../App';
 
 const getVisualRole = (userId, userRole, monitorId) => {
   if (Number(userId) === Number(monitorId)) return 'monitor';
-  return 'student'; // Everyone else is student by default in the forum
+  const role = String(userRole || '').toLowerCase();
+  if (role.includes('admin') || role.includes('dev')) return 'admin';
+  return 'student'; // Other monitors and students are 'student'
 };
 
 const allowedMimeTypes = new Set([
@@ -51,9 +53,9 @@ const roleAvatar = (role) => {
 
 
 const roleMentionStyle = (vRole) => {
-  if (vRole === 'monitor') return 'bg-green-100 text-green-900 border border-green-200';
-  if (vRole === 'admin') return 'bg-orange-100 text-orange-900 border border-orange-200';
-  return 'bg-blue-100 text-blue-900 border border-blue-200';
+  if (vRole === 'monitor') return 'bg-green-100 text-green-900';
+  if (vRole === 'admin') return 'bg-orange-100 text-orange-900';
+  return 'bg-blue-100 text-blue-900';
 };
 
 const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, textareaRef, scrollRef, placeholder, className, minHeight }) => {
@@ -73,7 +75,7 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, te
         const member = (members || []).find((m) => Number(m.id) === id);
         const vRole = getVisualRole(member?.id, member?.role, monitorId);
         return (
-          <span key={i} className={`rounded px-1 text-[11px] ${roleMentionStyle(vRole)}`}>
+          <span key={i} className={`rounded-sm ${roleMentionStyle(vRole)}`}>
             {part}
           </span>
         );
@@ -86,8 +88,8 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, te
     <div className="relative w-full overflow-hidden rounded-xl border border-gray-200">
       <div
         ref={scrollRef}
-        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-white text-gray-900 select-none px-3 py-2 leading-[1.4]`}
-        style={{ fontSize: '14px', fontFamily: 'inherit', letterSpacing: 'normal' }}
+        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-white text-gray-900 select-none px-3 py-2 leading-[1.5]`}
+        style={{ fontSize: '14px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
         aria-hidden="true"
       >
         {renderHighlights(value)}
@@ -100,17 +102,17 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, te
         onKeyDown={onKeyDown}
         onScroll={handleScroll}
         placeholder={placeholder}
-        className={`w-full bg-transparent relative z-10 caret-black leading-[1.4] resize-none px-3 py-2 outline-none border-none`}
-        style={{ minHeight, fontSize: '14px', fontFamily: 'inherit', letterSpacing: 'normal' }}
+        className={`w-full bg-transparent relative z-10 caret-black leading-[1.5] resize-none px-3 py-2 outline-none border-none`}
+        style={{ minHeight, fontSize: '14px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
       />
     </div>
   );
 };
 
 const roleUnderline = (vRole) => {
-  if (vRole === 'monitor') return 'bg-green-100 text-green-900 border border-green-200';
-  if (vRole === 'admin') return 'bg-orange-100 text-orange-900 border border-orange-200';
-  return 'bg-blue-100 text-blue-900 border border-blue-200';
+  if (vRole === 'monitor') return 'bg-green-100/50 text-green-900';
+  if (vRole === 'admin') return 'bg-orange-100/50 text-orange-900';
+  return 'bg-blue-100/50 text-blue-900 border-none';
 };
 
 const roleBadgeLabel = (userId, userRole, monitorId) => {
