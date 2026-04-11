@@ -46,9 +46,9 @@ const roleAvatar = (role) => {
 
 const roleUnderline = (role) => {
   const value = String(role || '').toLowerCase();
-  if (value.includes('admin')) return 'border-amber-500 text-amber-900 bg-amber-50';
-  if (value.includes('monitor')) return 'border-emerald-500 text-emerald-900 bg-emerald-50';
-  return 'border-blue-500 text-blue-900 bg-blue-50';
+  if (value.includes('admin')) return 'decoration-amber-500 text-amber-900 bg-amber-50';
+  if (value.includes('monitor')) return 'decoration-emerald-500 text-emerald-900 bg-emerald-50';
+  return 'decoration-blue-500 text-blue-900 bg-blue-50';
 };
 
 const roleBadgeLabel = (role, isModuleMonitor = false) => {
@@ -56,6 +56,28 @@ const roleBadgeLabel = (role, isModuleMonitor = false) => {
   if (value === 'admin') return 'Admin';
   if (isModuleMonitor && value === 'monitor_academico') return 'Monitor';
   return null;
+};
+
+const UserAvatar = ({ photo, name, role, size = 'w-9 h-9', className = '' }) => {
+  if (photo) {
+    return (
+      <div className={`${size} rounded-full overflow-hidden bg-gray-100 ${className}`}>
+        <img src={photo} alt={name} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+  const initial = String(name || 'U').trim().charAt(0).toUpperCase();
+  const roleClasses = (role) => {
+    const value = String(role || '').toLowerCase();
+    if (value.includes('admin')) return 'bg-amber-500 text-white';
+    if (value.includes('monitor')) return 'bg-emerald-500 text-white';
+    return 'bg-brand-blue text-white';
+  };
+  return (
+    <div className={`${size} rounded-full flex items-center justify-center text-xs font-black ${roleClasses(role)} ${className}`}>
+      {initial}
+    </div>
+  );
 };
 
 const renderAttachment = (item) => {
@@ -96,7 +118,7 @@ const renderRichText = (text, members = []) => {
       return (
         <span
           key={`m-${idx}`}
-          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-black border-b-2 ${roleUnderline(member?.role)}`}
+          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-black underline decoration-2 underline-offset-2 ${roleUnderline(member?.role)}`}
         >
           {label}
         </span>
@@ -143,6 +165,34 @@ const ModuleForum = () => {
   const [mentionTarget, setMentionTarget] = useState(null);
   const [mentionQuery, setMentionQuery] = useState('');
   const [showInsertMenu, setShowInsertMenu] = useState(null);
+
+  const handleSmartDelete = (target, e) => {
+    if (e.key !== 'Backspace') return;
+    const ref = target === 'thread' ? threadTextRef.current : replyTextRef.current;
+    if (!ref) return;
+
+    const start = ref.selectionStart;
+    const end = ref.selectionEnd;
+    if (start !== end) return;
+
+    const value = target === 'thread' ? content : replyText;
+    const textBefore = value.slice(0, start);
+    const mentionMatch = textBefore.match(/@[^#\s]+#\d+\s?$/);
+
+    if (mentionMatch) {
+      e.preventDefault();
+      const mentionToken = mentionMatch[0];
+      const nextValue = value.slice(0, start - mentionToken.length) + value.slice(end);
+      if (target === 'thread') setContent(nextValue);
+      else setReplyText(nextValue);
+      
+      const newPos = start - mentionToken.length;
+      setTimeout(() => {
+        ref.focus();
+        ref.setSelectionRange(newPos, newPos);
+      }, 0);
+    }
+  };
 
   const canModerate = ['monitor', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'].includes(String(currentUser?.role || '').toLowerCase());
   const moduleMonitorId = Number(moduleData?.monitorId || 0);
@@ -515,9 +565,7 @@ const ModuleForum = () => {
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200">
-                        {detail.author_photo ? <img src={detail.author_photo} alt={detail.author_name} className="w-full h-full object-cover" /> : null}
-                      </div>
+                      <UserAvatar photo={detail.author_photo} name={detail.author_name} role={detail.author_role} size="w-9 h-9" />
                       <div>
                       <p className="font-black text-gray-900">{detail.title}</p>
                       <p className="text-xs text-gray-500">por {detail.author_name} · {detail.subject_name || moduleData?.modulo || `Modulo #${moduleId}`}</p>
@@ -542,9 +590,7 @@ const ModuleForum = () => {
                   {(detail.replies || detail.comments || []).map((reply) => (
                     <div key={reply.id} className="rounded-2xl border border-gray-100 p-3">
                       <p className="text-xs text-gray-500 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 inline-block">
-                          {reply.author_photo ? <img src={reply.author_photo} alt={reply.author_name} className="w-full h-full object-cover" /> : null}
-                        </span>
+                        <UserAvatar photo={reply.author_photo} name={reply.author_name} role={reply.author_role} size="w-6 h-6" />
                         <span className="font-bold">{reply.author_name}</span> . respuesta
                         {Number(reply.user_id) === Number(detail.user_id) && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase">Autor</span>}
                       </p>
@@ -561,6 +607,7 @@ const ModuleForum = () => {
                       ref={replyTextRef}
                       value={replyText}
                       onChange={(e) => onMentionAwareInput('reply', e.target.value)}
+                      onKeyDown={(e) => handleSmartDelete('reply', e)}
                       placeholder="Responder pregunta... usa @ para mencionar"
                       className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[90px]"
                     />
@@ -603,6 +650,7 @@ const ModuleForum = () => {
               ref={threadTextRef}
               value={content}
               onChange={(e) => onMentionAwareInput('thread', e.target.value)}
+              onKeyDown={(e) => handleSmartDelete('thread', e)}
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[120px]"
               placeholder="Describe tu duda... usa @ para mencionar"
             />

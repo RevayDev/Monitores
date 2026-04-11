@@ -710,7 +710,7 @@ class EngagementRepositoryMySQL {
     if (!rows.length) return;
     await pool.query(
       `
-      INSERT INTO attachments (forum_id, reply_id, file_url, file_type, created_at)
+      INSERT INTO attachments (forum_id, reply_id, file_url, file_type)
       VALUES ?
       `,
       [rows]
