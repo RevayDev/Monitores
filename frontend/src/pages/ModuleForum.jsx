@@ -44,11 +44,70 @@ const roleAvatar = (role) => {
   return 'bg-blue-100 text-blue-800';
 };
 
+
+const roleMentionStyle = (role) => {
+  const value = String(role || '').toLowerCase();
+  if (value.includes('admin')) return 'bg-orange-100 text-orange-900 border border-orange-200';
+  if (value.includes('monitor')) return 'bg-green-100 text-green-900 border border-green-200';
+  return 'bg-blue-100 text-blue-900 border border-blue-200';
+};
+
+const MentionHighlighter = ({ value, members, onChange, onKeyDown, textareaRef, scrollRef, placeholder, className, minHeight }) => {
+  const handleScroll = (e) => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = e.target.scrollTop;
+    }
+  };
+
+  const renderHighlights = (text) => {
+    if (!text) return text;
+    const regex = /(@[^#]+#\d+)/g;
+    const parts = text.split(regex);
+    return parts.map((part, i) => {
+      if (part.match(regex)) {
+        const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
+        const member = (members || []).find((m) => Number(m.id) === id);
+        return (
+          <span key={i} className={`rounded px-1 text-[11px] font-black ${roleMentionStyle(member?.role)}`}>
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  return (
+    <div className="relative w-full">
+      <div
+        ref={scrollRef}
+        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden ${className} border-transparent text-transparent select-none`}
+        aria-hidden="true"
+      >
+        <div className="px-3 py-2 leading-[1.4] min-h-full">
+          {renderHighlights(value)}
+          {value?.endsWith('\n') ? ' ' : ''}
+        </div>
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onScroll={handleScroll}
+        placeholder={placeholder}
+        className={`${className} bg-transparent relative z-10 caret-black leading-[1.4] resize-none px-3 py-2`}
+        style={{ minHeight }}
+      />
+    </div>
+  );
+};
+
 const roleUnderline = (role) => {
   const value = String(role || '').toLowerCase();
-  if (value.includes('admin')) return 'decoration-amber-500 text-amber-900 bg-amber-50';
-  if (value.includes('monitor')) return 'decoration-emerald-500 text-emerald-900 bg-emerald-50';
-  return 'decoration-blue-500 text-blue-900 bg-blue-50';
+  if (value.includes('admin')) return 'bg-orange-100 text-orange-900 border border-orange-200';
+  if (value.includes('monitor')) return 'bg-green-100 text-green-900 border border-green-200';
+  return 'bg-blue-100 text-blue-900 border border-blue-200';
 };
 
 const roleBadgeLabel = (role, isModuleMonitor = false) => {
@@ -111,14 +170,14 @@ const renderRichText = (text, members = []) => {
     if (/^https?:\/\/[^\s]+$/.test(part)) {
       return <a key={`u-${idx}`} href={part} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{part}</a>;
     }
-    if (/^@[^\s#@]+#\d+$/.test(part)) {
+    if (/^@[^#]+#\d+$/.test(part)) {
       const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
       const member = (members || []).find((m) => Number(m.id) === id);
       const label = member ? `@${member.nombre}#${member.id}` : part;
       return (
         <span
           key={`m-${idx}`}
-          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-black underline decoration-2 underline-offset-2 ${roleUnderline(member?.role)}`}
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-black ${roleUnderline(member?.role)}`}
         >
           {label}
         </span>
@@ -140,6 +199,8 @@ const ModuleForum = () => {
   const replyFileRef = useRef(null);
   const threadImageRef = useRef(null);
   const replyImageRef = useRef(null);
+  const threadScrollRef = useRef(null);
+  const replyScrollRef = useRef(null);
 
   const [moduleData, setModuleData] = useState(null);
   const [myModules, setMyModules] = useState([]);
@@ -167,7 +228,9 @@ const ModuleForum = () => {
   const [showInsertMenu, setShowInsertMenu] = useState(null);
 
   const handleSmartDelete = (target, e) => {
-    if (e.key !== 'Backspace') return;
+    const isDelete = e.key === 'Backspace' || e.key === 'Delete';
+    if (!isDelete) return;
+
     const ref = target === 'thread' ? threadTextRef.current : replyTextRef.current;
     if (!ref) return;
 
@@ -176,21 +239,28 @@ const ModuleForum = () => {
     if (start !== end) return;
 
     const value = target === 'thread' ? content : replyText;
-    const textBefore = value.slice(0, start);
-    const mentionMatch = textBefore.match(/@[^#\s]+#\d+\s?$/);
+    const mentionRegex = /@[^#]+#\d+\s?/g;
+    let match;
 
-    if (mentionMatch) {
-      e.preventDefault();
-      const mentionToken = mentionMatch[0];
-      const nextValue = value.slice(0, start - mentionToken.length) + value.slice(end);
-      if (target === 'thread') setContent(nextValue);
-      else setReplyText(nextValue);
+    while ((match = mentionRegex.exec(value)) !== null) {
+      const mStart = match.index;
+      const mEnd = mStart + match[0].length;
       
-      const newPos = start - mentionToken.length;
-      setTimeout(() => {
-        ref.focus();
-        ref.setSelectionRange(newPos, newPos);
-      }, 0);
+      const isInside = (e.key === 'Backspace' && start > mStart && start <= mEnd) ||
+                       (e.key === 'Delete' && start >= mStart && start < mEnd);
+
+      if (isInside) {
+        e.preventDefault();
+        const nextValue = value.slice(0, mStart) + value.slice(mEnd);
+        if (target === 'thread') setContent(nextValue);
+        else setReplyText(nextValue);
+        
+        setTimeout(() => {
+          ref.focus();
+          ref.setSelectionRange(mStart, mStart);
+        }, 0);
+        return;
+      }
     }
   };
 
@@ -206,11 +276,12 @@ const ModuleForum = () => {
     });
     if (!query) return sorted;
     return sorted.filter((member) => {
+      if (Number(member.id) === Number(currentUser?.id)) return false;
       const name = String(member.nombre || '').toLowerCase();
       const username = String(member.username || '').toLowerCase();
       return name.includes(query) || username.includes(query);
     });
-  }, [members, mentionQuery]);
+  }, [members, mentionQuery, currentUser]);
 
   const loadThreads = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -603,13 +674,16 @@ const ModuleForum = () => {
 
                 <div className="rounded-2xl border border-gray-100 p-3 space-y-2">
                   <div className="relative">
-                    <textarea
-                      ref={replyTextRef}
+                    <MentionHighlighter
+                      textareaRef={replyTextRef}
+                      scrollRef={replyScrollRef}
                       value={replyText}
+                      members={members}
                       onChange={(e) => onMentionAwareInput('reply', e.target.value)}
                       onKeyDown={(e) => handleSmartDelete('reply', e)}
                       placeholder="Responder pregunta... usa @ para mencionar"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[90px]"
+                      className="w-full border border-gray-200 rounded-xl text-sm min-h-[90px]"
+                      minHeight="90px"
                     />
                     {renderMentionDropdown('reply')}
                   </div>
@@ -646,13 +720,16 @@ const ModuleForum = () => {
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Titulo de la pregunta" />
 
           <div className="relative">
-            <textarea
-              ref={threadTextRef}
+            <MentionHighlighter
+              textareaRef={threadTextRef}
+              scrollRef={threadScrollRef}
               value={content}
+              members={members}
               onChange={(e) => onMentionAwareInput('thread', e.target.value)}
               onKeyDown={(e) => handleSmartDelete('thread', e)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[120px]"
+              className="w-full border border-gray-200 rounded-xl text-sm min-h-[120px]"
               placeholder="Describe tu duda... usa @ para mencionar"
+              minHeight="120px"
             />
             {renderMentionDropdown('thread')}
           </div>
