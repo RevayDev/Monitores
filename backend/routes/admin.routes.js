@@ -14,6 +14,11 @@ router.get('/admin/users', adminController.getUsers);
 router.get('/admin/complaints', adminController.getComplaints);
 router.delete('/admin/user/:id', adminController.deleteUser);
 
+// Module management
+router.get('/admin/modules-management', adminController.getModules);
+router.put('/admin/modules-management/:id', adminController.updateModule);
+router.delete('/admin/modules-management/:id', adminController.deleteModule);
+
 // Only principal admin can call this
 router.post('/admin/create-admin', adminPrincipalMiddleware, adminController.createAdmin);
 

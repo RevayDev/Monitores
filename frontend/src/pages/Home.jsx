@@ -81,7 +81,7 @@ const Home = () => {
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   onClick={() => navigate('/signup')}
-                  className="px-6 py-3 sm:px-8 sm:py-4 bg-white text-brand-blue font-black rounded-2xl shadow-xl hover:bg-gray-50 active:scale-95 transition-all text-sm sm:text-base text-center"
+                  className="px-6 py-3 sm:px-8 sm:py-4 bg-white text-brand-blue font-black rounded-2xl shadow-xl hover:bg-gray-100 hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all text-sm sm:text-base text-center"
                 >
                   Crear Mi Cuenta 🎓
                 </button>
@@ -108,11 +108,11 @@ const Home = () => {
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {[
-                { title: 'Excelencia Académica', desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.', color: 'bg-blue-50 text-brand-blue' },
-                { title: 'Flexibilidad Total', desc: 'Modalidades presenciales y virtuales adaptadas a tu ritmo de estudio.', color: 'bg-green-50 text-green-600' },
-                { title: 'Gestión Transparente', desc: 'Poder seleconar tu propia monitoria.', color: 'bg-yellow-50 text-yellow-600' }
+                { title: 'Excelencia Académica', desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.', color: 'bg-blue-50 text-brand-blue', hover: 'hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:ring-4 hover:ring-blue-50' },
+                { title: 'Flexibilidad Total', desc: 'Modalidades presenciales y virtuales adaptadas a tu ritmo de estudio.', color: 'bg-green-50 text-green-600', hover: 'hover:bg-green-600 hover:text-white hover:border-green-600 hover:ring-4 hover:ring-green-50' },
+                { title: 'Gestión Transparente', desc: 'Poder seleconar tu propia monitoria.', color: 'bg-yellow-50 text-yellow-600', hover: 'hover:bg-amber-500 hover:text-white hover:border-amber-500 hover:ring-4 hover:ring-amber-50' }
               ].map((item, i) => (
-                <div key={i} className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-start gap-4 hover:shadow-lg transition-all group cursor-pointer">
+                <div key={i} className={`bg-white p-5 sm:p-8 rounded-[32px] shadow-sm border border-gray-100 flex flex-col items-start gap-4 transition-all duration-500 group cursor-pointer ${item.hover}`}>
                   <div className={`${item.color} w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-base sm:text-xl group-hover:rotate-6 transition-transform`}>
                     0{i + 1}
                   </div>
@@ -142,21 +142,21 @@ const Home = () => {
                 <div className="flex flex-wrap gap-2 p-1 bg-gray-50 rounded-2xl w-full sm:w-fit mt-2">
                   <button
                     onClick={() => setActiveTab('monitor')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     MONITORES
                   </button>
                   <button
                     onClick={() => setActiveTab('admin')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     ADMINS
                   </button>
                   <button
                     onClick={() => setActiveTab('dev')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'dev' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' : 'text-gray-400 hover:text-gray-600'
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'dev' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     DEVS
@@ -173,7 +173,7 @@ const Home = () => {
                   }
                   navigate('/monitorias');
                 }}
-                className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-bold rounded-2xl border border-gray-100 hover:bg-gray-100 transition-all text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-black rounded-2xl border border-gray-100 hover:bg-gray-900 hover:text-white hover:border-gray-900 hover:shadow-xl active:scale-95 transition-all text-xs sm:text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 Ver Monitorías <PlusCircle size={16} />
               </button>

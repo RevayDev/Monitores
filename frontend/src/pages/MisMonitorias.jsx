@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   createForum,
@@ -299,7 +299,7 @@ const MisMonitorias = () => {
             <div className="bg-white rounded-3xl border border-gray-100 p-5">
               <div className="flex flex-wrap gap-2">
                 {monitorias.map((m) => (
-                  <button key={m.id} onClick={() => setActiveModuleId(m.id)} className={`px-3 py-2 rounded-lg text-xs font-bold ${Number(activeModuleId) === Number(m.id) ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  <button key={m.id} onClick={() => setActiveModuleId(m.id)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.id) ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
                     {m.modulo}
                   </button>
                 ))}
@@ -307,12 +307,12 @@ const MisMonitorias = () => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-2 flex gap-2 w-full sm:w-fit">
-              <button onClick={() => setForumPanel('questions')} className={`px-5 py-2 rounded-xl text-sm font-bold ${forumPanel === 'questions' ? 'bg-brand-blue text-white' : 'text-gray-600'}`}>Preguntas</button>
-              <button onClick={() => setForumPanel('create')} className={`px-5 py-2 rounded-xl text-sm font-bold ${forumPanel === 'create' ? 'bg-brand-blue text-white' : 'text-gray-600'}`}>Crear foro</button>
+              <button onClick={() => setForumPanel('questions')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'questions' ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'text-gray-400 hover:bg-gray-50'}`}>Preguntas</button>
+              <button onClick={() => setForumPanel('create')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'create' ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'text-gray-400 hover:bg-gray-50'}`}>Crear foro</button>
               {!!activeModuleId && (
                 <button
                   onClick={() => navigate(`/modules/${activeModuleId}/forum`)}
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-gray-900 text-white"
+                  className="px-5 py-2 rounded-xl text-sm font-black bg-gray-900 text-white hover:bg-black hover:shadow-lg active:scale-95 transition-all"
                 >
                   Foro nuevo
                 </button>
@@ -348,8 +348,8 @@ const MisMonitorias = () => {
 
                           <div className="mt-3 flex items-center justify-between">
                             <span className="inline-flex items-center gap-1 text-xs text-gray-500"><MessageSquare size={13} /> {thread.responses_count || 0} respuestas</span>
-                            <button onClick={() => openThread(thread.id)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-blue text-white text-xs font-bold">
-                              <Eye size={13} /> Entrar <ChevronRight size={13} />
+                            <button onClick={() => openThread(thread.id)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-blue text-white text-xs font-black shadow-md shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all">
+                              <Eye size={14} /> Entrar <ChevronRight size={14} />
                             </button>
                           </div>
                         </article>
@@ -384,7 +384,7 @@ const MisMonitorias = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <input className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900" placeholder="Responder..." value={replyByThread[selectedThread.id] || ''} onChange={(e) => setReplyByThread((p) => ({ ...p, [selectedThread.id]: e.target.value }))} />
-                        <button onClick={() => handleReply(selectedThread.id)} className="p-2 rounded-xl bg-gray-900 text-white"><Send size={14} /></button>
+                        <button onClick={() => handleReply(selectedThread.id)} className="p-2.5 rounded-xl bg-gray-900 text-white hover:bg-black hover:shadow-lg active:scale-90 transition-all"><Send size={16} /></button>
                       </div>
                     </div>
                   ) : (
@@ -403,10 +403,10 @@ const MisMonitorias = () => {
                 <input ref={fileVideoRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0])} />
 
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={addLink} className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1"><LinkIcon size={12} /> Link</button>
-                  <button onClick={() => fileImgRef.current?.click()} className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1"><ImageIcon size={12} /> Imagen</button>
-                  <button onClick={() => fileVideoRef.current?.click()} className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1"><PlayCircle size={12} /> Video</button>
-                  <button onClick={() => fileAnyRef.current?.click()} className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1"><File size={12} /> Archivo</button>
+                  <button onClick={addLink} className="px-3 py-2 rounded-xl bg-gray-50 text-[11px] font-black text-gray-500 flex items-center gap-1.5 hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95"><LinkIcon size={14} /> Link</button>
+                  <button onClick={() => fileImgRef.current?.click()} className="px-3 py-2 rounded-xl bg-gray-50 text-[11px] font-black text-gray-500 flex items-center gap-1.5 hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95"><ImageIcon size={14} /> Imagen</button>
+                  <button onClick={() => fileVideoRef.current?.click()} className="px-3 py-2 rounded-xl bg-gray-50 text-[11px] font-black text-gray-500 flex items-center gap-1.5 hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95"><PlayCircle size={14} /> Video</button>
+                  <button onClick={() => fileAnyRef.current?.click()} className="px-3 py-2 rounded-xl bg-gray-50 text-[11px] font-black text-gray-500 flex items-center gap-1.5 hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95"><File size={14} /> Archivo</button>
                 </div>
 
                 <textarea
@@ -442,7 +442,7 @@ const MisMonitorias = () => {
                   </div>
                 )}
 
-                <button onClick={handleCreateThread} disabled={uploading} className="w-full py-4 rounded-2xl bg-brand-blue text-white font-black text-base shadow-lg hover:bg-brand-dark-blue transition-all disabled:opacity-50">
+                <button onClick={handleCreateThread} disabled={uploading} className="w-full py-5 rounded-2xl bg-brand-blue text-white font-black text-base shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue hover:shadow-2xl active:scale-[0.98] transition-all disabled:opacity-50">
                   {uploading ? 'Subiendo...' : 'Publicar foro'}
                 </button>
               </section>

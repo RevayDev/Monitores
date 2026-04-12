@@ -129,6 +129,33 @@ textarea.bg-transparent::selection {
   -webkit-text-fill-color: transparent !important;
 }
 
-textarea.bg-transparent::placeholder {
-  -webkit-text-fill-color: #94a3b8 !important; /* slate-400 */
+/* Typing Indicator Animations */
+@keyframes typing-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
 }
+
+.typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9; /* Gris muy claro (slate-100) */
+  padding: 6px 12px;
+  border-radius: 16px 16px 16px 4px;
+  width: fit-content;
+  box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.05);
+  margin-bottom: 4px;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  animation: fadeIn 0.2s ease-out;
+}
+
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  background: #1e3a8a; /* Azul marca (brand-blue) */
+  border-radius: 50%;
+  animation: typing-dot-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }

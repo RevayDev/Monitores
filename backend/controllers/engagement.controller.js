@@ -154,7 +154,7 @@ const deleteThread = async (req, res) => {
 
 const deleteMessage = async (req, res) => {
   try {
-    const result = await engagementService.deleteMessage(req.userContext.userId, Number(req.params.id));
+    const result = await engagementService.deleteMessage(Number(req.params.id), req.userContext.userId);
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -338,6 +338,72 @@ const getAdminStats = async (req, res) => {
   }
 };
 
+const updateForum = async (req, res) => {
+  try {
+    const data = await engagementService.updateForum(req.userContext.userId, req.params.id, req.body);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const updateForumReply = async (req, res) => {
+  try {
+    const data = await engagementService.updateForumReply(req.userContext.userId, req.params.id, req.body);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const updateForumPresence = async (req, res) => {
+  try {
+    const { forumId } = req.params;
+    const { isTyping } = req.body;
+    await engagementService.updateForumPresence(req.userContext.userId, Number(forumId), isTyping);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getForumPresence = async (req, res) => {
+  try {
+    const { forumId } = req.params;
+    const data = await engagementService.getForumPresence(Number(forumId), req.userContext.userId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const reportForum = async (req, res) => {
+  try {
+    const data = await engagementService.reportForum(req.userContext.userId, req.body);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getReports = async (req, res) => {
+  try {
+    const data = await engagementService.getReports(req.userContext.userId, req.query);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const resolveReport = async (req, res) => {
+  try {
+    const data = await engagementService.resolveReport(req.userContext.userId, req.params.id);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export default {
   generateQr,
   getCurrentQr,
@@ -371,5 +437,12 @@ export default {
   getMonitorAcademicStats,
   getMonitorAdminStats,
   getAdminStats,
-  getMyStats
+  updateForum,
+  updateForumReply,
+  getMyStats,
+  updateForumPresence,
+  getForumPresence,
+  reportForum,
+  getReports,
+  resolveReport
 };

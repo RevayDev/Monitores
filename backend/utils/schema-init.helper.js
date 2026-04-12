@@ -197,7 +197,8 @@ const statements = [
   `ALTER TABLE users MODIFY COLUMN role ENUM('student','estudiante','monitor','monitor_academico','monitor_administrativo','admin','dev') NOT NULL`,
   `ALTER TABLE forum_messages MODIFY COLUMN role_snapshot VARCHAR(40) NOT NULL`,
   `ALTER TABLE users ADD UNIQUE KEY uq_users_email (email)`,
-  `ALTER TABLE users ADD UNIQUE KEY uq_users_username (username)`
+  `ALTER TABLE users ADD UNIQUE KEY uq_users_username (username)`,
+  `ALTER TABLE replies ADD COLUMN updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP`
 ];
 
 export const ensureSchema = async () => {

@@ -14,24 +14,30 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
   };
 
   return (
-    <div className={`rounded-xl shadow-md overflow-hidden border transition-all hover:shadow-lg flex flex-col h-full cursor-pointer relative ${isRegistered
-        ? 'bg-yellow-50 border-yellow-200'
+    <div 
+      onClick={handleAction}
+      className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full cursor-pointer relative group ${
+        isRegistered
+        ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5'
         : isFull
           ? 'bg-red-50 border-red-200'
-          : 'bg-white border-gray-100'
+          : 'bg-white border-slate-100 hover:border-brand-blue/30'
       }`}>
-      <div className={`${isRegistered
-          ? 'bg-yellow-400'
+      <div className={`${
+          isRegistered
+          ? 'bg-amber-500'
           : isFull
             ? 'bg-red-600'
-            : 'bg-brand-blue'
-        } px-4 py-3 flex justify-between items-center text-white`}>
-        <div className="flex items-center gap-2">
-          {isRegistered ? <Monitor size={16} /> : <Book size={18} />}
-          <span className="font-semibold text-sm">{data.modulo}</span>
+            : 'bg-brand-blue group-hover:bg-brand-dark-blue'
+        } px-5 py-4 flex justify-between items-center text-white transition-colors duration-300`}>
+        <div className="flex items-center gap-3">
+          {isRegistered ? <Monitor size={18} className="animate-pulse" /> : <Book size={18} />}
+          <span className="font-black text-[13px] uppercase tracking-tight">{data.modulo}</span>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-lg">{data.modalidad}</span>
+          <span className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+            {data.modalidad}
+          </span>
         </div>
       </div>
 
@@ -46,7 +52,6 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
                 createdAt: data.monitorCreatedAt
               }}
               size="sm"
-              rounded="rounded-md"
             />
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Monitor</p>

@@ -141,7 +141,8 @@ class EngagementRepositoryMySQL {
     await pool.query(
       `
       UPDATE qr_codes
-      SET use_count = use_count + 1, last_used_at = NOW(), status = CASE WHEN status = 'active' THEN 'used' ELSE status END
+      SET use_count = use_count + 1,
+          last_used_at = NOW()
       WHERE id = ?
       `,
       [qrCodeId]
@@ -294,7 +295,7 @@ class EngagementRepositoryMySQL {
       `
       SELECT s.id AS saved_id, s.created_at AS saved_at,
              t.id AS thread_id, t.title, t.module_id, t.created_by, t.status,
-             m.modulo
+              m.modulo
       FROM forum_saved_items s
       JOIN forum_threads t ON t.id = s.thread_id
       JOIN modules m ON m.id = t.module_id
@@ -418,11 +419,6 @@ class EngagementRepositoryMySQL {
     return result.affectedRows > 0;
   }
 
-  async markOneNotificationAsRead(notificationId, userId) {
-    await pool.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', [notificationId, userId]);
-    return true;
-  }
-
   async createLunchUsage({ userId, qrCodeId, scannerUserId }) {
     const [result] = await pool.query(
       `
@@ -440,39 +436,6 @@ class EngagementRepositoryMySQL {
       [userId]
     );
     return rows[0] || null;
-  }
-
-  async getForumCards(subjectId = null) {
-    const params = [];
-    let where = '';
-    if (subjectId) {
-      where = 'WHERE COALESCE(f.modulo_id, f.subject_id) = ?';
-      params.push(subjectId);
-    }
-    const [rows] = await pool.query(
-      `
-      SELECT
-        f.id,
-        f.title,
-        f.content,
-        f.user_id,
-        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
-        f.created_at,
-        u.nombre AS author_name,
-        u.foto AS author_photo,
-        (
-          SELECT COUNT(*)
-          FROM replies r
-          WHERE r.forum_id = f.id
-        ) AS responses_count
-      FROM forums f
-      JOIN users u ON u.id = f.user_id
-      ${where}
-      ORDER BY f.created_at DESC
-      `,
-      params
-    );
-    return rows;
   }
 
   async getForumCardsForUser(subjectId = null, userId = null) {
@@ -493,6 +456,7 @@ class EngagementRepositoryMySQL {
         f.created_at,
         u.nombre AS author_name,
         u.foto AS author_photo,
+        u.is_active AS author_active,
         (
           SELECT COUNT(*)
           FROM replies r
@@ -549,6 +513,33 @@ class EngagementRepositoryMySQL {
     return rows[0] || null;
   }
 
+  async getForumByIdForUser(forumId, userId) {
+    const [rows] = await pool.query(
+      `
+      SELECT
+        f.*,
+        u.nombre AS author_name,
+        u.foto AS author_photo,
+        u.role AS author_role,
+        u.is_active AS author_active,
+        m.monitorId AS module_monitor_id,
+        m.modulo AS module_name,
+        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
+        CASE
+          WHEN EXISTS (SELECT 1 FROM forum_favorites ff WHERE ff.forum_id = f.id AND ff.user_id = ?) THEN 1
+          ELSE 0
+        END AS is_saved
+      FROM forums f
+      JOIN users u ON u.id = f.user_id
+      LEFT JOIN modules m ON m.id = COALESCE(f.modulo_id, f.subject_id)
+      WHERE f.id = ?
+      LIMIT 1
+      `,
+      [userId, forumId]
+    );
+    return rows[0] || null;
+  }
+
   async getForumById(forumId) {
     const [rows] = await pool.query(
       `
@@ -566,31 +557,6 @@ class EngagementRepositoryMySQL {
       LIMIT 1
       `,
       [forumId]
-    );
-    return rows[0] || null;
-  }
-
-  async getForumByIdForUser(forumId, userId) {
-    const [rows] = await pool.query(
-      `
-      SELECT
-        f.*,
-        u.nombre AS author_name,
-        u.foto AS author_photo,
-        u.role AS author_role,
-        m.modulo AS subject_name,
-        COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
-        CASE
-          WHEN EXISTS (SELECT 1 FROM forum_favorites ff WHERE ff.forum_id = f.id AND ff.user_id = ?) THEN 1
-          ELSE 0
-        END AS is_saved
-      FROM forums f
-      JOIN users u ON u.id = f.user_id
-      LEFT JOIN modules m ON m.id = COALESCE(f.modulo_id, f.subject_id)
-      WHERE f.id = ?
-      LIMIT 1
-      `,
-      [userId, forumId]
     );
     return rows[0] || null;
   }
@@ -627,7 +593,8 @@ class EngagementRepositoryMySQL {
         r.created_at,
         u.nombre AS author_name,
         u.foto AS author_photo,
-        u.role AS author_role
+        u.role AS author_role,
+        u.is_active AS author_active
       FROM replies r
       JOIN users u ON u.id = r.user_id
       WHERE r.forum_id = ?
@@ -635,28 +602,7 @@ class EngagementRepositoryMySQL {
       `,
       [forumId]
     );
-
-    if (rows.length) return rows;
-
-    const [legacyRows] = await pool.query(
-      `
-      SELECT
-        c.id,
-        c.forum_id,
-        c.user_id,
-        c.content,
-        c.created_at,
-        u.nombre AS author_name,
-        u.foto AS author_photo,
-        u.role AS author_role
-      FROM forum_comments c
-      JOIN users u ON u.id = c.user_id
-      WHERE c.forum_id = ?
-      ORDER BY c.created_at ASC, c.id ASC
-      `,
-      [forumId]
-    );
-    return legacyRows;
+    return rows;
   }
 
   async createForumReply({ forumId, userId, content, attachments = [] }) {
@@ -677,6 +623,20 @@ class EngagementRepositoryMySQL {
       });
     }
     return replyId;
+  }
+
+  async getForumReplyById(replyId) {
+    const [rows] = await pool.query('SELECT * FROM replies WHERE id = ? LIMIT 1', [replyId]);
+    return rows[0] || null;
+  }
+
+  async updateForumReply(id, { content, attachments = [] }) {
+    await pool.query('UPDATE replies SET content = ? WHERE id = ?', [content, id]);
+    if (attachments && attachments.length >= 0) {
+      await pool.query('DELETE FROM attachments WHERE reply_id = ?', [id]);
+      await this.bulkCreateAttachments({ replyId: id, attachments });
+    }
+    return true;
   }
 
   async findRecentReplyDuplicate({ forumId, userId, content }) {
@@ -744,21 +704,13 @@ class EngagementRepositoryMySQL {
       FROM users u
       LEFT JOIN modules m ON m.id = ? AND m.monitorId = u.id
       LEFT JOIN registrations r ON r.monitorId = ? AND r.studentEmail = u.email
-      WHERE m.id IS NOT NULL
-         OR r.id IS NOT NULL
-         OR LOWER(u.role) IN ('admin', 'monitor_administrativo')
+      WHERE (m.id IS NOT NULL OR r.id IS NOT NULL OR LOWER(u.role) IN ('admin', 'monitor_administrativo', 'dev'))
+        AND u.is_active = 1
       ORDER BY u.nombre ASC
       `,
       [moduleId, moduleId]
     );
     return rows;
-  }
-
-  async getUsersByUsernamesInModule(moduleId, usernames = []) {
-    if (!usernames?.length) return [];
-    const all = await this.getForumMentionableUsers(moduleId);
-    const wanted = new Set(usernames.map((u) => String(u).toLowerCase()));
-    return all.filter((u) => wanted.has(String(u.username || '').toLowerCase()));
   }
 
   async getUsersByIdsInModule(moduleId, userIds = []) {
@@ -784,6 +736,19 @@ class EngagementRepositoryMySQL {
   async isForumFavorite(userId, forumId) {
     const [rows] = await pool.query('SELECT 1 FROM forum_favorites WHERE user_id = ? AND forum_id = ? LIMIT 1', [userId, forumId]);
     return rows.length > 0;
+  }
+
+  async updateForum(id, { title, content, attachments = [] }) {
+    if (title !== undefined) {
+      await pool.query('UPDATE forums SET title = ? WHERE id = ?', [title, id]);
+    }
+    await pool.query('UPDATE forums SET content = ? WHERE id = ?', [content, id]);
+    
+    if (attachments && attachments.length >= 0) {
+      await pool.query('DELETE FROM attachments WHERE forum_id = ?', [id]);
+      await this.bulkCreateAttachments({ forumId: id, attachments });
+    }
+    return true;
   }
 
   async getMyCreatedForums(userId) {
@@ -1066,6 +1031,99 @@ class EngagementRepositoryMySQL {
       return this.getAdminStats();
     }
     return true;
+  }
+
+  async updateForumPresence(forumId, userId, isTyping) {
+    const expiresAt = new Date(Date.now() + 10000);
+    await pool.query(
+      `
+      INSERT INTO forum_presence (forum_id, user_id, is_typing, updated_at, expires_at)
+      VALUES (?, ?, ?, NOW(), ?)
+      ON DUPLICATE KEY UPDATE is_typing = ?, updated_at = NOW(), expires_at = ?
+      `,
+      [forumId, userId, isTyping ? 1 : 0, expiresAt, isTyping ? 1 : 0, expiresAt]
+    );
+    await pool.query('DELETE FROM forum_presence WHERE expires_at < NOW()');
+  }
+
+  async getForumPresence(forumId, currentUserId) {
+    const [rows] = await pool.query(
+      `
+      SELECT p.user_id, u.nombre, u.foto, u.role, p.is_typing
+      FROM forum_presence p
+      JOIN users u ON u.id = p.user_id
+      WHERE p.forum_id = ?
+        AND p.expires_at > NOW()
+        AND p.user_id != ?
+        AND p.is_typing = 1
+      `,
+      [forumId, currentUserId]
+    );
+    return rows;
+  }
+
+  // Admin / Moderator Reports
+  async createForumReport({ type, targetId, reporterId, reportedId, reason }) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS forum_reports (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type ENUM('thread', 'reply') NOT NULL,
+        target_id INT NOT NULL,
+        reporter_id INT NOT NULL,
+        reported_id INT NOT NULL,
+        reason TEXT NOT NULL,
+        status ENUM('pending', 'resolved') DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        resolved_at DATETIME NULL,
+        resolved_by INT NULL
+      )
+    `);
+
+    const [result] = await pool.query(
+      `
+      INSERT INTO forum_reports (type, target_id, reporter_id, reported_id, reason, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
+      `,
+      [type, targetId, reporterId, reportedId, reason]
+    );
+    return result.insertId;
+  }
+
+  async getForumReports(filters = {}) {
+    let query = `
+      SELECT r.*, 
+             u1.nombre AS reporter_name, 
+             u2.nombre AS reported_name,
+             CASE 
+               WHEN r.type = 'thread' THEN f.title
+               WHEN r.type = 'reply' THEN m.content
+             END AS content_snippet,
+             CASE 
+               WHEN r.type = 'thread' THEN f.modulo_id
+               WHEN r.type = 'reply' THEN m.modulo_id
+             END AS modulo_id
+      FROM forum_reports r
+      JOIN users u1 ON u1.id = r.reporter_id
+      JOIN users u2 ON u2.id = r.reported_id
+      LEFT JOIN forums f ON r.type = 'thread' AND f.id = r.target_id
+      LEFT JOIN forum_messages m ON r.type = 'reply' AND m.id = r.target_id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (filters.monitorId) {
+      query += ` AND (f.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?) OR m.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?))`;
+      params.push(filters.monitorId, filters.monitorId);
+    }
+    query += ' ORDER BY r.created_at DESC';
+    const [rows] = await pool.query(query, params);
+    return rows;
+  }
+
+  async resolveForumReport(reportId, resolvedBy) {
+    await pool.query(
+      'UPDATE forum_reports SET status = "resolved", resolved_at = NOW(), resolved_by = ? WHERE id = ?',
+      [resolvedBy, reportId]
+    );
   }
 }
 

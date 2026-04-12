@@ -60,12 +60,20 @@ router.post('/forums', requireUserContext, engagementController.createForum);
 router.get('/forums/:id', requireUserContext, engagementController.getForum);
 router.post('/forums/:id/comment', requireUserContext, engagementController.createForumComment);
 router.post('/forums/:id/reply', requireUserContext, engagementController.createForumReply);
+router.put('/forums/:id', requireUserContext, engagementController.updateForum);
+router.put('/forums/reply/:id', requireUserContext, engagementController.updateForumReply);
+
+// Presencia
+router.put('/forums/:forumId/presence', requireUserContext, engagementController.updateForumPresence);
+router.get('/forums/:forumId/presence', requireUserContext, engagementController.getForumPresence);
+
 router.post('/forums/:id/save', requireUserContext, engagementController.toggleForumSave);
 router.delete('/forums/:id', requireUserContext, engagementController.deleteForum);
-
-router.get('/stats/student', requireUserContext, engagementController.getStudentStats);
-router.get('/stats/monitor-academic', requireUserContext, engagementController.getMonitorAcademicStats);
-router.get('/stats/monitor-admin', requireUserContext, engagementController.getMonitorAdminStats);
 router.get('/stats/admin', requireUserContext, engagementController.getAdminStats);
+
+// Reportes
+router.post('/forums/report', requireUserContext, engagementController.reportForum);
+router.get('/forums/reports', requireUserContext, engagementController.getReports);
+router.post('/forums/reports/:id/resolve', requireUserContext, engagementController.resolveReport);
 
 export default router;

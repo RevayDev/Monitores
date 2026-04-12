@@ -54,10 +54,40 @@ const getComplaints = async (req, res) => {
   }
 };
 
+const getModules = async (req, res) => {
+  try {
+    const modules = await adminService.getAllModules();
+    res.json(modules);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updateModule = async (req, res) => {
+  try {
+    const module = await adminService.updateModule(req.params.id, req.body);
+    res.json(module);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const deleteModule = async (req, res) => {
+  try {
+    await adminService.deleteModule(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export default {
   getStats,
   getUsers,
   createAdmin,
   deleteUser,
-  getComplaints
+  getComplaints,
+  getModules,
+  updateModule,
+  deleteModule
 };

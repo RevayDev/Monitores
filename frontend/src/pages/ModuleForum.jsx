@@ -1,26 +1,49 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BellDot, Bookmark, Paperclip, Plus, Send, Trash2, X, ChevronDown, Bold, Italic, List, Quote, Heading, Type, Link, ListOrdered } from 'lucide-react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { 
+  ArrowLeft, BellDot, Bookmark, Paperclip, Plus, Send, Trash2, X, ChevronDown, 
+  Bold, Italic, List, Quote, Heading, Type, Link, ListOrdered, MoreVertical, 
+  CornerUpLeft, Edit3, AlertOctagon, CheckCircle2 
+} from 'lucide-react';
 import Modal from '../components/Modal';
 import {
   createForum,
   createForumReply,
   deleteForum,
+  deleteForumMessage,
   getForumById,
   getForumMembers,
   getForumsByModule,
   getCurrentUser,
   getMyModules,
   toggleForumSave,
-  uploadForumFile
+  uploadForumFile,
+  updateForum,
+  updateForumReply,
+  updateForumPresence,
+  getForumPresence,
+  createForumReport
 } from '../services/api';
 import { ToastContext } from '../App';
 
 const getVisualRole = (userId, userRole, monitorId) => {
+  // 1. El dueño del modulo es MONITOR (VERDE)
   if (Number(userId) === Number(monitorId)) return 'monitor';
-  const role = String(userRole || '').toLowerCase();
-  if (role.includes('admin') || role.includes('dev')) return 'admin';
-  return 'student'; // Other monitors and students are 'student'
+  
+  // 2. Si es un admin global (y NO es el monitor), es ADMIN (NARANJA)
+  // Refinamiento: Monitor Administrativo no es admin, es estudiante.
+  const roleStr = String(userRole || '').toLowerCase();
+  if (roleStr === 'admin' || roleStr === 'dev') return 'admin';
+  
+  // 3. Cualquier otro es ESTUDIANTE (AZUL)
+  return 'student';
+};
+
+const roleBadgeLabel = (userId, userRole, monitorId) => {
+  const vRole = getVisualRole(userId, userRole, monitorId);
+  if (vRole === 'monitor') return 'Monitor';
+  if (vRole === 'admin') return 'Admin';
+  return 'Estudiante';
 };
 
 const allowedMimeTypes = new Set([
@@ -59,17 +82,21 @@ const roleMentionStyle = (vRole) => {
 
 const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, onSelect, onKeyUp, textareaRef, scrollRef, placeholder, className, minHeight }) => {
   const handleScroll = (e) => {
-    if (scrollRef.current) {
+    if (scrollRef && scrollRef.current) {
       scrollRef.current.scrollTop = e.target.scrollTop;
     }
   };
 
   const renderHighlights = (text) => {
     if (!text) return text;
-    const regex = /(@[^#]+#\d+)/g;
+    // Regex para: Menciones, Negritas, Cursivas
+    const regex = /(@[^#\n]+#\d+|\*\*[^*]+\*\*|_[^_]+_)/g;
     const parts = text.split(regex);
     return parts.map((part, i) => {
-      if (part.match(regex)) {
+      if (!part) return null;
+      
+      // Menciones
+      if (part.startsWith('@')) {
         const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
         const member = (members || []).find((m) => Number(m.id) === id);
         const vRole = getVisualRole(member?.id, member?.role, monitorId);
@@ -79,7 +106,18 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
           </span>
         );
       }
-      return part;
+      
+      // Negritas en editor
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <span key={i} className="font-black text-gray-900 bg-gray-50">{part}</span>;
+      }
+      
+      // Cursivas en editor
+      if (part.startsWith('_') && part.endsWith('_')) {
+        return <span key={i} className="italic text-gray-700 bg-gray-50">{part}</span>;
+      }
+
+      return <span key={i}>{part}</span>;
     });
   };
 
@@ -110,18 +148,8 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
   );
 };
 
-const roleUnderline = (vRole) => {
-  if (vRole === 'monitor') return 'bg-green-100/50 text-green-900';
-  if (vRole === 'admin') return 'bg-orange-100/50 text-orange-900';
-  return 'bg-blue-100/50 text-blue-900 border-none';
-};
 
-const roleBadgeLabel = (userId, userRole, monitorId) => {
-  if (Number(userId) === Number(monitorId)) return 'Monitor';
-  const role = String(userRole || '').toLowerCase();
-  if (role.includes('admin') || role.includes('dev')) return 'Admin';
-  return 'Estudiante';
-};
+
 
 const UserAvatar = ({ photo, name, userId, userRole, monitorId, size = 'w-9 h-9', className = '' }) => {
   if (photo) {
@@ -154,6 +182,33 @@ const renderAttachment = (item) => {
     <a href={item.file_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline break-all">
       Abrir archivo
     </a>
+  );
+};
+
+const TypingIndicator = ({ users, monitorId }) => {
+  if (!users?.length) return null;
+  return (
+    <div className="absolute bottom-full left-6 mb-3 flex items-center animate-fade-in z-20 pointer-events-none">
+      <div className="flex -space-x-3 mr-2 drop-shadow-md">
+        {users.map((user, idx) => (
+          <UserAvatar 
+            key={user.user_id + idx}
+            photo={user.foto} 
+            name={user.nombre} 
+            userId={user.user_id} 
+            userRole={user.role} 
+            monitorId={monitorId} 
+            size="w-7 h-7" 
+            className="border-2 border-white ring-1 ring-gray-100"
+          />
+        ))}
+      </div>
+      <div className="typing-bubble shadow-lg">
+        <div className="typing-dot"></div>
+        <div className="typing-dot"></div>
+        <div className="typing-dot"></div>
+      </div>
+    </div>
   );
 };
 
@@ -217,7 +272,7 @@ const renderInlines = (text, members = [], monitorId) => {
   if (!text) return null;
   
   // Regex para: Imagenes, Negritas, Cursivas, Links, Menciones
-  const regex = /(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|_[^_]+_|https?:\/\/[^\s]+|@[^\s#@]+#\d+)/g;
+  const regex = /(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|_[^_]+_|https?:\/\/[^\s]+|@[^#\n]+#\d+)/g;
   const parts = text.split(regex);
   
   return parts.map((part, idx) => {
@@ -251,7 +306,7 @@ const renderInlines = (text, members = [], monitorId) => {
       const label = member ? `@${member.nombre}#${member.id}` : part;
       const vRole = getVisualRole(member?.id, member?.role, monitorId);
       return (
-        <span key={`m-${idx}`} className={`inline-flex items-center px-1 py-0.5 rounded-md text-[11px] font-medium leading-none ${roleUnderline(vRole)} whitespace-nowrap`}>
+        <span key={`m-${idx}`} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black leading-none border shadow-sm ${roleChip(vRole)} whitespace-nowrap mx-0.5`}>
           {label}
         </span>
       );
@@ -273,6 +328,23 @@ const extractImagesWithMetadata = (text) => {
     });
   }
   return images;
+};
+
+const isMeMentioned = (text, myId) => {
+  if (!text || !myId) return false;
+  return text.includes(`#${myId}`);
+};
+
+const isNewlyCreated = (createdAt) => {
+  if (!createdAt) return false;
+  const fiveMinutes = 5 * 60 * 1000;
+  const diff = Date.now() - new Date(createdAt).getTime();
+  return diff > 0 && diff < fiveMinutes;
+};
+
+const isRecentlyMentioned = (createdAt, text, myId) => {
+  if (!isMeMentioned(text, myId)) return false;
+  return isNewlyCreated(createdAt);
 };
 
 const LiveImagePreview = ({ text, cursorPosition }) => {
@@ -318,10 +390,15 @@ const ModuleForum = () => {
   const replyImageRef = useRef(null);
   const threadScrollRef = useRef(null);
   const replyScrollRef = useRef(null);
+  const repliesEndRef = useRef(null); // Nuevo ref para autoscroll
   
   // Estados para barra flotante de formato
   const [toolbar, setToolbar] = useState({ isVisible: false, x: 0, y: 0, target: null });
   const [cursorPos, setCursorPos] = useState({ thread: 0, reply: 0 });
+
+  // Estados para Edición
+  const [editingId, setEditingId] = useState(null); // { id, isReply, content }
+  const [editContent, setEditContent] = useState('');
 
   const [moduleData, setModuleData] = useState(null);
   const [myModules, setMyModules] = useState([]);
@@ -332,7 +409,8 @@ const ModuleForum = () => {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // { id, type: 'forum'|'reply' }
+  const lastPresenceUpdateRef = useRef(0);
   const [newCount, setNewCount] = useState(0);
   const [lastSeenId, setLastSeenId] = useState(0);
 
@@ -347,8 +425,48 @@ const ModuleForum = () => {
   const [mentionTarget, setMentionTarget] = useState(null);
   const [mentionQuery, setMentionQuery] = useState('');
   const [showInsertMenu, setShowInsertMenu] = useState(null);
+  const [activeMenuId, setActiveMenuId] = useState(null); // Para el menu de 3 puntos
+  const [reportTarget, setReportTarget] = useState(null); // { type, id, name }
+  const [reportReason, setReportReason] = useState('');
+  const [reporting, setReporting] = useState(false);
 
-  const handleSmartDelete = (target, e) => {
+  const location = useLocation();
+  const isReadOnly = useMemo(() => new URLSearchParams(location.search).get('readOnly') === 'true', [location.search]);
+
+  const handleReport = async () => {
+    if (!reportReason.trim() || !reportTarget) return;
+    setReporting(true);
+    try {
+      await createForumReport({
+        type: reportTarget.type,
+        targetId: reportTarget.id,
+        reason: reportReason.trim()
+      });
+      showToast('Reporte enviado correctamente', 'success');
+      setReportTarget(null);
+      setReportReason('');
+    } catch (error) {
+      showToast(error.message || 'Error al enviar reporte', 'error');
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  const handleInputKeyDown = (target, e) => {
+    // 1. Manejo de Enter para enviar
+    if (e.key === 'Enter' && !e.shiftKey) {
+      // Si el menú de menciones está abierto, no enviamos (dejamos que el menú maneje la selección si existiera, 
+      // pero aquí el dropdown es clicable. Sin embargo, por UX de chat, enviamos si no hay Shift).
+      if (mentionTarget === target) return; 
+
+      e.preventDefault();
+      if (target === 'thread') handleCreate();
+      else if (target === 'reply') handleReply();
+      else if (target === 'edit') handleSaveEdit();
+      return;
+    }
+
+    // 2. Lógica original de Smart Delete para menciones
     const isDelete = e.key === 'Backspace' || e.key === 'Delete';
     if (!isDelete) return;
 
@@ -359,8 +477,8 @@ const ModuleForum = () => {
     const end = ref.selectionEnd;
     if (start !== end) return;
 
-    const value = target === 'thread' ? content : replyText;
-    const mentionRegex = /@[^#]+#\d+\s?/g;
+    const value = target === 'thread' ? content : (target === 'edit' ? editContent : replyText);
+    const mentionRegex = /@[^#\n]+#\d+\s?/g;
     let match;
 
     while ((match = mentionRegex.exec(value)) !== null) {
@@ -374,18 +492,21 @@ const ModuleForum = () => {
         e.preventDefault();
         const nextValue = value.slice(0, mStart) + value.slice(mEnd);
         if (target === 'thread') setContent(nextValue);
+        else if (target === 'edit') setEditContent(nextValue);
         else setReplyText(nextValue);
         
         setTimeout(() => {
-          ref.focus();
-          ref.setSelectionRange(mStart, mStart);
+          if (ref) {
+            ref.focus();
+            ref.setSelectionRange(mStart, mStart);
+          }
         }, 0);
         return;
       }
     }
   };
 
-  const canModerate = ['monitor', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'].includes(String(currentUser?.role || '').toLowerCase());
+  const canModerate = ['admin', 'dev'].includes(String(currentUser?.role || '').toLowerCase());
   const moduleMonitorId = Number(moduleData?.monitorId || 0);
 
   const mentionCandidates = useMemo(() => {
@@ -398,11 +519,64 @@ const ModuleForum = () => {
     if (!query) return sorted;
     return sorted.filter((member) => {
       if (Number(member.id) === Number(currentUser?.id)) return false;
+      if (member.is_active === 0 || member.is_active === false) return false;
       const name = String(member.nombre || '').toLowerCase();
       const username = String(member.username || '').toLowerCase();
       return name.includes(query) || username.includes(query);
     });
   }, [members, mentionQuery, currentUser]);
+
+  const [typingUsers, setTypingUsers] = useState([]);
+
+  useEffect(() => {
+    if (!selectedId || !currentUser) return;
+    
+    const pollPresence = async () => {
+      try {
+        const data = await getForumPresence(selectedId);
+        setTypingUsers(data || []);
+      } catch (err) {
+        console.error("Presence poll error:", err);
+      }
+    };
+    
+    pollPresence();
+    const interval = setInterval(pollPresence, 5000);
+    return () => clearInterval(interval);
+  }, [selectedId, currentUser]);
+
+  useEffect(() => {
+    if (!selectedId || !replyText.trim()) return;
+    
+    // Throttle: Max 1 update every 3 seconds to avoid lag
+    const now = Date.now();
+    if (now - lastPresenceUpdateRef.current < 3000) return;
+    lastPresenceUpdateRef.current = now;
+
+    updateForumPresence(selectedId, true).catch(() => {});
+    
+    // Auto-clear presence after 4s of inactivity
+    const timeout = setTimeout(() => {
+      updateForumPresence(selectedId, false).catch(() => {});
+    }, 4000);
+    
+    return () => clearTimeout(timeout);
+  }, [replyText, selectedId]);
+
+  const scrollToBottom = () => {
+    if (repliesEndRef.current) {
+      repliesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Autoscroll cuando hay nuevos mensajes o alguien empieza a escribir
+  useEffect(() => {
+    if (detail || typingUsers.length > 0) {
+      // Pequeño delay para dejar que el DOM se actualice
+      const timer = setTimeout(scrollToBottom, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [detail?.replies?.length, detail?.comments?.length, typingUsers.length, selectedId]);
 
   const loadThreads = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -416,6 +590,18 @@ const ModuleForum = () => {
       if (!selectedCreateModuleId && ownModules.length) setSelectedCreateModuleId(Number(ownModules[0].id));
 
       const maxId = list.reduce((acc, item) => Math.max(acc, Number(item.id || 0)), 0);
+      
+      // Notificacion de mencion real-time
+      if (lastSeenId && maxId > lastSeenId) {
+        const newItems = list.filter(t => Number(t.id) > lastSeenId);
+        newItems.forEach(item => {
+          if (isMeMentioned(item.content, currentUser?.id)) {
+            showToast(`Fuiste mencionado en: ${item.title || 'un hilo'}`, 'info');
+            // Sonido o vibracion opcional aqui
+          }
+        });
+      }
+
       if (!lastSeenId && maxId) setLastSeenId(maxId);
       if (lastSeenId && maxId > lastSeenId) setNewCount(maxId - lastSeenId);
       if (!selectedId && list.length) setSelectedId(list[0].id);
@@ -431,19 +617,38 @@ const ModuleForum = () => {
     }
   };
 
-  const loadDetail = async (threadId) => {
+  const loadDetail = async (threadId, { silent = false } = {}) => {
     if (!threadId) return setDetail(null);
     try {
       const data = await getForumById(threadId);
+      
+      // Notificar menciones en respuestas nuevas
+      if (detail && data && silent) {
+        const oldReplies = (detail.replies || detail.comments || []);
+        const currentReplies = (data.replies || data.comments || []);
+        if (currentReplies.length > oldReplies.length) {
+          currentReplies.slice(oldReplies.length).forEach(reply => {
+            if (isMeMentioned(reply.content, currentUser?.id)) {
+              showToast(`${reply.author_name} te menciono en una respuesta.`, 'info');
+            }
+          });
+        }
+      }
+
       setDetail(data || null);
-      setReplyText('');
-      setReplyAttachments([]);
-      setMentionTarget(null);
-      setMentionQuery('');
-      setShowInsertMenu(null);
+      if (!silent) {
+        setReplyText('');
+        setReplyAttachments([]);
+        setMentionTarget(null);
+        setMentionQuery('');
+        setShowInsertMenu(null);
+        setEditingId(null);
+      }
     } catch (error) {
-      showToast(error.message || 'No se pudo abrir la pregunta.', 'error');
-      setDetail(null);
+      if (!silent) {
+        showToast(error.message || 'No se pudo abrir la pregunta.', 'error');
+        setDetail(null);
+      }
     }
   };
 
@@ -463,10 +668,18 @@ const ModuleForum = () => {
   }, [moduleId]);
 
   useEffect(() => { loadDetail(selectedId); }, [selectedId]);
+  
+  // Tiempo real: Polling cada 5s para hilos y 4s para el hilo abierto
   useEffect(() => {
-    const timer = setInterval(() => loadThreads({ silent: true }), 30000);
+    const timer = setInterval(() => loadThreads({ silent: true }), 5000);
     return () => clearInterval(timer);
-  }, [moduleId, selectedId, lastSeenId]);
+  }, [moduleId, lastSeenId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const dTimer = setInterval(() => loadDetail(selectedId, { silent: true }), 4000);
+    return () => clearInterval(dTimer);
+  }, [selectedId]);
 
   const markSeen = () => {
     const maxId = threads.reduce((acc, item) => Math.max(acc, Number(item.id || 0)), 0);
@@ -526,10 +739,11 @@ const ModuleForum = () => {
 
   const onMentionAwareInput = (target, value) => {
     if (target === 'thread') setContent(value);
+    else if (target === 'edit') setEditContent(value);
     else setReplyText(value);
 
     // Actualizar posicion del cursor para resaltar imagenes
-    const ref = target === 'thread' ? threadTextRef.current : replyTextRef.current;
+    const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? null : replyTextRef.current);
     if (ref) {
       setCursorPos((prev) => ({ ...prev, [target]: ref.selectionStart }));
     }
@@ -544,6 +758,19 @@ const ModuleForum = () => {
     setMentionTarget(target);
     setMentionQuery(query);
   };
+
+  useEffect(() => {
+    if (!selectedId || !replyText.trim()) return;
+    
+    // Notificar que estamos escribiendo
+    updateForumPresence(selectedId, true).catch(() => {});
+    
+    const timeout = setTimeout(() => {
+      updateForumPresence(selectedId, false).catch(() => {});
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [replyText, selectedId]);
   
   const handleEditorSelection = (target) => {
     const ref = target === 'thread' ? threadTextRef.current : replyTextRef.current;
@@ -595,8 +822,45 @@ const ModuleForum = () => {
     }
 
     if (target === 'thread') setContent(next);
+    else if (target === 'edit') setEditContent(next);
     else setReplyText(next);
     setToolbar((prev) => ({ ...prev, isVisible: false }));
+  };
+
+  const handleStartEdit = (item, isReply = false) => {
+    setEditingId({ id: item.id, isReply });
+    setEditContent(item.content);
+  };
+
+  const quickReply = (item) => {
+    const mention = buildMentionToken({ 
+      nombre: item.author_name, 
+      id: item.user_id || item.author_id 
+    });
+    setReplyText((prev) => `${prev.trim()} ${mention} `.trimStart());
+    if (replyTextRef.current) {
+      setTimeout(() => {
+        replyTextRef.current.focus();
+        const pos = replyTextRef.current.value.length;
+        replyTextRef.current.setSelectionRange(pos, pos);
+      }, 0);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    try {
+      if (editingId.isReply) {
+        await updateForumReply(editingId.id, { content: editContent });
+      } else {
+        await updateForum(editingId.id, { content: editContent });
+      }
+      showToast('Editado correctamente.', 'success');
+      setEditingId(null);
+      loadDetail({ silent: true });
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   const insertMention = (target, member) => {
@@ -642,6 +906,9 @@ const ModuleForum = () => {
       setMentionQuery('');
       setShowInsertMenu(null);
       setShowCreate(false);
+      
+      // Limpiar presencia inmediatamente al enviar
+      updateForumPresence(Number(selectedCreateModuleId), false).catch(() => {});
 
       if (Number(selectedCreateModuleId) !== Number(moduleId)) navigate(`/modules/${selectedCreateModuleId}/forum`);
       else {
@@ -676,6 +943,10 @@ const ModuleForum = () => {
       setReplyAttachments([]);
       setMentionTarget(null);
       setMentionQuery('');
+      
+      // Limpiar presencia inmediatamente al enviar
+      updateForumPresence(selectedId, false).catch(() => {});
+      
       showToast('Publicacion creada correctamente', 'success');
     } catch (error) {
       showToast(error?.message || 'No se pudo publicar', 'error');
@@ -691,12 +962,24 @@ const ModuleForum = () => {
     showToast(res.saved ? 'Foro guardado.' : 'Foro removido de guardados.', 'success');
   };
 
-  const handleDeleteForum = async (forumId) => {
-    await deleteForum(forumId);
-    if (Number(selectedId) === Number(forumId)) setSelectedId(null);
-    await loadThreads();
-    showToast('Foro eliminado.', 'success');
-    setConfirmDeleteId(null);
+  const handleDeleteRecord = async () => {
+    if (!confirmDelete) return;
+    try {
+      if (confirmDelete.type === 'forum') {
+        await deleteForum(confirmDelete.id);
+        if (Number(selectedId) === Number(confirmDelete.id)) setSelectedId(null);
+        showToast('Foro eliminado.', 'success');
+      } else {
+        await deleteForumMessage(confirmDelete.id);
+        showToast('Respuesta eliminada.', 'success');
+      }
+      await loadThreads();
+      if (selectedId) await loadDetail(selectedId);
+    } catch (error) {
+      showToast(error.message || 'Error al eliminar', 'error');
+    } finally {
+      setConfirmDelete(null);
+    }
   };
 
   const renderMentionDropdown = (target) => {
@@ -712,9 +995,14 @@ const ModuleForum = () => {
             onClick={() => insertMention(target, member)}
             className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black overflow-hidden ${roleAvatar(getVisualRole(member.id, member.role, moduleMonitorId))}`}>
-              {member?.foto ? <img src={member.foto} alt={member.nombre} className="w-full h-full object-cover" /> : String(member.nombre || member.username || 'U').trim().charAt(0).toUpperCase()}
-            </div>
+            <UserAvatar 
+              photo={member.foto} 
+              name={member.nombre} 
+              userId={member.id} 
+              userRole={member.role} 
+              monitorId={moduleMonitorId} 
+              size="w-8 h-8" 
+            />
             <div className="min-w-0">
               <p className="text-sm text-gray-900 truncate">{buildMentionToken(member)}</p>
               <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] items-center gap-1 font-bold uppercase ${roleChip(getVisualRole(member.id, member.role, moduleMonitorId))}`}>
@@ -827,7 +1115,7 @@ const ModuleForum = () => {
                       <Bookmark size={11} /> {thread.is_saved ? 'Guardado' : 'Guardar'}
                     </button>
                     {(Number(thread.user_id) === Number(currentUser?.id) || canModerate) && (
-                      <button onClick={() => setConfirmDeleteId(thread.id)} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600">
+                      <button onClick={() => setConfirmDelete({ id: thread.id, type: 'forum' })} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600">
                         <Trash2 size={11} /> Borrar
                       </button>
                     )}
@@ -843,74 +1131,277 @@ const ModuleForum = () => {
               <p className="text-sm text-gray-500">Selecciona una pregunta para ver el detalle.</p>
             ) : (
               <>
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-2">
+                <div 
+                  className={`rounded-2xl border transition-all duration-500 overflow-hidden relative p-4 space-y-2 ${
+                    isNewlyCreated(detail.created_at)
+                      ? 'bg-amber-50 border-amber-200 shadow-amber-100'
+                      : 'bg-gray-50 border-gray-100'
+                  }`}
+                >
+                  {isNewlyCreated(detail.created_at) && (
+                    <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm animate-pulse">
+                      {isMeMentioned(detail.content, currentUser?.id) ? '✨ Te mencionaron' : '🔥 NUEVO'}
+                    </div>
+                  )}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <UserAvatar photo={detail.author_photo} name={detail.author_name} userId={detail.user_id} userRole={detail.author_role} monitorId={moduleMonitorId} size="w-9 h-9" />
                       <div>
-                        <p className="text-gray-900">{detail.title}</p>
-                        <p className="text-[10px] text-gray-500 line-clamp-1">por {detail.author_name} · {detail.subject_name || moduleData?.modulo || `Modulo #${moduleId}`}</p>
+                        <div className="flex items-center gap-2">
+                           <p className="font-bold text-gray-900 leading-tight">{detail.title}</p>
+                           <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border shadow-sm ${roleChip(getVisualRole(detail.author_id, detail.author_role, moduleMonitorId))}`}>
+                            {roleBadgeLabel(detail.author_id, detail.author_role, moduleMonitorId)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 line-clamp-1">
+                           por {detail.author_name} · {new Date(detail.created_at).toLocaleString()}
+                           {detail.updated_at && (new Date(detail.updated_at).getTime() - new Date(detail.created_at).getTime() > 1000) && (
+                             <span className="ml-1 text-gray-400 italic">(editado)</span>
+                           )}
+                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleSaveToggle(detail.id)} className={`px-2 py-1 rounded-lg text-[11px] inline-flex items-center gap-1 ${detail.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}>
-                        <Bookmark size={11} /> {detail.is_saved ? 'Guardado' : 'Guardar'}
+                    <div className="flex gap-1 h-fit relative">
+                      <button 
+                        onClick={() => handleSaveToggle(detail.id)} 
+                        className={`p-2 rounded-xl text-[11px] inline-flex items-center gap-1 transition-all hover:bg-opacity-80 active:scale-90 ${detail.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-white border border-gray-100 text-gray-400 hover:bg-gray-50'}`}
+                      >
+                        <Bookmark size={14} fill={detail.is_saved ? 'currentColor' : 'none'} />
                       </button>
-                      {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && (
-                        <button onClick={() => setConfirmDeleteId(detail.id)} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600">
-                          <Trash2 size={11} /> Borrar
-                        </button>
+                      
+                      <div className="relative group">
+                      <button 
+                        onClick={() => setActiveMenuId(activeMenuId === 'thread' ? null : 'thread')}
+                        className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {activeMenuId === 'thread' && (
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                          {Number(detail.user_id) !== Number(currentUser?.id) && (
+                            <button 
+                              onClick={() => { setReportTarget({ type: 'thread', id: detail.id, name: detail.author_name }); setActiveMenuId(null); }} 
+                              className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                            >
+                              <AlertOctagon size={12} /> Reportar
+                            </button>
+                          )}
+                          {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && (
+                            <button 
+                              onClick={() => { handleStartEdit(detail, false); setActiveMenuId(null); }} 
+                              className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                            >
+                              <Edit3 size={12} /> Editar
+                            </button>
+                          )}
+                          {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && (
+                            <button 
+                              onClick={() => { setConfirmDelete({ id: detail.id, type: 'forum' }); setActiveMenuId(null); }} 
+                              className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <Trash2 size={12} /> Eliminar
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{renderRichText(detail.content, members, moduleMonitorId)}</p>
-                  {!!detail.attachments?.length && <div className="space-y-2">{detail.attachments.map((item) => <div key={item.id}>{renderAttachment(item)}</div>)}</div>}
+                </div>
+                  {editingId?.id === detail.id && !editingId.isReply ? (
+                    <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 shadow-inner">
+                      <MentionHighlighter
+                        value={editContent}
+                        members={members}
+                        monitorId={moduleMonitorId}
+                        onChange={(e) => onMentionAwareInput('edit', e.target.value)}
+                        onKeyDown={(e) => handleInputKeyDown('edit', e)}
+                        placeholder="Edita tu publicación..."
+                        minHeight="100px"
+                        onSelect={() => handleEditorSelection('edit')}
+                      />
+                      <div className="flex justify-end gap-2 text-xs">
+                        <button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-md text-gray-500">Cancelar</button>
+                        <button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-md font-black bg-brand-blue text-white shadow-md">Guardar Cambios</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed py-2">
+                        {renderRichText(detail.content, members, moduleMonitorId)}
+                      </div>
+                      {!!detail.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{detail.attachments.map((item) => <div key={item.id} className="rounded-xl overflow-hidden border border-gray-100">{renderAttachment(item)}</div>)}</div>}
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
                   {(detail.replies || detail.comments || []).map((reply) => (
-                    <div key={reply.id} className="rounded-2xl border border-gray-100 p-3">
-                      <p className="text-xs text-gray-500 flex items-center gap-2">
-                        <UserAvatar photo={reply.author_photo} name={reply.author_name} userId={reply.user_id} userRole={reply.author_role} monitorId={moduleMonitorId} size="w-6 h-6" />
-                        <span>{reply.author_name}</span> . respuesta
-                        {Number(reply.user_id) === Number(detail.user_id) && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase">Autor</span>}
-                      </p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">{renderRichText(reply.content, members, moduleMonitorId)}</p>
-                      {!!reply.attachments?.length && <div className="space-y-2 mt-2">{reply.attachments.map((item) => <div key={item.id}>{renderAttachment(item)}</div>)}</div>}
+                    <div 
+                      key={reply.id} 
+                      className={`rounded-2xl border transition-all duration-500 p-4 relative ${
+                        isNewlyCreated(reply.created_at)
+                          ? 'bg-amber-50 border-amber-200 shadow-amber-100'
+                          : 'bg-white border-gray-100'
+                      }`}
+                    >
+                      {isNewlyCreated(reply.created_at) && (
+                        <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm animate-pulse">
+                          {isMeMentioned(reply.content, currentUser?.id) ? '✨ Te mencionaron' : '🔥 NUEVO'}
+                        </div>
+                      )}
+                      <div className="flex justify-between items-start mb-2 text-xs">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <UserAvatar photo={reply.author_photo} name={reply.author_name} userId={reply.user_id} userRole={reply.author_role} monitorId={moduleMonitorId} size="w-6 h-6" />
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-gray-900">{reply.author_name}</span>
+                              <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border shadow-sm ${roleChip(getVisualRole(reply.user_id, reply.author_role, moduleMonitorId))}`}>
+                                {roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId)}
+                              </span>
+                              {reply.author_active === 0 && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase bg-red-100 text-red-700 border border-red-200">
+                                  Abandono / Inactivo
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[9px]">
+                              {new Date(reply.created_at).toLocaleString()}
+                              {reply.updated_at && (new Date(reply.updated_at).getTime() - new Date(reply.created_at).getTime() > 1000) && (
+                                <span className="ml-1 text-gray-400 italic">(editado)</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 h-fit relative">
+                          <button 
+                            onClick={() => quickReply(reply)} 
+                            className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"
+                            title="Responder"
+                          >
+                            <CornerUpLeft size={14} />
+                          </button>
+                          
+                          <button 
+                            onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)}
+                            className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+
+                          {activeMenuId === `reply-${reply.id}` && (
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                              {Number(reply.user_id) !== Number(currentUser?.id) && (
+                                <button 
+                                  onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} 
+                                  className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                >
+                                  <AlertOctagon size={12} /> Reportar
+                                </button>
+                              )}
+                              {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && (
+                                <button 
+                                  onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} 
+                                  className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                                >
+                                  <Edit3 size={12} /> Editar
+                                </button>
+                              )}
+                              {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && (
+                                <button 
+                                  onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} 
+                                  className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                >
+                                  <Trash2 size={12} /> Eliminar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {editingId?.id === reply.id && editingId.isReply ? (
+                        <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
+                          <MentionHighlighter
+                            value={editContent}
+                            members={members}
+                            monitorId={moduleMonitorId}
+                            onChange={(e) => onMentionAwareInput('edit', e.target.value)}
+                            onKeyDown={(e) => handleInputKeyDown('edit', e)}
+                            placeholder="Edita tu respuesta..."
+                            minHeight="60px"
+                            onSelect={() => handleEditorSelection('edit')}
+                          />
+                          <div className="flex justify-end gap-2 text-[10px]">
+                            <button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button>
+                            <button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">
+                          {renderRichText(reply.content, members, moduleMonitorId)}
+                        </div>
+                      )}
+                      
+                      {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
                     </div>
                   ))}
-                  {!detail.replies?.length && !detail.comments?.length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
+                   {!(detail.replies || detail.comments || []).length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
+                  <div ref={repliesEndRef} />
                 </div>
 
-                <div className="rounded-2xl border border-gray-100 p-3 space-y-2">
-                  <div className="relative">
-                    <MentionHighlighter
-                      textareaRef={replyTextRef}
-                      scrollRef={replyScrollRef}
-                      value={replyText}
-                      members={members}
-                      monitorId={moduleMonitorId}
-                      onChange={(e) => onMentionAwareInput('reply', e.target.value)}
-                      onKeyDown={(e) => handleSmartDelete('reply', e)}
-                      placeholder="Escribe una respuesta... usa @ para mencionar"
-                      minHeight="100px"
-                      onSelect={() => handleEditorSelection('reply')}
-                    />
-                    {renderMentionDropdown('reply')}
-                  </div>
-                  
-                  <LiveImagePreview text={replyText} cursorPosition={cursorPos.reply} />
-                  {attachmentGrid(replyAttachments, 'reply')}
+                {!isReadOnly && (
+                  <div className={`rounded-2xl border transition-all duration-300 p-3 space-y-2 relative ${editingId ? 'bg-gray-50 opacity-60 pointer-events-none' : 'border-gray-100'}`}>
+                    {editingId && (
+                      <div className="absolute inset-0 flex items-center justify-center z-40 bg-white/40 backdrop-blur-[1px] rounded-2xl">
+                        <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 flex items-center gap-2">
+                          <div className="w-2 h-2 bg-brand-blue rounded-full animate-pulse" />
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Edición en curso...</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <TypingIndicator users={typingUsers} monitorId={moduleMonitorId} />
+                    
+                    <div className="relative">
+                      <MentionHighlighter
+                        textareaRef={replyTextRef}
+                        scrollRef={replyScrollRef}
+                        value={replyText}
+                        members={members}
+                        monitorId={moduleMonitorId}
+                        onChange={(e) => onMentionAwareInput('reply', e.target.value)}
+                        onKeyDown={(e) => handleInputKeyDown('reply', e)}
+                        placeholder="Escribe una respuesta... usa @ para mencionar"
+                        minHeight="100px"
+                        onSelect={() => handleEditorSelection(editingId?.id === detail.id ? 'edit' : 'reply')}
+                      />
+                      {renderMentionDropdown(editingId?.id === detail.id ? 'edit' : 'reply')}
+                    </div>
+                    
+                    <LiveImagePreview text={replyText} cursorPosition={cursorPos.reply} />
+                    {attachmentGrid(replyAttachments, 'reply')}
 
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {insertMenu('reply')}
-                    <input ref={replyFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'reply')} />
-                    <input ref={replyImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'reply')} />
-                    <button disabled={replying} onClick={handleReply} className="ml-auto px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-1 disabled:opacity-50">
-                      <Send size={12} /> {replying ? 'Publicando...' : 'Responder'}
-                    </button>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {insertMenu('reply')}
+                      <input ref={replyFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'reply')} />
+                      <input ref={replyImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'reply')} />
+                      <button 
+                        disabled={replying || !!editingId} 
+                        onClick={handleReply} 
+                        className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black hover:shadow-lg active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <Send size={14} /> {replying ? 'Publicando...' : 'Responder'}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+                {isReadOnly && (
+                  <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex items-center gap-3 text-gray-500">
+                    <CheckCircle2 className="text-emerald-500" size={18} />
+                    <p className="text-xs font-medium">Estás visualizando este foro en modo histórico. La escritura y reportes han sido deshabilitados.</p>
+                  </div>
+                )}
               </>
             )}
           </section>
@@ -941,7 +1432,7 @@ const ModuleForum = () => {
               members={members}
               monitorId={moduleMonitorId}
               onChange={(e) => onMentionAwareInput('thread', e.target.value)}
-              onKeyDown={(e) => handleSmartDelete('thread', e)}
+              onKeyDown={(e) => handleInputKeyDown('thread', e)}
               placeholder="Describe tu duda... usa @ para mencionar"
               minHeight="120px"
               onSelect={() => handleEditorSelection('thread')}
@@ -964,15 +1455,67 @@ const ModuleForum = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)} title="Eliminar publicacion">
+      <Modal isOpen={!!reportTarget} onClose={() => setReportTarget(null)} title="Reportar contenido">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Seguro que deseas eliminar esta publicacion?</p>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold">Cancelar</button>
-            <button onClick={() => handleDeleteForum(confirmDeleteId)} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold">Eliminar</button>
+          <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center gap-3">
+            <AlertOctagon className="text-amber-600" size={20} />
+            <div>
+              <p className="text-xs font-black text-amber-800 uppercase tracking-wide">¿Por qué reportas esto?</p>
+              <p className="text-[10px] text-amber-600">Reportando a: {reportTarget?.name}</p>
+            </div>
+          </div>
+          
+          <textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            placeholder="Describe el motivo del reporte (ej. spam, lenguaje ofensivo, no pertenece al modulo)..."
+            className="w-full h-32 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
+          />
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={() => setReportTarget(null)}
+              className="px-4 py-2 rounded-xl text-gray-500 text-sm font-bold hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={reporting || !reportReason.trim()}
+              onClick={handleReport}
+              className="px-5 py-2 rounded-xl bg-amber-600 text-white text-sm font-black shadow-lg shadow-amber-200 hover:bg-amber-700 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {reporting ? 'Enviando...' : 'Enviar Reporte'}
+            </button>
           </div>
         </div>
       </Modal>
+
+      <div className={`fixed inset-0 z-[120] ${confirmDelete ? 'flex' : 'hidden'} items-center justify-center p-4`}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setConfirmDelete(null)}></div>
+        <div className="relative bg-white rounded-2xl border border-gray-100 p-6 w-full max-w-sm space-y-4 shadow-2xl animate-scale-in">
+          <div className="p-3 bg-red-50 rounded-full w-fit mx-auto text-red-600">
+            <AlertOctagon size={24} />
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-black text-gray-900">¿Estás seguro?</h3>
+            <p className="text-sm text-gray-500 mt-1">Esta acción eliminará el {confirmDelete?.type === 'forum' ? 'foro' : 'mensaje'} permanentemente y no se puede deshacer.</p>
+          </div>
+          <div className="flex gap-2 justify-center pt-2">
+            <button 
+              onClick={() => setConfirmDelete(null)} 
+              className="flex-1 px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-all"
+            >
+              No, cancelar
+            </button>
+            <button 
+              onClick={handleDeleteRecord} 
+              className="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-black hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95"
+            >
+              Sí, eliminar
+            </button>
+          </div>
+        </div>
+      </div>
       
       <FloatingToolbar />
     </div>

@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria, getModalidades, getCuatrimestres, getAllRegistrations, getAcademicModuleStats, getAcademicSessionHistory, getAcademicSessionDetail, getDiningStats, getDiningStudentHistory, scanQrLunch, addAcademicAttendanceExcuse } from '../services/api';
+import { 
+  getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, 
+  getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria, 
+  getModalidades, getCuatrimestres, getAllRegistrations, getAcademicModuleStats, 
+  getAcademicSessionHistory, getAcademicSessionDetail, getDiningStats, 
+  getDiningStudentHistory, scanQrLunch, addAcademicAttendanceExcuse,
+  getForumReports, resolveForumReport
+} from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../components/Modal';
 import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search, UserCheck, Clock3 } from 'lucide-react';
@@ -75,6 +82,8 @@ const MonitorDashboard = () => {
   const activeStreamRef = useRef(null);
   const scanTimerRef = useRef(null);
   const lastScannedRef = useRef({ token: '', at: 0 });
+  const [reports, setReports] = useState([]);
+  const [resolvingReportId, setResolvingReportId] = useState(null);
 
   const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
   const isDiningMonitor = ['monitor_administrativo'].includes(String(session?.role || '').toLowerCase()) || ['monitor_administrativo'].includes(String(session?.baseRole || '').toLowerCase());
@@ -249,6 +258,34 @@ const MonitorDashboard = () => {
     };
     loadDining();
   }, [isDiningMonitor]);
+
+  useEffect(() => {
+    if (topTab === 'reports') {
+      loadReports();
+    }
+  }, [topTab]);
+
+  const loadReports = async () => {
+    try {
+      const data = await getForumReports();
+      setReports(data || []);
+    } catch (error) {
+      showToast(error.message || 'Error al cargar reportes', 'error');
+    }
+  };
+
+  const handleResolveReport = async (reportId) => {
+    setResolvingReportId(reportId);
+    try {
+      await resolveForumReport(reportId);
+      showToast('Reporte marcado como resuelto', 'success');
+      loadReports();
+    } catch (error) {
+      showToast(error.message || 'Error al resolver reporte', 'error');
+    } finally {
+      setResolvingReportId(null);
+    }
+  };
 
   const handleOpenDelete = (student) => {
     setSelectedStudent(student);
@@ -672,12 +709,29 @@ const MonitorDashboard = () => {
           </div>
 
           <div className="relative z-10 flex gap-2 self-end md:self-start">
+            <div className="flex bg-gray-50 p-1.5 rounded-2xl w-fit border border-gray-100 mb-8 overflow-auto max-w-full">
             <button
-              onClick={() => setTopTab((prev) => (prev === 'stats' ? '' : 'stats'))}
-              className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'stats' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white'}`}
+              onClick={() => setTopTab('')}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${!topTab ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
+                }`}
             >
-              Estadisticas
+              <Users size={14} /> Alumnos
             </button>
+            <button
+              onClick={() => setTopTab('stats')}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'stats' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
+                }`}
+            >
+              <AlertCircle size={14} /> Estadisticas
+            </button>
+            <button
+              onClick={() => setTopTab('reports')}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'reports' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
+                }`}
+            >
+              <AlertOctagon size={14} className={topTab === 'reports' ? 'text-amber-500' : ''} /> Reportes
+            </button>
+          </div>
             <button
               onClick={() => setTopTab((prev) => (prev === 'history' ? '' : 'history'))}
               className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'history' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white'}`}
@@ -804,14 +858,14 @@ const MonitorDashboard = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleOpenEdit(mod)}
-                        className="text-gray-400 hover:text-brand-blue transition-colors p-1"
+                        className="text-gray-400 hover:text-brand-blue transition-all p-2 hover:bg-blue-50 rounded-lg active:scale-90"
                         title="Editar Datos"
                       >
                         <Edit3 size={18} />
                       </button>
                       <button
                         onClick={() => handleDeleteModule(mod)}
-                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                        className="text-gray-400 hover:text-red-500 transition-all p-2 hover:bg-red-50 rounded-lg active:scale-90"
                         title="Eliminar Monitoría"
                       >
                         <Trash2 size={18} />
@@ -826,7 +880,7 @@ const MonitorDashboard = () => {
                   <div className="mt-4 flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={() => setFilterModulo(mod.modulo)}
-                      className={`flex-grow py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-lg' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                      className={`flex-grow py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all active:scale-95 ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                         }`}
                     >
                       <Users size={12} /> Ver Alumnos
@@ -834,14 +888,14 @@ const MonitorDashboard = () => {
                     <div className="flex gap-2 justify-center">
                       <button
                         onClick={() => handleCopyTemplate(mod)}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all flex items-center justify-center"
+                        className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
                         title="Copiar Plantilla"
                       >
                         <ClipboardList size={18} />
                       </button>
                       <button
                         onClick={() => handleCopySurvey(mod)}
-                        className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-all flex items-center justify-center"
+                        className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
                         title="Copiar Encuesta"
                       >
                         <Link size={18} />
@@ -862,7 +916,7 @@ const MonitorDashboard = () => {
               {filterModulo !== 'all' && (
                 <button
                   onClick={() => setFilterModulo('all')}
-                  className="text-[10px] font-black uppercase text-gray-400 hover:text-brand-blue transition-colors px-3 py-1 bg-gray-100 rounded-full"
+                  className="text-[10px] font-black uppercase text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 transition-all px-3 py-1 bg-gray-100 rounded-full active:scale-95"
                 >
                   Ver Todos
                 </button>
@@ -871,115 +925,177 @@ const MonitorDashboard = () => {
             {/* Student List Grid/Table Area */}
             <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
               <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
-                <h3 className="text-xl font-black text-gray-900">Estudiantes Registrados</h3>
-                <div className="w-full sm:w-auto flex items-center gap-2">
-                  <button
-                    onClick={exportStudentsCsv}
-                    className="px-3 py-2 rounded-xl bg-gray-900 text-white text-[11px] font-black uppercase tracking-wider"
-                  >
-                    Exportar CSV
-                  </button>
-                  <div className="relative w-full sm:w-64">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                      <Search size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Buscar estudiante..."
-                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all shadow-inner"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <h3 className="text-xl font-black text-gray-900">
+                  {topTab === 'reports' ? 'Centro de Moderacion' : 'Estudiantes Registrados'}
+                </h3>
+                {topTab === 'reports' ? (
+                  <div className="flex items-center gap-2">
+                    <button onClick={loadReports} className="p-2 text-gray-400 hover:text-brand-blue transition-all">
+                      <Clock3 size={18} />
+                    </button>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
+                      {reports.length} reportes pendientes
+                    </span>
                   </div>
-                </div>
+                ) : (
+                  <div className="w-full sm:w-auto flex items-center gap-2">
+                    <button
+                      onClick={exportStudentsCsv}
+                      className="px-4 py-2 rounded-xl bg-gray-900 text-white text-[11px] font-black uppercase tracking-wider hover:bg-black hover:shadow-lg active:scale-95 transition-all"
+                    >
+                      Exportar CSV
+                    </button>
+                    <div className="relative w-full sm:w-64">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <Search size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Buscar estudiante..."
+                        className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all shadow-inner"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex-grow overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-max">
                   <thead>
                     <tr className="bg-gray-50 text-[10px] uppercase tracking-widest font-black text-gray-400">
-                      <th className="px-6 py-4">Estudiante</th>
-                      <th className="px-6 py-4">Módulo</th>
-                      <th className="px-6 py-4">Fecha Reg.</th>
-                      <th className="px-6 py-4 text-right">Acciones</th>
+                      {topTab === 'reports' ? (
+                        <>
+                          <th className="px-6 py-4">Autor</th>
+                          <th className="px-6 py-4">Motivo</th>
+                          <th className="px-6 py-4">Foro / Mensaje</th>
+                          <th className="px-6 py-4 text-right">Acciones</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-6 py-4">Estudiante</th>
+                          <th className="px-6 py-4">Módulo</th>
+                          <th className="px-6 py-4">Fecha Reg.</th>
+                          <th className="px-6 py-4 text-right">Acciones</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {(() => {
-                      const filteredRegistrations = students
-                        .filter(st => filterModulo === 'all' || st.modulo === filterModulo)
-                        .filter(st =>
-                          (st.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                          (st.studentEmail?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                          (st.modulo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-                        );
+                    {topTab === 'reports' ? (
+                      reports.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">Sin reportes pendientes</td>
+                        </tr>
+                      ) : (
+                        reports.map(rep => (
+                          <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <UserAvatar photo={rep.reported_photo} name={rep.reported_name} userId={rep.reported_id} size="w-8 h-8" />
+                                <div>
+                                  <p className="font-bold text-gray-900 text-xs">{rep.reported_name}</p>
+                                  <p className="text-[9px] text-gray-400">Reportado por: {rep.reporter_name}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="max-w-xs">
+                                <p className="text-xs font-bold text-gray-700">{rep.reason}</p>
+                                <p className="text-[10px] text-gray-400 mt-1">{new Date(rep.created_at).toLocaleString()}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={() => navigate(`/modulo/${rep.modulo_id || 0}?forumId=${rep.target_id}`)}
+                                className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase border border-amber-100 hover:bg-amber-100 transition-all"
+                              >
+                                {rep.target_type === 'thread' ? 'Ver Pregunta' : 'Ver Respuesta'}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                disabled={resolvingReportId === rep.id}
+                                onClick={() => handleResolveReport(rep.id)}
+                                className="px-4 py-2 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50"
+                              >
+                                {resolvingReportId === rep.id ? '...' : 'Resolver'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )
+                    ) : (
+                      (() => {
+                        const filteredRegistrations = students
+                          .filter(st => filterModulo === 'all' || st.modulo === filterModulo)
+                          .filter(st =>
+                            (st.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                            (st.studentEmail?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                            (st.modulo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+                          );
 
-                      // Group by student email
-                      const groupedMap = filteredRegistrations.reduce((acc, reg) => {
-                        if (!acc[reg.studentEmail]) {
-                          acc[reg.studentEmail] = {
-                            ...reg,
-                            modulos: [reg.modulo],
-                            regIds: [reg.id]
-                          };
-                        } else {
-                          if (!acc[reg.studentEmail].modulos.includes(reg.modulo)) {
+                        const groupedMap = filteredRegistrations.reduce((acc, reg) => {
+                          if (!acc[reg.studentEmail]) {
+                            acc[reg.studentEmail] = { ...reg, modulos: [reg.modulo], regIds: [reg.id] };
+                          } else if (!acc[reg.studentEmail].modulos.includes(reg.modulo)) {
                             acc[reg.studentEmail].modulos.push(reg.modulo);
                             acc[reg.studentEmail].regIds.push(reg.id);
                           }
+                          return acc;
+                        }, {});
+
+                        const uniqueStudents = Object.values(groupedMap);
+
+                        if (uniqueStudents.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="4" className="px-6 py-20 text-center">
+                                <div className="flex flex-col items-center gap-4">
+                                  <AlertCircle size={48} className="text-gray-200" />
+                                  <p className="text-gray-400 font-bold">No hay estudiantes encontrados</p>
+                                </div>
+                              </td>
+                            </tr>
+                          );
                         }
-                        return acc;
-                      }, {});
 
-                      const uniqueStudents = Object.values(groupedMap);
-
-                      if (uniqueStudents.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan="4" className="px-6 py-20 text-center">
-                              <div className="flex flex-col items-center gap-4">
-                                <AlertCircle size={48} className="text-gray-200" />
-                                <p className="text-gray-400 font-bold">No hay estudiantes encontrados</p>
+                        return uniqueStudents.map(st => (
+                          <tr key={st.studentEmail} className="hover:bg-gray-50 transition-all group">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} />
+                                <div>
+                                  <p className="font-bold text-gray-900">{st.studentName}</p>
+                                  <p className="text-xs text-gray-400">{st.studentEmail}</p>
+                                </div>
                               </div>
                             </td>
-                          </tr>
-                        );
-                      }
-
-                      return uniqueStudents.map(st => (
-                        <tr key={st.studentEmail} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} rounded="rounded-xl" />
-                              <div>
-                                <p className="font-bold text-gray-900">{st.studentName}</p>
-                                <p className="text-xs text-gray-400">{st.studentEmail}</p>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-1.5">
+                                {st.modulos.map((m, idx) => (
+                                  <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
+                                    {m}
+                                  </span>
+                                ))}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1.5">
-                              {st.modulos.map((m, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
-                                  {m}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-xs text-gray-500">
-                            {new Date(st.registeredAt).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleOpenDelete(st)}
-                              className="p-2 text-red-100 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <Trash2 size={20} />
-                            </button>
-                          </td>
-                        </tr>
-                      ));
-                    })()}
+                            </td>
+                            <td className="px-6 py-4 text-xs text-gray-500">
+                              {new Date(st.registeredAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                onClick={() => handleOpenDelete(st)}
+                                className="p-2 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                              >
+                                <Trash2 size={20} />
+                              </button>
+                            </td>
+                          </tr>
+                        ));
+                      })()
+                    )}
                   </tbody>
                 </table>
               </div>

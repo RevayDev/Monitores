@@ -276,16 +276,39 @@ export const createForum = (payload) => request('/forums', { method: 'POST', bod
 export const getForumById = (id) => request(`/forums/${id}`);
 export const createForumComment = (id, payload) => request(`/forums/${id}/comment`, { method: 'POST', body: JSON.stringify(payload) });
 export const createForumReply = (id, payload) => request(`/forums/${id}/reply`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateForum = (id, payload) => request(`/forums/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+export const updateForumReply = (id, payload) => request(`/forums/reply/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 export const toggleForumSave = (id) => request(`/forums/${id}/save`, { method: 'POST', body: JSON.stringify({}) });
 export const deleteForum = (id) => request(`/forums/${id}`, { method: 'DELETE' });
-
-// --- Stats by role ---
-export const getStudentStats = () => request('/stats/student');
-export const getMonitorAcademicStats = () => request('/stats/monitor-academic');
 export const getMonitorAdminStats = () => request('/stats/monitor-admin');
 export const getAdminStats = () => request('/stats/admin');
 export const getGlobalStats = () => request('/stats/global');
 export const getUserStats = (userId) => request(`/stats/user/${userId}`);
+
+// --- Reports ---
+export const createForumReport = (payload) => request('/forums/report', { method: 'POST', body: JSON.stringify(payload) });
+export const getForumReports = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/forums/reports${query ? '?' + query : ''}`);
+};
+export const resolveForumReport = (id) => request(`/forums/reports/${id}/resolve`, { method: 'POST', body: JSON.stringify({}) });
+
+// --- Administrative Module Management ---
+export const adminGetModules = () => request('/admin/modules-management');
+export const adminUpdateModule = (id, payload) => request(`/admin/modules-management/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(payload)
+});
+export const adminDeleteModule = (id) => request(`/admin/modules-management/${id}`, {
+  method: 'DELETE'
+});
+
+// --- Forum Engagement & Presence ---
+export const updateForumPresence = (forumId, isTyping) => request(`/forums/${forumId}/presence`, {
+  method: 'PUT',
+  body: JSON.stringify({ isTyping })
+});
+export const getForumPresence = (forumId) => request(`/forums/${forumId}/presence`);
 
 // --- Analytics v2 (Academic / Dining / Admin) ---
 export const getAcademicModules = () => request('/academic/modules');

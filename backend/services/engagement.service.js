@@ -500,7 +500,7 @@ class EngagementService {
     const message = await engagementRepository.getForumMessageById(messageId);
     if (!message) throw new Error('Mensaje no encontrado.');
     const user = await engagementRepository.getUserById(userId);
-    const isModerator = ['monitor', 'admin', 'dev'].includes(user?.role);
+    const isModerator = ['admin', 'dev'].includes(user?.role?.toLowerCase());
     if (Number(message.user_id) !== Number(userId) && !isModerator) {
       throw new Error('No autorizado para borrar este mensaje.');
     }
@@ -616,7 +616,14 @@ class EngagementService {
     const user = await engagementRepository.getUserById(userId);
     const moduleId = Number(forum.modulo_id || forum.subject_id);
     const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
-    if (!canAccess) throw new Error('No tienes acceso a este foro.');
+    
+    // Permitir acceso si el usuario es el autor o si tiene el foro guardado
+    const isOwner = Number(forum.user_id) === Number(userId);
+    const isSaved = Number(forum.is_saved) === 1;
+
+    if (!canAccess && !isOwner && !isSaved) {
+      throw new Error('No tienes acceso a este foro.');
+    }
     const [replies, attachments] = await Promise.all([
       engagementRepository.getForumReplies(Number(forumId)),
       engagementRepository.getForumAttachments({ forumId: Number(forumId) })
@@ -628,6 +635,22 @@ class EngagementService {
       }))
     );
     return { ...forum, modulo_id: moduleId, attachments, comments: enrichedReplies, replies: enrichedReplies };
+  }
+
+  async updateForum(userId, forumId, payload) {
+    const forum = await engagementRepository.getForumById(Number(forumId));
+    if (!forum) throw new Error('Foro no encontrado.');
+    const user = await engagementRepository.getUserById(userId);
+    const isModerator = ['admin', 'dev'].includes(user?.role);
+    if (Number(forum.user_id) !== Number(userId) && !isModerator) {
+      throw new Error('No autorizado para editar esta pregunta.');
+    }
+    await engagementRepository.updateForum(Number(forumId), {
+      title: payload.title?.trim(),
+      content: payload.content?.trim(),
+      attachments: this.normalizeAttachments(payload.attachments)
+    });
+    return { success: true };
   }
 
   async createForumReply(forumId, userId, payload, context = {}) {
@@ -665,6 +688,18 @@ class EngagementService {
       });
     }
 
+    // Notificar al monitor del modulo si no es el autor de la respuesta
+    const monitorId = Number(forum.module_monitor_id);
+    if (monitorId && monitorId !== Number(userId) && monitorId !== Number(forum.user_id)) {
+      await engagementRepository.createNotification({
+        userId: monitorId,
+        type: 'forum_activity',
+        title: 'Actividad en tu modulo',
+        body: `Nueva respuesta en "${forum.title}"`,
+        metadata: { forumId: Number(forumId), moduleId }
+      });
+    }
+
     const mentionIds = this.extractMentionIds(content);
     if (mentionIds.length) {
       const mentionedUsers = await engagementRepository.getUsersByIdsInModule(moduleId, mentionIds);
@@ -695,6 +730,69 @@ class EngagementService {
     return { id: commentId };
   }
 
+  async reportForum(userId, payload) {
+    const { type, targetId, reason } = payload;
+    if (!type || !targetId || !reason) throw new Error('type, targetId y reason son obligatorios.');
+    
+    let reportedId;
+    if (type === 'thread') {
+      const forum = await engagementRepository.getForumById(Number(targetId));
+      if (!forum) throw new Error('Foro no encontrado.');
+      reportedId = forum.user_id;
+    } else {
+      const reply = await engagementRepository.getForumReplyById(Number(targetId));
+      if (!reply) throw new Error('Respuesta no encontrada.');
+      reportedId = reply.user_id;
+    }
+
+    const reportId = await engagementRepository.createForumReport({
+      type,
+      targetId: Number(targetId),
+      reporterId: userId,
+      reportedId,
+      reason: reason.trim()
+    });
+    return { success: true, reportId };
+  }
+
+  async getReports(userId, filters = {}) {
+    const user = await engagementRepository.getUserById(userId);
+    const role = String(user?.role || '').toLowerCase();
+    
+    const queryFilters = {};
+    if (['monitor', 'monitor_academico'].includes(role)) {
+      queryFilters.monitorId = userId;
+    } else if (!['admin', 'dev'].includes(role)) {
+      throw new Error('No autorizado para ver reportes.');
+    }
+
+    return engagementRepository.getForumReports(queryFilters);
+  }
+
+  async resolveReport(userId, reportId) {
+    const user = await engagementRepository.getUserById(userId);
+    if (!['admin', 'dev', 'monitor', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
+      throw new Error('No autorizado.');
+    }
+    await engagementRepository.resolveForumReport(reportId, userId);
+    return { success: true };
+  }
+
+  async updateForumReply(userId, replyId, payload) {
+    const reply = await engagementRepository.getForumReplyById(Number(replyId));
+    if (!reply) throw new Error('Respuesta no encontrada.');
+    const user = await engagementRepository.getUserById(userId);
+    const isModerator = ['admin', 'dev'].includes(user?.role);
+    if (Number(reply.user_id) !== Number(userId) && !isModerator) {
+      throw new Error('No autorizado para editar esta respuesta.');
+    }
+    await engagementRepository.updateForumReply(Number(replyId), {
+      content: payload.content?.trim(),
+      attachments: this.normalizeAttachments(payload.attachments)
+    });
+    return { success: true };
+  }
+
   async createForumComment(forumId, userId, payload, context = {}) {
     return this.createForumReply(forumId, userId, payload, context);
   }
@@ -716,7 +814,7 @@ class EngagementService {
     if (!forum) throw new Error('Foro no encontrado.');
     const actor = await engagementRepository.getUserById(userId);
     const role = String(actor?.role || '').toLowerCase();
-    const canModerate = ['monitor', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'].includes(role);
+    const canModerate = ['admin', 'dev'].includes(role);
     if (Number(forum.user_id) !== Number(userId) && !canModerate) {
       throw new Error('No autorizado para borrar este foro.');
     }
@@ -789,6 +887,14 @@ class EngagementService {
     if (!user) throw new Error('Usuario no encontrado.');
     if (!['admin', 'dev'].includes(user.role)) throw new Error('Acceso no permitido para este endpoint.');
     return engagementRepository.getAdminStats();
+  }
+
+  async updateForumPresence(userId, forumId, isTyping) {
+    return engagementRepository.updateForumPresence(forumId, userId, isTyping);
+  }
+
+  async getForumPresence(forumId, userId) {
+    return engagementRepository.getForumPresence(forumId, userId);
   }
 }
 

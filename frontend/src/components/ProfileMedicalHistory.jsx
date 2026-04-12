@@ -99,36 +99,49 @@ const ProfileMedicalHistory = () => {
               <Activity size={14} /> Foros creados por ti
             </p>
             <div className="space-y-2 max-h-56 overflow-auto">
-              {forumHistory.slice(0, 15).map((item) => (
-                <div key={item.id} className="bg-blue-50/40 rounded-xl p-2">
-                  <button onClick={() => navigate(`/modules/${item.modulo_id}/forum`)} className="text-left w-full">
-                    <p className="text-sm font-bold text-gray-800">{item.module_name || `Modulo #${item.modulo_id}`}</p>
-                    <p className="text-xs text-gray-600">{item.title}</p>
-                    <p className="text-xs text-gray-500">{formatDate(item.created_at)} · {item.responses_count || 0} respuestas</p>
-                  </button>
-                  <button onClick={() => setPendingDeleteForumId(item.id)} className="mt-2 px-2 py-1 rounded-lg bg-red-100 text-red-600 text-[11px] font-black inline-flex items-center gap-1">
-                    <Trash2 size={11} /> Borrar
+              {forumHistory.map((item) => (
+                <div 
+                  key={item.id} 
+                  onClick={() => navigate(`/modulo/${item.modulo_id || 0}?forumId=${item.id}&readOnly=true`)}
+                  className="bg-blue-50/40 rounded-xl p-3 border border-transparent hover:border-blue-200 hover:bg-blue-100/50 cursor-pointer transition-all active:scale-[0.98] group relative"
+                >
+                  <div className="flex justify-between items-start pr-8">
+                    <div>
+                      <p className="text-sm font-black text-gray-800 group-hover:text-blue-700 transition-colors uppercase tracking-tight">{item.title}</p>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase trekking-widest mt-0.5">{item.module_name || 'Desconocido'}</p>
+                      <p className="text-[9px] text-gray-400 mt-1 italic">{formatDate(item.created_at)}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setPendingDeleteForumId(item.id); }}
+                    className="absolute top-3 right-3 p-1.5 text-gray-300 hover:text-red-500 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               ))}
-              {!forumHistory.length && <p className="text-sm text-gray-500">Sin foros creados.</p>}
+              {!forumHistory.length && <p className="text-sm text-gray-400 italic">No has creado preguntas.</p>}
             </div>
           </div>
           </div>
 
-          <div className="border border-amber-100 rounded-2xl p-4 w-full">
-            <p className="text-xs uppercase font-black text-amber-600 mb-3 flex items-center gap-2">
+          <div className="border border-amber-100 rounded-2xl p-4">
+            <p className="text-xs uppercase font-black text-amber-500 mb-3 flex items-center gap-2">
               <Bookmark size={14} /> Foros guardados
             </p>
-            <div className="space-y-2 max-h-72 overflow-auto">
-              {savedForums.slice(0, 15).map((item) => (
-                <button key={`${item.id}-${item.saved_at}`} onClick={() => navigate(`/modules/${item.modulo_id}/forum`)} className="text-left w-full bg-amber-50/50 rounded-xl p-2">
-                  <p className="text-sm font-bold text-gray-800">{item.module_name || `Modulo #${item.modulo_id}`}</p>
-                  <p className="text-xs text-gray-600">{item.title}</p>
-                  <p className="text-xs text-gray-500">Guardado: {formatDate(item.saved_at)}</p>
-                </button>
+            <div className="space-y-2 max-h-56 overflow-auto">
+              {savedForums.map((item) => (
+                <div 
+                  key={item.id} 
+                  onClick={() => navigate(`/modulo/${item.modulo_id || 0}?forumId=${item.id}&readOnly=true`)}
+                  className="bg-amber-50/40 rounded-xl p-3 border border-transparent hover:border-amber-200 hover:bg-amber-100/50 cursor-pointer transition-all active:scale-[0.98] group"
+                >
+                  <p className="text-sm font-black text-gray-800 group-hover:text-amber-700 transition-colors uppercase tracking-tight">{item.title}</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase trekking-widest mt-0.5">{item.module_name || 'Desconocido'}</p>
+                  <p className="text-[9px] text-gray-400 mt-1 italic">Guardado el {formatDate(item.saved_at)}</p>
+                </div>
               ))}
-              {!savedForums.length && <p className="text-sm text-gray-500">Sin foros guardados.</p>}
+              {!savedForums.length && <p className="text-sm text-gray-400 italic">No tienes foros guardados.</p>}
             </div>
           </div>
         </div>

@@ -18,6 +18,22 @@ class AdminService {
     return await adminRepository.getComplaints();
   }
 
+  async getAllModules() {
+    // Usamos el repositorio de monitorias para obtener todos los modulos
+    const monitoriasRepository = (await import('../repositories/mysql/monitorias.repository.js')).default;
+    const modules = await monitoriasRepository.getAll();
+    return modules;
+  }
+
+  async updateModule(id, data) {
+    const monitoriasRepository = (await import('../repositories/mysql/monitorias.repository.js')).default;
+    return await monitoriasRepository.update(id, data);
+  }
+
+  async deleteModule(id) {
+    const monitoriasRepository = (await import('../repositories/mysql/monitorias.repository.js')).default;
+    return await monitoriasRepository.delete(id);
+  }
 }
 
 export default new AdminService();
