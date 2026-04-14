@@ -17,7 +17,9 @@ const UserAvatar = ({
     switch (role?.toLowerCase()) {
       case 'dev': return 'bg-purple-600';
       case 'admin': return 'bg-amber-600';
-      case 'monitor': return 'bg-emerald-600';
+      case 'monitor':
+      case 'monitor_academico': return 'bg-emerald-600';
+      case 'monitor_administrativo': return 'bg-indigo-600';
       case 'student': return 'bg-brand-blue';
       default: return 'bg-gray-400';
     }

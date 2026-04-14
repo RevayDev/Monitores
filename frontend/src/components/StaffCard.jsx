@@ -1,4 +1,4 @@
-import { Shield, UserCheck, Mail, User, Wrench } from 'lucide-react';
+import { Shield, UserCheck, Mail, User, Wrench, BriefcaseBusiness } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 const StaffCard = ({ user }) => {
@@ -14,6 +14,22 @@ const StaffCard = ({ user }) => {
       icon: <UserCheck size={18} />,
       title: 'Monitor Académico',
       subtitle: 'Personal Educativo'
+    },
+    monitor_academico: {
+      color: 'bg-emerald-500',
+      textColor: 'text-emerald-500',
+      lightBg: 'bg-emerald-50',
+      icon: <UserCheck size={18} />,
+      title: 'Monitor Académico',
+      subtitle: 'Apoyo Pedagógico'
+    },
+    monitor_administrativo: {
+      color: 'bg-indigo-600',
+      textColor: 'text-indigo-600',
+      lightBg: 'bg-indigo-50',
+      icon: <BriefcaseBusiness size={18} />,
+      title: 'Monitor Administrativo',
+      subtitle: 'Gestión Institucional'
     },
     admin: {
       color: 'bg-amber-600',

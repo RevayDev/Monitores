@@ -224,8 +224,11 @@ class MonitoriasRepositoryMySQL {
     }
   }
 
-  async deleteModulesByMonitorUserId(monitorUserId) {
-    await pool.query('DELETE FROM modules WHERE monitorId = ?', [monitorUserId]);
+  async unassignModulesByMonitorUserId(monitorUserId) {
+    await pool.query(
+      'UPDATE modules SET monitorId = NULL, monitor = NULL, monitorEmail = NULL WHERE monitorId = ?',
+      [monitorUserId]
+    );
     return true;
   }
 }

@@ -110,10 +110,18 @@ const Monitorias = () => {
     }
   };
 
-  const filteredMonitorias = monitorias.filter(m =>
-    m.modulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.monitor.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMonitorias = monitorias
+    .filter(m =>
+      m.modulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.monitor.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aNoMonitor = !a.monitorId || a.monitorId === 0 || !a.monitor;
+      const bNoMonitor = !b.monitorId || b.monitorId === 0 || !b.monitor;
+      if (aNoMonitor && !bNoMonitor) return 1;
+      if (!aNoMonitor && bNoMonitor) return -1;
+      return 0;
+    });
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-10 px-4 sm:px-6 lg:px-8">

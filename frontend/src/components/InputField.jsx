@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ChevronDown } from 'lucide-react';
 
-const InputField = ({ label, icon, type = "text", placeholder = "", value, onChange, options = [], required = true }) => {
+const InputField = ({ label, icon, type = "text", placeholder = "", value, onChange, options = [], required = true, disabled = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
   const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+
+  const disabledClasses = disabled ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-100 opacity-80" : "bg-white border-slate-200 text-slate-900";
 
   return (
     <div className="space-y-2 text-left group">
@@ -24,7 +26,8 @@ const InputField = ({ label, icon, type = "text", placeholder = "", value, onCha
           <div className="relative">
             <select
               required={required}
-              className={`w-full appearance-none ${icon ? 'pl-14' : 'pl-5'} pr-12 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none text-slate-900 font-bold transition-all text-sm shadow-sm cursor-pointer`}
+              disabled={disabled}
+              className={`w-full appearance-none ${icon ? 'pl-14' : 'pl-5'} pr-12 py-4 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none font-bold transition-all text-sm shadow-sm ${disabledClasses}`}
               value={value}
               onChange={onChange}
             >
@@ -40,7 +43,8 @@ const InputField = ({ label, icon, type = "text", placeholder = "", value, onCha
         ) : type === 'textarea' ? (
           <textarea
             required={required}
-            className={`w-full h-32 ${icon ? 'pl-14' : 'pl-4'} pr-6 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none text-slate-900 font-semibold transition-all text-sm placeholder-slate-300 shadow-sm resize-none`}
+            disabled={disabled}
+            className={`w-full h-32 ${icon ? 'pl-14' : 'pl-4'} pr-6 py-4 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none font-semibold transition-all text-sm placeholder-slate-300 shadow-sm resize-none ${disabledClasses}`}
             placeholder={placeholder}
             value={value}
             onChange={onChange}
@@ -50,7 +54,8 @@ const InputField = ({ label, icon, type = "text", placeholder = "", value, onCha
             <input
               type={inputType}
               required={required && type !== "password" && type !== "file"}
-              className={`w-full ${icon ? 'pl-14' : 'pl-5'} ${isPassword ? 'pr-14' : 'pr-6'} py-4 bg-white border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none text-slate-900 font-bold transition-all text-sm placeholder-slate-300 shadow-sm`}
+              disabled={disabled}
+              className={`w-full ${icon ? 'pl-14' : 'pl-5'} ${isPassword ? 'pr-14' : 'pr-6'} py-4 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none font-bold transition-all text-sm placeholder-slate-300 shadow-sm ${disabledClasses}`}
               placeholder={placeholder}
               value={value}
               onChange={onChange}

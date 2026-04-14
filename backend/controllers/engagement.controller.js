@@ -249,7 +249,11 @@ const createForum = async (req, res) => {
 
 const getForum = async (req, res) => {
   try {
-    const data = await engagementService.getForumById(Number(req.params.id), req.userContext.userId);
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
+    const data = await engagementService.getForumById(forumId, req.userContext.userId);
     res.json(data);
   } catch (error) {
     res.status(404).json({ error: error.message });
@@ -258,8 +262,12 @@ const getForum = async (req, res) => {
 
 const createForumComment = async (req, res) => {
   try {
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
     const data = await engagementService.createForumReply(
-      Number(req.params.id),
+      forumId,
       req.userContext.userId,
       req.body,
       getClientContext(req)
@@ -272,8 +280,12 @@ const createForumComment = async (req, res) => {
 
 const createForumReply = async (req, res) => {
   try {
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
     const data = await engagementService.createForumReply(
-      Number(req.params.id),
+      forumId,
       req.userContext.userId,
       req.body,
       getClientContext(req)
@@ -286,7 +298,11 @@ const createForumReply = async (req, res) => {
 
 const toggleForumSave = async (req, res) => {
   try {
-    const data = await engagementService.toggleForumSave(Number(req.params.id), req.userContext.userId);
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
+    const data = await engagementService.toggleForumSave(forumId, req.userContext.userId);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -295,7 +311,11 @@ const toggleForumSave = async (req, res) => {
 
 const deleteForum = async (req, res) => {
   try {
-    const data = await engagementService.deleteForum(Number(req.params.id), req.userContext.userId);
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
+    const data = await engagementService.deleteForum(forumId, req.userContext.userId);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -359,8 +379,12 @@ const updateForumReply = async (req, res) => {
 const updateForumPresence = async (req, res) => {
   try {
     const { forumId } = req.params;
+    const parsedForumId = Number(forumId);
+    if (!Number.isInteger(parsedForumId) || parsedForumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
     const { isTyping } = req.body;
-    await engagementService.updateForumPresence(req.userContext.userId, Number(forumId), isTyping);
+    await engagementService.updateForumPresence(req.userContext.userId, parsedForumId, isTyping);
     res.json({ success: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -370,7 +394,11 @@ const updateForumPresence = async (req, res) => {
 const getForumPresence = async (req, res) => {
   try {
     const { forumId } = req.params;
-    const data = await engagementService.getForumPresence(Number(forumId), req.userContext.userId);
+    const parsedForumId = Number(forumId);
+    if (!Number.isInteger(parsedForumId) || parsedForumId <= 0) {
+      return res.status(400).json({ error: 'ID de foro invalido.' });
+    }
+    const data = await engagementService.getForumPresence(parsedForumId, req.userContext.userId);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -397,7 +425,11 @@ const getReports = async (req, res) => {
 
 const resolveReport = async (req, res) => {
   try {
-    const data = await engagementService.resolveReport(req.userContext.userId, req.params.id);
+    const reportId = Number(req.params.id);
+    if (!Number.isInteger(reportId) || reportId <= 0) {
+      return res.status(400).json({ error: 'ID de reporte invalido.' });
+    }
+    const data = await engagementService.resolveReport(req.userContext.userId, reportId);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });

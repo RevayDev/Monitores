@@ -10,6 +10,11 @@ class EngagementRepositoryMySQL {
     return rows[0] || null;
   }
 
+  async getModuleById(moduleId) {
+    const [rows] = await pool.query('SELECT * FROM modules WHERE id = ? LIMIT 1', [moduleId]);
+    return rows[0] || null;
+  }
+
   async canAccessModule(userId, moduleId, userEmail = null) {
     const user = await this.getUserById(userId);
     const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
@@ -1111,22 +1116,23 @@ class EngagementRepositoryMySQL {
              u2.nombre AS reported_name,
              CASE 
                WHEN r.type = 'thread' THEN f.title
-               WHEN r.type = 'reply' THEN m.content
+               WHEN r.type = 'reply' THEN rp.content
              END AS content_snippet,
              CASE 
                WHEN r.type = 'thread' THEN f.modulo_id
-               WHEN r.type = 'reply' THEN m.modulo_id
+               WHEN r.type = 'reply' THEN f2.modulo_id
              END AS modulo_id
       FROM forum_reports r
       JOIN users u1 ON u1.id = r.reporter_id
       JOIN users u2 ON u2.id = r.reported_id
       LEFT JOIN forums f ON r.type = 'thread' AND f.id = r.target_id
-      LEFT JOIN forum_messages m ON r.type = 'reply' AND m.id = r.target_id
+      LEFT JOIN replies rp ON r.type = 'reply' AND rp.id = r.target_id
+      LEFT JOIN forums f2 ON r.type = 'reply' AND f2.id = rp.forum_id
       WHERE 1=1
     `;
     const params = [];
     if (filters.monitorId) {
-      query += ` AND (f.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?) OR m.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?))`;
+      query += ` AND (f.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?) OR f2.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?))`;
       params.push(filters.monitorId, filters.monitorId);
     }
     query += ' ORDER BY r.created_at DESC';

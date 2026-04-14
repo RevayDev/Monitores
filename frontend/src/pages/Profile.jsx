@@ -163,7 +163,7 @@ const Profile = () => {
       : (currentSession?.restrictions || {});
 
     if (restrictions.management && currentSession?.baseRole !== 'dev' && currentSession?.role !== 'dev' && !currentSession?.is_principal) {
-      showToast('Tu capacidad de modificar datos ha sido restringida.', 'error');
+      showToast('Tu capacidad de modificar datos ha sido restringida por seguridad.', 'error');
       return;
     }
     await updateUser(user.id, formData);
@@ -200,6 +200,15 @@ const Profile = () => {
   };
 
   if (!user) return null;
+
+  const restrictions = typeof user.restrictions === 'string'
+    ? JSON.parse(user.restrictions)
+    : (user.restrictions || {});
+
+  const isManagementRestricted = restrictions.management &&
+    user.baseRole !== 'dev' &&
+    user.role !== 'dev' &&
+    !user.is_principal;
 
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-12">
@@ -324,20 +333,23 @@ const Profile = () => {
               <div className="relative pointer-events-auto translate-x-3">
 
                 <motion.button
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={isManagementRestricted ? {} : { scale: 1.15 }}
+                  whileTap={isManagementRestricted ? {} : { scale: 0.9 }}
                   transition={{ duration: 0.15 }}
-                  title="Cambiar foto"
-                  className="relative p-2.5 bg-white text-brand-blue rounded-2xl shadow-xl hover:shadow-2xl border border-gray-100 flex items-center justify-center ring-4 ring-brand-blue/5 overflow-hidden"
+                  disabled={isManagementRestricted}
+                  title={isManagementRestricted ? "Gestión restringida" : "Cambiar foto"}
+                  className={`relative p-2.5 bg-white rounded-2xl shadow-xl hover:shadow-2xl border border-gray-100 flex items-center justify-center ring-4 ring-brand-blue/5 overflow-hidden ${isManagementRestricted ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-brand-blue'}`}
                 >
-                  <Camera size={18} />
+                  {isManagementRestricted ? <Lock size={18} /> : <Camera size={18} />}
 
-                  <input
-                    type="file"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={handlePhotoChange}
-                    accept="image/*"
-                  />
+                  {!isManagementRestricted && (
+                    <input
+                      type="file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={handlePhotoChange}
+                      accept="image/*"
+                    />
+                  )}
                 </motion.button>
 
               </div>
@@ -458,6 +470,11 @@ const Profile = () => {
               <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
                 <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
                   <Lock className="text-brand-blue" /> Seguridad
+                  {isManagementRestricted && (
+                    <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-lg border border-red-100 flex items-center gap-1 font-bold">
+                      <Lock size={10} /> Restringido
+                    </span>
+                  )}
                 </h2>
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <InputField
@@ -467,6 +484,7 @@ const Profile = () => {
                     value={passwords.old}
                     onChange={e => setPasswords({ ...passwords, old: e.target.value })}
                     placeholder="••••••••"
+                    disabled={isManagementRestricted}
                   />
                   <InputField
                     label="Nueva Contraseña"
@@ -475,6 +493,7 @@ const Profile = () => {
                     value={passwords.new}
                     onChange={e => setPasswords({ ...passwords, new: e.target.value })}
                     placeholder="••••••••"
+                    disabled={isManagementRestricted}
                   />
                   <InputField
                     label="Confirmar Contraseña"
@@ -483,10 +502,13 @@ const Profile = () => {
                     value={passwords.confirm}
                     onChange={e => setPasswords({ ...passwords, confirm: e.target.value })}
                     placeholder="••••••••"
+                    disabled={isManagementRestricted}
                   />
-                  <button type="submit" className="w-full py-4 bg-gray-50 text-gray-900 border-2 border-gray-100 font-black rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
-                    <Check size={18} /> Actualizar Contraseña
-                  </button>
+                  {!isManagementRestricted && (
+                    <button type="submit" className="w-full py-4 bg-gray-50 text-gray-900 border-2 border-gray-100 font-black rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
+                      <Check size={18} /> Actualizar Contraseña
+                    </button>
+                  )}
                 </form>
               </section>
             </div>

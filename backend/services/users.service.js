@@ -188,7 +188,7 @@ class UsersService {
 
     if (previousRole !== nextRole && monitorRoles.has(previousRole) && !monitorRoles.has(nextRole)) {
       // El usuario conserva historial, pero pierde sus modulos activos de monitor.
-      await monitoriasRepository.deleteModulesByMonitorUserId(id);
+      await monitoriasRepository.unassignModulesByMonitorUserId(id);
     }
 
     return updated;

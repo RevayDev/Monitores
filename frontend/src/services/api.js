@@ -24,6 +24,9 @@ const request = async (endpoint, options = {}) => {
     headers: {
       'Content-Type': 'application/json',
       ...(sessionUser?.id ? { 'x-user-id': String(sessionUser.id) } : {}),
+      ...(sessionUser?.role || sessionUser?.baseRole
+        ? { 'x-user-role': String(sessionUser.baseRole || sessionUser.role).toLowerCase() }
+        : {}),
       ...options.headers
     }
   });
@@ -150,7 +153,7 @@ export const createMonitor = async (monitorData) => {
   // First create the user
   const user = await createUser({
     ...monitorData,
-    role: 'monitor',
+    role: monitorData.role || 'monitor',
     baseRole: 'monitor'
   });
 

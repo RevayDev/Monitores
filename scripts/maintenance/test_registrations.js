@@ -1,4 +1,4 @@
-import pool from './utils/mysql.helper.js';
+import pool from '../../backend/utils/mysql.helper.js';
 
 async function test(studentId) {
   try {

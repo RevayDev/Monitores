@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { getCurrentUser, switchRole, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
+import { io } from 'socket.io-client';
 import { ToastContext } from '../App';
 
 const Navbar = () => {
@@ -27,6 +28,7 @@ const Navbar = () => {
   const [user, setUser] = useState(null);
   const notificationRef = React.useRef(null);
   const prevUnreadRef = React.useRef(0);
+  const [bellAnimating, setBellAnimating] = useState(false);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
 
@@ -41,17 +43,29 @@ const Navbar = () => {
       }
     };
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000); // Polling cada 30s
+
+    // Socket connection for notifications
+    let socket;
+    if (user?.id) {
+       socket = io('http://localhost:3000');
+       socket.emit('join_user', user.id);
+       socket.on('new_notification', (data) => {
+         showToast(data.body || 'Nueva notificación recibida', 'info');
+         loadNotifications();
+         setBellAnimating(true);
+         setTimeout(() => setBellAnimating(false), 600);
+       });
+    }
 
     // Re-fetch user when profile is updated from another page
     window.addEventListener('profile-updated', fetchUser);
     window.addEventListener('notifications-updated', loadNotifications);
     return () => {
-      clearInterval(interval);
+      if (socket) socket.close();
       window.removeEventListener('profile-updated', fetchUser);
       window.removeEventListener('notifications-updated', loadNotifications);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     const currentUnread = notifications.filter((n) => !n.is_read).length;
@@ -137,6 +151,22 @@ const Navbar = () => {
     return diff < 5;
   };
 
+  const getNotificationTypeLabel = (type) => {
+    const map = {
+      mencion_foro: 'Mencion en foro',
+      respuesta_foro: 'Respuesta a tu pregunta',
+      actividad_foro_monitor: 'Actividad del modulo',
+      lunch_delivered: 'Almuerzo registrado',
+      account_created: 'Cuenta creada',
+      account_created_by_admin: 'Cuenta creada por administrador',
+      forum_mention: 'Mencion en foro',
+      forum_reply: 'Respuesta a tu pregunta',
+      forum_activity: 'Actividad del modulo',
+      forum_new_question: 'Nueva pregunta en modulo'
+    };
+    return map[String(type || '').toLowerCase()] || String(type || 'Notificacion').replace(/_/g, ' ');
+  };
+
   const navLinks = {
     guest: [
       { name: 'Inicio', path: '/' },
@@ -157,7 +187,7 @@ const Navbar = () => {
           setNotificationsOpen(!notificationsOpen);
           if (!notificationsOpen) markAllNotificationsAsRead();
         }}
-        className="relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue transition-all active:scale-90"
+        className={`relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue transition-all active:scale-90 ${bellAnimating ? 'animate-notification-zoom' : ''}`}
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -174,13 +204,14 @@ const Navbar = () => {
           <div className="divide-y divide-gray-100">
             {notifications.length ? notifications.map((n) => {
               const isRecent = isNewlyCreated(n.created_at);
-              const isMention = n.type === 'forum_mention';
+              const typeNormalized = String(n.type || '').toLowerCase();
+              const isMention = ['forum_mention', 'mencion_foro'].includes(typeNormalized);
               return (
                 <div key={n.id} className={`px-4 py-3 flex items-start gap-2 transition-all hover:bg-gray-50 group ${isRecent ? (isMention ? 'bg-emerald-50 border-l-4 border-l-emerald-400' : 'bg-amber-50 border-l-4 border-l-amber-400') : ''}`}>
                   <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <p className={`text-[10px] font-black uppercase tracking-tighter ${isRecent ? (isMention ? 'text-emerald-700' : 'text-amber-700') : 'text-gray-900'}`}>
-                        {n.type?.replace(/_/g, ' ')}
+                        {getNotificationTypeLabel(n.type)}
                       </p>
                       {isRecent && (
                         <span className={`${isMention ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'} text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter animate-pulse`}>
@@ -239,7 +270,7 @@ const Navbar = () => {
               {!isGuest && <NotificationBell />}
 
               {/* Dedicated Panel Buttons based on baseRole */}
-              {!isGuest && (user.role === 'monitor' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+              {!isGuest && (user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/monitor-dashboard')}
                   className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/20"
@@ -406,7 +437,7 @@ const Navbar = () => {
 
                 {/* Mobile Dashboards Container */}
                 <div className="flex flex-col gap-2 pt-2 pb-1">
-                  {(user.role === 'monitor' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+              {(user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/monitor-dashboard'); }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-600 text-white text-sm font-black rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 uppercase tracking-widest"

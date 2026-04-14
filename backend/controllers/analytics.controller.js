@@ -74,7 +74,11 @@ const getAdminOverview = async (req, res) => {
 
 const getAdminUserStats = async (req, res) => {
   try {
-    const data = await analyticsService.getAdminUserStats(req.params.userId, req.userContext.userId);
+    const targetId = Number(req.params.userId);
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return res.status(400).json({ error: 'ID de usuario invalido.' });
+    }
+    const data = await analyticsService.getAdminUserStats(targetId, req.userContext.userId);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });

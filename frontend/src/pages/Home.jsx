@@ -21,7 +21,7 @@ const Home = () => {
           getAllUsers(),
           getMaintenanceConfig()
         ]);
-        const filteredStaff = allUsers.filter(u => u.role === 'monitor' || u.role === 'admin' || u.role === 'dev');
+        const filteredStaff = allUsers.filter(u => ['monitor', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'].includes(u.role));
         setStaff(filteredStaff);
         if (configData) setConfig(configData);
       } catch (error) {
@@ -36,7 +36,12 @@ const Home = () => {
     return () => window.removeEventListener('data-updated', fetchData);
   }, []);
 
-  const filteredStaff = staff.filter(member => member.role === activeTab);
+  const filteredStaff = staff.filter(member => {
+    if (activeTab === 'monitor') {
+      return ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(member.role);
+    }
+    return member.role === activeTab;
+  });
 
   const containerVariants = {
     hidden: { opacity: 0 },

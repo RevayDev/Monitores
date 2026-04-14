@@ -185,20 +185,49 @@ const statements = [
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_forum_dedup (user_id, action_type, content_hash)
   )`,
-  `ALTER TABLE registrations ADD COLUMN module_id INT NULL`,
-  `ALTER TABLE registrations ADD COLUMN student_id INT NULL`,
-  `ALTER TABLE registrations ADD COLUMN status ENUM('active','dropped','completed') NOT NULL DEFAULT 'active'`,
-  `ALTER TABLE attendance ADD COLUMN student_id INT NULL`,
-  `ALTER TABLE attendance ADD COLUMN module_id INT NULL`,
-  `ALTER TABLE attendance ADD COLUMN qr_code_id BIGINT NULL`,
-  `ALTER TABLE attendance ADD COLUMN scan_time DATETIME NULL`,
-  `ALTER TABLE attendance ADD COLUMN attendance_status ENUM('present','rejected_duplicate','rejected_expired','rejected_out_window') NOT NULL DEFAULT 'present'`,
-  `ALTER TABLE forums ADD COLUMN modulo_id INT NULL`,
+  `CREATE TABLE IF NOT EXISTS questions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    module_id INT,
+    title VARCHAR(255),
+    content TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS answers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    question_id INT,
+    user_id INT,
+    content TEXT,
+    is_accepted BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS meal_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    date DATE,
+    status VARCHAR(50),
+    scanned_at DATETIME
+  )`,
+  `ALTER TABLE registrations ADD COLUMN IF NOT EXISTS module_id INT NULL`,
+  `ALTER TABLE registrations ADD COLUMN IF NOT EXISTS student_id INT NULL`,
+  `ALTER TABLE registrations ADD COLUMN IF NOT EXISTS status ENUM('active','dropped','completed') NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS student_id INT NULL`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS module_id INT NULL`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS qr_code_id BIGINT NULL`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS scan_time DATETIME NULL`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS attendance_status ENUM('present','rejected_duplicate','rejected_expired','rejected_out_window') NOT NULL DEFAULT 'present'`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS modalidad VARCHAR(100)`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS estado VARCHAR(100)`,
+  `ALTER TABLE forums ADD COLUMN IF NOT EXISTS modulo_id INT NULL`,
   `ALTER TABLE users MODIFY COLUMN role ENUM('student','estudiante','monitor','monitor_academico','monitor_administrativo','admin','dev') NOT NULL`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS tipo_monitor VARCHAR(50)`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS tipo_soporte VARCHAR(50)`,
   `ALTER TABLE forum_messages MODIFY COLUMN role_snapshot VARCHAR(40) NOT NULL`,
-  `ALTER TABLE users ADD UNIQUE KEY uq_users_email (email)`,
-  `ALTER TABLE users ADD UNIQUE KEY uq_users_username (username)`,
-  `ALTER TABLE replies ADD COLUMN updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP`
+  `ALTER TABLE users ADD UNIQUE KEY IF NOT EXISTS uq_users_email (email)`,
+  `ALTER TABLE users ADD UNIQUE KEY IF NOT EXISTS uq_users_username (username)`,
+  `ALTER TABLE replies ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP`,
+  `ALTER TABLE complaints ADD COLUMN IF NOT EXISTS tipo VARCHAR(100)`,
+  `ALTER TABLE complaints ADD COLUMN IF NOT EXISTS reported_id INT`
 ];
 
 export const ensureSchema = async () => {

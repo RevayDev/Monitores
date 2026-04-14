@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "fs-extra": "^11.3.4",
+    "mysql2": "^3.22.0"
+  }
+}

@@ -5,9 +5,11 @@ import UserAvatar from './UserAvatar';
 const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCount = 0 }) => {
   const navigate = useNavigate();
   const LIMIT = 32;
-  const isFull = registrationCount >= LIMIT;
+  const hasNoMonitor = !data.monitorId || data.monitorId === 0 || !data.monitor;
+  const isFull = (registrationCount >= LIMIT) && !hasNoMonitor;
 
   const handleAction = () => {
+    if (hasNoMonitor) return;
     if (isRegistered || !isFull) {
       if (onAction) onAction(data);
     }
@@ -16,19 +18,23 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
   return (
     <div 
       onClick={handleAction}
-      className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full cursor-pointer relative group ${
-        isRegistered
-        ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5'
-        : isFull
-          ? 'bg-red-50 border-red-200'
-          : 'bg-white border-slate-100 hover:border-brand-blue/30'
+      className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full relative group ${
+        hasNoMonitor
+        ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
+        : isRegistered
+          ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5 shadow-amber-100 shadow-lg'
+          : isFull
+            ? 'bg-red-50 border-red-200'
+            : 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
       }`}>
       <div className={`${
-          isRegistered
-          ? 'bg-amber-500'
-          : isFull
-            ? 'bg-red-600'
-            : 'bg-brand-blue group-hover:bg-brand-dark-blue'
+          hasNoMonitor
+          ? 'bg-gray-500'
+          : isRegistered
+            ? 'bg-amber-500'
+            : isFull
+              ? 'bg-red-600'
+              : 'bg-brand-blue group-hover:bg-brand-dark-blue'
         } px-5 py-4 flex justify-between items-center text-white transition-colors duration-300`}>
         <div className="flex items-center gap-3">
           {isRegistered ? <Monitor size={18} className="animate-pulse" /> : <Book size={18} />}
@@ -46,16 +52,18 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
           <div className="flex items-center gap-3 text-gray-700">
             <UserAvatar
               user={{
-                nombre: data.monitor,
-                role: data.monitorRole || 'monitor',
+                nombre: hasNoMonitor ? 'No hay monitor asignado' : data.monitor,
+                role: hasNoMonitor ? 'unassigned' : (data.monitorRole || 'monitor'),
                 foto: data.monitorFoto,
                 createdAt: data.monitorCreatedAt
               }}
               size="sm"
             />
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Monitor</p>
-              <p className="font-bold text-gray-900 text-sm">{data.monitor}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Tutor</p>
+              <p className={`font-bold text-sm ${hasNoMonitor ? 'text-gray-400 italic' : 'text-gray-900'}`}>
+                {hasNoMonitor ? 'No hay monitor asignado' : data.monitor}
+              </p>
             </div>
           </div>
 
@@ -111,16 +119,19 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
         <div className="mt-auto pt-3 border-t border-gray-50">
           <button
             onClick={handleAction}
-            disabled={isFull && !isRegistered}
-            className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${isRegistered
-                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
-                : isFull
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-brand-blue text-white hover:bg-brand-dark-blue active:scale-[0.98] cursor-pointer'
+            disabled={(isFull && !isRegistered) || hasNoMonitor}
+            className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${
+                hasNoMonitor
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                : isRegistered
+                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
+                  : isFull
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-brand-blue text-white hover:bg-brand-dark-blue active:scale-[0.98] cursor-pointer shadow-lg shadow-brand-blue/20'
               }`}
           >
             {isRegistered && <ExternalLink size={14} />}
-            {isRegistered ? actionLabel : isFull ? 'Cupo Lleno' : actionLabel || 'Ver Detalle'}
+            {hasNoMonitor ? 'Sin Monitor' : (isRegistered ? actionLabel : isFull ? 'Cupo Lleno' : actionLabel || 'Ver Detalle')}
           </button>
         </div>
       </div>

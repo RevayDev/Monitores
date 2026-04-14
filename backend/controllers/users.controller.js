@@ -94,6 +94,9 @@ const getMeStats = async (req, res) => {
 const getUserStats = async (req, res) => {
   try {
     const targetId = Number(req.params.id);
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return res.status(400).json({ error: 'ID de usuario invalido.' });
+    }
     const data = await usersService.getUserStatsById(req.userContext.userId, targetId);
     res.json(data);
   } catch (error) {

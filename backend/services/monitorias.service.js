@@ -49,15 +49,25 @@ class MonitoriasService {
   }
 
   async registerStudent(monitoria, usuario) {
+    // Basic double check: fetch the latest module data from DB to ensure it has a monitor
+    const currentModule = await monitoriasRepository.findById(monitoria.id);
+    if (!currentModule) throw new Error('El módulo especificado no existe.');
+    
+    // Check if monitor is assigned
+    const hasNoMonitor = !currentModule.monitorId || currentModule.monitorId === 0 || !currentModule.monitor;
+    if (hasNoMonitor) {
+      throw new Error('No puedes registrarte en este módulo aún: falta asignar un monitor responsable.');
+    }
+
     const registrations = await monitoriasRepository.getAllRegistrations();
     const isDuplicate = registrations.some(
       (r) => Number(r.moduleId) === Number(monitoria.id) && r.studentEmail === usuario.email
     );
-    if (isDuplicate) throw new Error('Ya estas registrado.');
+    if (isDuplicate) throw new Error('Ya estás registrado en esta monitoría.');
 
     const newReg = {
       moduleId: monitoria.id,
-      modulo: monitoria.modulo,
+      modulo: currentModule.modulo,
       studentName: usuario?.nombre,
       studentId: usuario?.id || null,
       studentEmail: usuario?.email,

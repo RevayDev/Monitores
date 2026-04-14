@@ -3,6 +3,7 @@ import engagementRepository, { hashToken } from '../repositories/mysql/engagemen
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { notifyUser } from '../socket.js';
 
 const QR_VALIDITY_HOURS = 2;
 const DUPLICATE_SCAN_MINUTES = 5;
@@ -379,6 +380,12 @@ class EngagementService {
       body: `Tu almuerzo fue registrado por ${scanner?.nombre || 'monitor'}.`,
       metadata: { lunchId }
     });
+    notifyUser(qr.user_id, {
+      type: 'lunch_delivered',
+      title: 'Almuerzo registrado',
+      body: `Tu almuerzo fue registrado por ${scanner?.nombre || 'monitor'}.`,
+      metadata: { lunchId }
+    });
     await engagementRepository.createActivityLog({
       userId: scannerUserId,
       action: 'LUNCH_DELIVERED',
@@ -472,6 +479,12 @@ class EngagementService {
     if (Number(thread.created_by) !== Number(userId)) {
       await engagementRepository.createNotification({
         userId: thread.created_by,
+        type: 'forum_reply',
+        title: 'Respondieron tu foro',
+        body: `Nuevo comentario en "${thread.title}"`,
+        metadata: { threadId: thread.id, moduleId: thread.module_id }
+      });
+      notifyUser(thread.created_by, {
         type: 'forum_reply',
         title: 'Respondieron tu foro',
         body: `Nuevo comentario en "${thread.title}"`,
@@ -608,18 +621,24 @@ class EngagementService {
       attachments: this.normalizeAttachments(attachments)
     });
 
-    const recipients = await engagementRepository.getModuleMemberUserIds(moduleId, userId);
-    await Promise.all(
-      recipients.map((recipientId) =>
-        engagementRepository.createNotification({
-          userId: recipientId,
-          type: 'forum_new_question',
-          title: 'Nueva pregunta en tu modulo',
-          body: String(title).trim(),
-          metadata: { forumId, moduleId }
-        })
-      )
-    );
+    const moduleRow = await engagementRepository.getModuleById(moduleId);
+    const monitorId = Number(moduleRow?.monitorId || 0);
+    if (monitorId > 0 && monitorId !== Number(userId)) {
+      await engagementRepository.createNotification({
+        userId: monitorId,
+        type: 'actividad_foro_monitor',
+        title: 'Nueva pregunta en tu modulo',
+        body: String(title).trim(),
+        metadata: { forumId, moduleId }
+      });
+      notifyUser(monitorId, {
+        userId: monitorId,
+        type: 'actividad_foro_monitor',
+        title: 'Nueva pregunta en tu modulo',
+        body: String(title).trim(),
+        metadata: { forumId, moduleId }
+      });
+    }
 
     const mentionIds = this.extractMentionIds(content);
     if (mentionIds.length) {
@@ -630,10 +649,17 @@ class EngagementService {
           .map((member) =>
             engagementRepository.createNotification({
               userId: member.id,
-              type: 'forum_mention',
+              type: 'mencion_foro',
               title: 'Te mencionaron en una pregunta',
               body: String(title).trim(),
               metadata: { forumId, moduleId }
+            }).then(() => {
+              notifyUser(member.id, {
+                type: 'mencion_foro',
+                title: 'Te mencionaron en una pregunta',
+                body: String(title).trim(),
+                metadata: { forumId, moduleId }
+              });
             })
           )
       );
@@ -736,7 +762,13 @@ class EngagementService {
     if (Number(forum.user_id) !== Number(userId)) {
       await engagementRepository.createNotification({
         userId: forum.user_id,
-        type: 'forum_reply',
+        type: 'respuesta_foro',
+        title: 'Respondieron tu pregunta',
+        body: forum.title,
+        metadata: { forumId: Number(forumId), moduleId }
+      });
+      notifyUser(forum.user_id, {
+        type: 'respuesta_foro',
         title: 'Respondieron tu pregunta',
         body: forum.title,
         metadata: { forumId: Number(forumId), moduleId }
@@ -748,7 +780,13 @@ class EngagementService {
     if (monitorId && monitorId !== Number(userId) && monitorId !== Number(forum.user_id)) {
       await engagementRepository.createNotification({
         userId: monitorId,
-        type: 'forum_activity',
+        type: 'actividad_foro_monitor',
+        title: 'Actividad en tu modulo',
+        body: `Nueva respuesta en "${forum.title}"`,
+        metadata: { forumId: Number(forumId), moduleId }
+      });
+      notifyUser(monitorId, {
+        type: 'actividad_foro_monitor',
         title: 'Actividad en tu modulo',
         body: `Nueva respuesta en "${forum.title}"`,
         metadata: { forumId: Number(forumId), moduleId }
@@ -764,10 +802,17 @@ class EngagementService {
           .map((member) =>
             engagementRepository.createNotification({
               userId: member.id,
-              type: 'forum_mention',
+              type: 'mencion_foro',
               title: 'Te mencionaron en un foro',
               body: forum.title,
               metadata: { forumId: Number(forumId), moduleId }
+            }).then(() => {
+              notifyUser(member.id, {
+                type: 'mencion_foro',
+                title: 'Te mencionaron en un foro',
+                body: forum.title,
+                metadata: { forumId: Number(forumId), moduleId }
+              });
             })
           )
       );
@@ -788,16 +833,20 @@ class EngagementService {
   async reportForum(userId, payload) {
     const { type, targetId, reason } = payload;
     if (!type || !targetId || !reason) throw new Error('type, targetId y reason son obligatorios.');
+    const numericTargetId = Number(targetId);
+    if (!Number.isInteger(numericTargetId) || numericTargetId <= 0) {
+      throw new Error('targetId invalido.');
+    }
     
     const user = await engagementRepository.getUserById(userId);
     let moduleId;
 
     if (type === 'thread') {
-      const forum = await engagementRepository.getForumById(Number(targetId));
+      const forum = await engagementRepository.getForumById(numericTargetId);
       if (!forum) throw new Error('Foro no encontrado.');
       moduleId = Number(forum.modulo_id || forum.subject_id);
     } else {
-      const reply = await engagementRepository.getForumReplyById(Number(targetId));
+      const reply = await engagementRepository.getForumReplyById(numericTargetId);
       if (!reply) throw new Error('Respuesta no encontrada.');
       const forum = await engagementRepository.getForumById(Number(reply.forum_id));
       moduleId = Number(forum?.modulo_id || forum?.subject_id);
@@ -811,16 +860,16 @@ class EngagementService {
 
     let reportedId;
     if (type === 'thread') {
-      const forum = await engagementRepository.getForumById(Number(targetId));
+      const forum = await engagementRepository.getForumById(numericTargetId);
       reportedId = forum.user_id;
     } else {
-      const reply = await engagementRepository.getForumReplyById(Number(targetId));
+      const reply = await engagementRepository.getForumReplyById(numericTargetId);
       reportedId = reply.user_id;
     }
 
     const reportId = await engagementRepository.createForumReport({
       type,
-      targetId: Number(targetId),
+      targetId: numericTargetId,
       reporterId: userId,
       reportedId,
       reason: reason.trim()
@@ -829,6 +878,9 @@ class EngagementService {
   }
 
   async getReports(userId, filters = {}) {
+    if (!userId || !Number.isInteger(Number(userId))) {
+      throw new Error('ID de usuario invalido para ver reportes.');
+    }
     const user = await engagementRepository.getUserById(userId);
     const role = String(user?.role || '').toLowerCase();
     
