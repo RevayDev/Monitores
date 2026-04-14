@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { 
-  getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias, 
-  getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria, 
-  getModalidades, getCuatrimestres, getAllRegistrations, getAcademicModuleStats, 
-  getAcademicSessionHistory, getAcademicSessionDetail, getDiningStats, 
+import {
+  getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias,
+  getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria,
+  getModalidades, getCuatrimestres, getAllRegistrations, getAcademicModuleStats,
+  getAcademicSessionHistory, getAcademicSessionDetail, getDiningStats,
   getDiningStudentHistory, scanQrLunch, addAcademicAttendanceExcuse,
   getForumReports, resolveForumReport
 } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import jsQR from 'jsqr';
 import Modal from '../components/Modal';
-import { Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2, MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle, Search, UserCheck, Clock3 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ToastContext } from '../App';
+import {
+  Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2,
+  MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle,
+  Search, UserCheck, Clock3, X, AlertOctagon
+} from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
 import RoleStatsPanel from '../components/RoleStatsPanel';
@@ -82,6 +88,8 @@ const MonitorDashboard = () => {
   const activeStreamRef = useRef(null);
   const scanTimerRef = useRef(null);
   const lastScannedRef = useRef({ token: '', at: 0 });
+  const audioCtxRef = useRef(null);
+  const canvasRef = useRef(null);
   const [reports, setReports] = useState([]);
   const [resolvingReportId, setResolvingReportId] = useState(null);
 
@@ -91,7 +99,7 @@ const MonitorDashboard = () => {
   const monitorId = session.id; // Use real session ID now
 
   useEffect(() => {
-    if (isDiningMonitor) setTopTab('scanner');
+    if (isDiningMonitor) setTopTab('stats');
   }, [isDiningMonitor]);
 
   const stopCamera = () => {
@@ -104,6 +112,63 @@ const MonitorDashboard = () => {
       activeStreamRef.current = null;
     }
     if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const playScanSound = (type = 'success') => {
+    try {
+      const audio = new Audio(type === 'success' ? '/sound/sound.mp3' : '/sound/sound-error.mp3');
+      audio.volume = 0.8;
+      audio.play().catch(err => console.warn("Audio playback failed:", err));
+    } catch (e) {
+      console.warn("Audio error:", e);
+    }
+  };
+
+  const captureFrameAndScan = () => {
+    try {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2) return null;
+
+      // Persist canvas for performance
+      if (!canvasRef.current) {
+        canvasRef.current = document.createElement('canvas');
+      }
+      const canvas = canvasRef.current;
+
+      // OPTIMIZATION: Downscale frames to 400px maximum dimension
+      // QR codes don't need high resolution, and this saves massive CPU/Memory
+      const scale = Math.min(400 / video.videoWidth, 400 / video.videoHeight, 1);
+      const scanWidth = Math.floor(video.videoWidth * scale);
+      const scanHeight = Math.floor(video.videoHeight * scale);
+
+      if (canvas.width !== scanWidth || canvas.height !== scanHeight) {
+        canvas.width = scanWidth;
+        canvas.height = scanHeight;
+      }
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
+      if (!ctx) return null;
+
+      ctx.drawImage(video, 0, 0, scanWidth, scanHeight);
+      const imageData = ctx.getImageData(0, 0, scanWidth, scanHeight);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (code) {
+        const value = code.data.trim();
+        const now = Date.now();
+        if (lastScannedRef.current.token === value && now - lastScannedRef.current.at < 3000) return value;
+        lastScannedRef.current = { token: value, at: now };
+        setManualQrToken(value);
+        handleDiningScan(value);
+        return value;
+      }
+    } catch (err) {
+      // Catch transient frame-access errors during video load or pause
+      return null;
+    }
+    return null;
   };
 
   const startCamera = async (deviceId = '') => {
@@ -140,41 +205,17 @@ const MonitorDashboard = () => {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
+        await videoRef.current.play().catch(() => { });
       }
 
       setCameraAvailable(true);
       setCameraStatus('ready');
 
-      if (!('BarcodeDetector' in window)) {
-        setCameraStatus('ready_no_detector');
-        return;
-      }
-
-      let detector = null;
-      try {
-        detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-      } catch {
-        setCameraStatus('ready_no_detector');
-        return;
-      }
-
-      scanTimerRef.current = setInterval(async () => {
-        const video = videoRef.current;
-        if (!video || video.readyState < 2) return;
-        try {
-          const codes = await detector.detect(video);
-          const rawValue = String(codes?.[0]?.rawValue || '').trim();
-          if (!rawValue) return;
-          const now = Date.now();
-          if (lastScannedRef.current.token === rawValue && now - lastScannedRef.current.at < 3000) return;
-          lastScannedRef.current = { token: rawValue, at: now };
-          setManualQrToken(rawValue);
-          handleDiningScan(rawValue);
-        } catch {
-          // no-op: detector errors are transient while camera stabilizes.
-        }
+      // Universal scanning loop using jsQR
+      scanTimerRef.current = setInterval(() => {
+        captureFrameAndScan();
       }, 700);
+
     } catch (error) {
       setCameraAvailable(false);
       setCameraStatus('error');
@@ -194,8 +235,8 @@ const MonitorDashboard = () => {
   useEffect(() => {
     const checkMaintenance = async () => {
       const config = await getMaintenanceConfig();
-      const restrictions = typeof session?.restrictions === 'string' 
-        ? JSON.parse(session.restrictions) 
+      const restrictions = typeof session?.restrictions === 'string'
+        ? JSON.parse(session.restrictions)
         : (session?.restrictions || {});
 
       if ((config?.monitorPanel || restrictions.dashboards) && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
@@ -429,6 +470,7 @@ const MonitorDashboard = () => {
     try {
       const result = await scanQrLunch({ token: value });
       setScanResult({ status: 'VALID', message: 'QR valido', payload: result });
+      playScanSound('success');
       setManualQrToken('');
       const updated = await getDiningStats();
       setDiningStats(updated || null);
@@ -437,8 +479,11 @@ const MonitorDashboard = () => {
       let status = 'INVALID';
       if (msg.toLowerCase().includes('ya')) status = 'ALREADY_CLAIMED';
       setScanResult({ status, message: msg || 'QR invalido', payload: null });
+      playScanSound('error');
     } finally {
       setIsValidatingScan(false);
+      // Auto-clear result after 3 seconds
+      setTimeout(() => setScanResult(null), 3000);
     }
   };
 
@@ -469,7 +514,7 @@ const MonitorDashboard = () => {
     }
     const horario = `${createFormData.dias.join(', ')} ${createFormData.horaInicio} - ${createFormData.horaFin}`;
     const { dias, horaInicio, horaFin, ...submitData } = createFormData;
-    
+
     await createMonitoria({
       ...submitData,
       horario,
@@ -513,11 +558,10 @@ const MonitorDashboard = () => {
                 onChange([...selected, dia]);
               }
             }}
-            className={`px-3 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border-2 ${
-              selected.includes(dia)
-                ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200'
-                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
-            }`}
+            className={`px-3 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border-2 ${selected.includes(dia)
+              ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200'
+              : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+              }`}
           >
             {dia.substring(0, 3)}
           </button>
@@ -536,72 +580,146 @@ const MonitorDashboard = () => {
               <p className="text-teal-100 text-sm mt-1">Control de comedor, escaneo QR y supervision de consumo.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setTopTab('scanner')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'scanner' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Escaner QR</button>
-              <button onClick={() => setTopTab('students')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'students' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Atendidos</button>
-              <button onClick={() => setTopTab('history')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'history' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Historial</button>
-              <button onClick={() => setTopTab('stats')} className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'stats' ? 'bg-white text-teal-700' : 'bg-white/20 text-white'}`}>Estadisticas</button>
+              <button onClick={() => setTopTab('stats')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'stats' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Estadisticas</button>
+              <button onClick={() => setTopTab('scanner')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'scanner' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Escaner QR</button>
+              <button onClick={() => setTopTab('students')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'students' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Atendidos</button>
+              <button onClick={() => setTopTab('history')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'history' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Historial</button>
             </div>
           </div>
 
           {topTab === 'scanner' && (
-            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
-              <h2 className="text-lg font-black text-gray-900">Escaner QR</h2>
-              <div className="rounded-2xl border border-dashed border-teal-200 p-4 bg-teal-50/50 space-y-3">
+            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-6 relative overflow-hidden">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-black text-gray-900">Escaner de Comedor</h2>
+                {scanResult && (
+                  <button onClick={() => setScanResult(null)} className="text-[10px] font-black uppercase text-gray-400 hover:text-gray-600 transition-colors">
+                    Limpiar Resultado
+                  </button>
+                )}
+              </div>
+
+              <div className="rounded-[40px] border border-slate-100 p-6 bg-slate-50 shadow-inner space-y-4 relative">
+                {/* Flotante de Resultado QR - Absoluto sobre la cámara */}
+                <AnimatePresence>
+                  {scanResult && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8, y: -20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+                      className={`absolute top-10 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-xs rounded-3xl border-4 p-5 flex flex-col items-center gap-3 text-center shadow-[0_30px_70px_rgba(0,0,0,0.5)] backdrop-blur-3xl ring-4 ${scanResult.status === 'VALID'
+                          ? 'border-emerald-400 bg-emerald-50/95 text-emerald-900 ring-emerald-400/20 shadow-emerald-500/30'
+                          : 'border-red-400 bg-red-50/95 text-red-900 ring-red-400/20 shadow-red-500/30'
+                        }`}
+                    >
+                      <button
+                        onClick={() => setScanResult(null)}
+                        className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-black/10 text-gray-400 transition-all active:scale-90"
+                      >
+                        <X size={18} />
+                      </button>
+
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl ${scanResult.status === 'VALID' ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                        {scanResult.status === 'VALID' ? <UserCheck size={32} className="text-white" /> : <AlertCircle size={32} className="text-white" />}
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xl font-black uppercase tracking-tighter leading-tight">{scanResult.message}</p>
+                        {scanResult.payload && (
+                          <div className="mt-2 py-2 px-4 bg-white/50 border border-white/20 rounded-2xl shadow-sm">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-1">Registrado</p>
+                            <p className="text-sm font-black text-gray-900 truncate max-w-[200px]">
+                              {scanResult.payload.student?.nombre || scanResult.payload.student_name || 'Estudiante'}
+                            </p>
+                          </div>
+                        )}
+                        {scanResult.status === 'ALREADY_CLAIMED' && (
+                          <div className="mt-2 text-[10px] font-black uppercase text-red-600 tracking-widest animate-pulse">
+                            DUPLICADO
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {cameraAvailable && (
-                  <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex flex-wrap gap-3 items-center justify-center">
                     <select
                       value={selectedCameraId}
                       onChange={(e) => setSelectedCameraId(e.target.value)}
-                      className="border border-teal-200 rounded-xl px-3 py-2 text-xs font-semibold text-teal-800 bg-white"
+                      className="border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-700 bg-white focus:ring-4 focus:ring-teal-50 outline-none select-none transition-all"
                     >
                       {(cameraDevices || []).map((cam, idx) => (
                         <option key={cam.deviceId || idx} value={cam.deviceId}>
-                          {cam.label || `Camara ${idx + 1}`}
+                          {cam.label || `Lente ${idx + 1}`}
                         </option>
                       ))}
                     </select>
-                    <button onClick={() => startCamera(selectedCameraId)} className="px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-black">
-                      Reiniciar camara
+                    <button
+                      onClick={() => {
+                        startCamera(selectedCameraId);
+                        setTimeout(() => {
+                          const res = captureFrameAndScan();
+                          if (!res) showToast('No se detectó QR. Intenta enfocar mejor.', 'info');
+                        }, 800);
+                      }}
+                      className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black shadow-lg shadow-teal-500/20 hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2"
+                    >
+                      <PlusCircle size={14} /> Escanear Ahora
                     </button>
                   </div>
                 )}
 
-                <div className="relative w-full max-w-xl rounded-2xl overflow-hidden border border-teal-200 bg-black/90 aspect-video">
+                <div className="relative w-full max-w-sm mx-auto rounded-[48px] overflow-hidden border-8 border-white bg-black/95 aspect-square shadow-2xl group group-hover:border-teal-400/20 transition-all duration-500">
                   {cameraAvailable ? (
                     <>
-                      <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                      <video ref={videoRef} className="w-full h-full object-cover grayscale-[20%]" autoPlay playsInline muted />
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <div className="w-[56%] h-[62%] border-2 border-emerald-300 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
+                        {/* Square Frame */}
+                        <div className="w-[75%] h-[75%] border-2 border-emerald-400/40 rounded-[48px] shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] relative overflow-hidden">
+                          {/* Scanning Laser */}
+                          <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_25px_rgba(52,211,153,1)] animate-scanner-laser bg-emerald-400" />
+
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-20">
+                            <Search size={48} className="text-emerald-400 animate-pulse" />
+                            <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-[0.4em]">Escaner Qr</p>
+                          </div>
+
+                          {/* Corner Borders Stylized */}
+                          <div className="absolute top-6 left-6 w-10 h-10 border-t-[6px] border-l-[6px] border-emerald-400/60 rounded-tl-2xl" />
+                          <div className="absolute top-6 right-6 w-10 h-10 border-t-[6px] border-r-[6px] border-emerald-400/60 rounded-tr-2xl" />
+                          <div className="absolute bottom-6 left-6 w-10 h-10 border-b-[6px] border-l-[6px] border-emerald-400/60 rounded-bl-2xl" />
+                          <div className="absolute bottom-6 right-6 w-10 h-10 border-b-[6px] border-r-[6px] border-emerald-400/60 rounded-br-2xl" />
+                        </div>
                       </div>
                     </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center px-6 text-center text-sm font-semibold text-amber-100">
-                      No se detecto camara disponible. Usa el token escrito.
+                    <div className="w-full h-full flex flex-col items-center justify-center px-10 text-center gap-6 bg-slate-900/40">
+                      <div className="w-24 h-24 rounded-full bg-teal-900/20 flex items-center justify-center text-teal-400 animate-pulse">
+                        <Video size={48} />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-lg font-black text-white">Cámara Inactiva</p>
+                        <p className="text-[10px] text-teal-400 font-bold max-w-[200px] leading-relaxed uppercase tracking-widest">Inicia el escaneo manual o inserta el token abajo.</p>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className="text-sm font-semibold">
-                  {cameraStatus === 'loading' && <p className="text-gray-700">Activando camara...</p>}
-                  {cameraStatus === 'ready' && <p className="text-emerald-700">Camara activa. Escaneo automatico habilitado.</p>}
-                  {cameraStatus === 'ready_no_detector' && <p className="text-amber-700">Camara activa, pero tu navegador no permite escaneo automatico. Usa ingreso manual.</p>}
-                  {cameraStatus === 'none' && <p className="text-amber-700">Este navegador no soporta acceso a camara. Usa ingreso manual.</p>}
-                  {cameraStatus === 'error' && <p className="text-amber-700">No fue posible abrir camara. {cameraError || 'Usa ingreso manual.'}</p>}
-                  {cameraStatus === 'checking' && <p className="text-gray-600">Verificando camara...</p>}
+                <div className="text-center pt-2">
+                  {cameraStatus === 'loading' && <p className="text-teal-600 font-black animate-pulse text-[10px] uppercase tracking-widest">Iniciando Lente...</p>}
+                  {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> Escáner Listo</p>}
+                  {cameraStatus === 'error' && <p className="text-red-500 font-black text-[10px] uppercase tracking-widest">Error: {cameraError}</p>}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Token QR" />
-                <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-sm font-black disabled:opacity-50">
-                  {isValidatingScan ? 'Validando...' : 'Validar QR'}
+
+              <div className="flex flex-wrap gap-3 max-w-xl mx-auto">
+                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border-2 border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-sm font-bold focus:border-teal-500 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="O escribe el token aquí..." />
+                <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-8 py-4 rounded-2xl bg-teal-600 text-white text-sm font-black shadow-xl shadow-teal-500/30 hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50">
+                  {isValidatingScan ? '...' : 'Validar'}
                 </button>
               </div>
-              {scanResult && (
-                <div className={`rounded-2xl border p-4 ${scanResult.status === 'VALID' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
-                  <p className="font-black text-sm">{scanResult.status === 'VALID' ? 'VALIDO' : scanResult.status === 'ALREADY_CLAIMED' ? 'YA RECLAMO' : 'INVALIDO'}</p>
-                  <p className="text-xs text-gray-600 mt-1">{scanResult.message}</p>
-                </div>
-              )}
             </section>
           )}
 
@@ -710,28 +828,28 @@ const MonitorDashboard = () => {
 
           <div className="relative z-10 flex gap-2 self-end md:self-start">
             <div className="flex bg-gray-50 p-1.5 rounded-2xl w-fit border border-gray-100 mb-8 overflow-auto max-w-full">
-            <button
-              onClick={() => setTopTab('')}
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${!topTab ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
-                }`}
-            >
-              <Users size={14} /> Alumnos
-            </button>
-            <button
-              onClick={() => setTopTab('stats')}
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'stats' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
-                }`}
-            >
-              <AlertCircle size={14} /> Estadisticas
-            </button>
-            <button
-              onClick={() => setTopTab('reports')}
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'reports' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
-                }`}
-            >
-              <AlertOctagon size={14} className={topTab === 'reports' ? 'text-amber-500' : ''} /> Reportes
-            </button>
-          </div>
+              <button
+                onClick={() => setTopTab('')}
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${!topTab ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                <Users size={14} /> Alumnos
+              </button>
+              <button
+                onClick={() => setTopTab('stats')}
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'stats' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                <AlertCircle size={14} /> Estadisticas
+              </button>
+              <button
+                onClick={() => setTopTab('reports')}
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'reports' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                <AlertOctagon size={14} className={topTab === 'reports' ? 'text-amber-500' : ''} /> Reportes
+              </button>
+            </div>
             <button
               onClick={() => setTopTab((prev) => (prev === 'history' ? '' : 'history'))}
               className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'history' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white'}`}
@@ -835,276 +953,276 @@ const MonitorDashboard = () => {
         )}
 
         {!isDiningMonitor && (topTab === 'manage' || !topTab) && (
-        <>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Managed Modules */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <h2 className="text-xl font-bold text-brand-blue flex items-center gap-2">
-                <BookOpen size={24} /> Mis Monitorías
-              </h2>
-              <button
-                onClick={() => setIsCreateModuleOpen(true)}
-                className="px-4 py-2 bg-emerald-100 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200"
-              >
-                <PlusCircle size={14} /> Nueva Monitoría
-              </button>
-            </div>
-            <div className="space-y-4">
-              {monitorModules.map(mod => (
-                <div key={mod.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-extrabold text-gray-900 uppercase tracking-tight">{mod.modulo}</h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleOpenEdit(mod)}
-                        className="text-gray-400 hover:text-brand-blue transition-all p-2 hover:bg-blue-50 rounded-lg active:scale-90"
-                        title="Editar Datos"
-                      >
-                        <Edit3 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteModule(mod)}
-                        className="text-gray-400 hover:text-red-500 transition-all p-2 hover:bg-red-50 rounded-lg active:scale-90"
-                        title="Eliminar Monitoría"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Managed Modules */}
+              <div className="lg:col-span-1 space-y-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <h2 className="text-xl font-bold text-brand-blue flex items-center gap-2">
+                    <BookOpen size={24} /> Mis Monitorías
+                  </h2>
+                  <button
+                    onClick={() => setIsCreateModuleOpen(true)}
+                    className="px-4 py-2 bg-emerald-100 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200"
+                  >
+                    <PlusCircle size={14} /> Nueva Monitoría
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {monitorModules.map(mod => (
+                    <div key={mod.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-extrabold text-gray-900 uppercase tracking-tight">{mod.modulo}</h3>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleOpenEdit(mod)}
+                            className="text-gray-400 hover:text-brand-blue transition-all p-2 hover:bg-blue-50 rounded-lg active:scale-90"
+                            title="Editar Datos"
+                          >
+                            <Edit3 size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteModule(mod)}
+                            className="text-gray-400 hover:text-red-500 transition-all p-2 hover:bg-red-50 rounded-lg active:scale-90"
+                            title="Eliminar Monitoría"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 line-clamp-3 italic">"{mod.descripcion}"</p>
+                      <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                        <span>{mod.sede}</span>
+                        <span>{mod.horario}</span>
+                      </div>
+                      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => setFilterModulo(mod.modulo)}
+                          className={`flex-grow py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all active:scale-95 ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                            }`}
+                        >
+                          <Users size={12} /> Ver Alumnos
+                        </button>
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => handleCopyTemplate(mod)}
+                            className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
+                            title="Copiar Plantilla"
+                          >
+                            <ClipboardList size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleCopySurvey(mod)}
+                            className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
+                            title="Copiar Encuesta"
+                          >
+                            <Link size={18} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-sm text-gray-500 line-clamp-3 italic">"{mod.descripcion}"</p>
-                  <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                    <span>{mod.sede}</span>
-                    <span>{mod.horario}</span>
-                  </div>
-                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  ))}
+                </div>
+              </div>
+
+              {/* Student List */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <h2 className="text-lg sm:text-xl font-bold text-brand-blue flex items-center gap-2">
+                    <Users size={20} /> {filterModulo === 'all' ? 'Todos los Estudiantes' : `Estudiantes: ${filterModulo}`}
+                  </h2>
+                  {filterModulo !== 'all' && (
                     <button
-                      onClick={() => setFilterModulo(mod.modulo)}
-                      className={`flex-grow py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all active:scale-95 ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                        }`}
+                      onClick={() => setFilterModulo('all')}
+                      className="text-[10px] font-black uppercase text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 transition-all px-3 py-1 bg-gray-100 rounded-full active:scale-95"
                     >
-                      <Users size={12} /> Ver Alumnos
+                      Ver Todos
                     </button>
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        onClick={() => handleCopyTemplate(mod)}
-                        className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
-                        title="Copiar Plantilla"
-                      >
-                        <ClipboardList size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleCopySurvey(mod)}
-                        className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
-                        title="Copiar Encuesta"
-                      >
-                        <Link size={18} />
-                      </button>
-                    </div>
+                  )}
+                </div>
+                {/* Student List Grid/Table Area */}
+                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+                  <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
+                    <h3 className="text-xl font-black text-gray-900">
+                      {topTab === 'reports' ? 'Centro de Moderacion' : 'Estudiantes Registrados'}
+                    </h3>
+                    {topTab === 'reports' ? (
+                      <div className="flex items-center gap-2">
+                        <button onClick={loadReports} className="p-2 text-gray-400 hover:text-brand-blue transition-all">
+                          <Clock3 size={18} />
+                        </button>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
+                          {reports.length} reportes pendientes
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="w-full sm:w-auto flex items-center gap-2">
+                        <button
+                          onClick={exportStudentsCsv}
+                          className="px-4 py-2 rounded-xl bg-gray-900 text-white text-[11px] font-black uppercase tracking-wider hover:bg-black hover:shadow-lg active:scale-95 transition-all"
+                        >
+                          Exportar CSV
+                        </button>
+                        <div className="relative w-full sm:w-64">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <Search size={16} />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Buscar estudiante..."
+                            className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all shadow-inner"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-grow overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                      <thead>
+                        <tr className="bg-gray-50 text-[10px] uppercase tracking-widest font-black text-gray-400">
+                          {topTab === 'reports' ? (
+                            <>
+                              <th className="px-6 py-4">Autor</th>
+                              <th className="px-6 py-4">Motivo</th>
+                              <th className="px-6 py-4">Foro / Mensaje</th>
+                              <th className="px-6 py-4 text-right">Acciones</th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="px-6 py-4">Estudiante</th>
+                              <th className="px-6 py-4">Módulo</th>
+                              <th className="px-6 py-4">Fecha Reg.</th>
+                              <th className="px-6 py-4 text-right">Acciones</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {topTab === 'reports' ? (
+                          reports.length === 0 ? (
+                            <tr>
+                              <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">Sin reportes pendientes</td>
+                            </tr>
+                          ) : (
+                            reports.map(rep => (
+                              <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <UserAvatar photo={rep.reported_photo} name={rep.reported_name} userId={rep.reported_id} size="w-8 h-8" />
+                                    <div>
+                                      <p className="font-bold text-gray-900 text-xs">{rep.reported_name}</p>
+                                      <p className="text-[9px] text-gray-400">Reportado por: {rep.reporter_name}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="max-w-xs">
+                                    <p className="text-xs font-bold text-gray-700">{rep.reason}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">{new Date(rep.created_at).toLocaleString()}</p>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <button
+                                    onClick={() => navigate(`/modules/${rep.modulo_id || 0}/forum?forumId=${rep.target_id}`)}
+                                    className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase border border-amber-100 hover:bg-amber-100 transition-all"
+                                  >
+                                    {rep.target_type === 'thread' ? 'Ver Pregunta' : 'Ver Respuesta'}
+                                  </button>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <button
+                                    disabled={resolvingReportId === rep.id}
+                                    onClick={() => handleResolveReport(rep.id)}
+                                    className="px-4 py-2 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50"
+                                  >
+                                    {resolvingReportId === rep.id ? '...' : 'Resolver'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )
+                        ) : (
+                          (() => {
+                            const filteredRegistrations = students
+                              .filter(st => filterModulo === 'all' || st.modulo === filterModulo)
+                              .filter(st =>
+                                (st.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                                (st.studentEmail?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                                (st.modulo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+                              );
+
+                            const groupedMap = filteredRegistrations.reduce((acc, reg) => {
+                              if (!acc[reg.studentEmail]) {
+                                acc[reg.studentEmail] = { ...reg, modulos: [reg.modulo], regIds: [reg.id] };
+                              } else if (!acc[reg.studentEmail].modulos.includes(reg.modulo)) {
+                                acc[reg.studentEmail].modulos.push(reg.modulo);
+                                acc[reg.studentEmail].regIds.push(reg.id);
+                              }
+                              return acc;
+                            }, {});
+
+                            const uniqueStudents = Object.values(groupedMap);
+
+                            if (uniqueStudents.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan="4" className="px-6 py-20 text-center">
+                                    <div className="flex flex-col items-center gap-4">
+                                      <AlertCircle size={48} className="text-gray-200" />
+                                      <p className="text-gray-400 font-bold">No hay estudiantes encontrados</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return uniqueStudents.map(st => (
+                              <tr key={st.studentEmail} className="hover:bg-gray-50 transition-all group">
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} />
+                                    <div>
+                                      <p className="font-bold text-gray-900">{st.studentName}</p>
+                                      <p className="text-xs text-gray-400">{st.studentEmail}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {st.modulos.map((m, idx) => (
+                                      <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
+                                        {m}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs text-gray-500">
+                                  {new Date(st.registeredAt).toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <button
+                                    onClick={() => handleOpenDelete(st)}
+                                    className="p-2 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                                  >
+                                    <Trash2 size={20} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ));
+                          })()
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Student List */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <h2 className="text-lg sm:text-xl font-bold text-brand-blue flex items-center gap-2">
-                <Users size={20} /> {filterModulo === 'all' ? 'Todos los Estudiantes' : `Estudiantes: ${filterModulo}`}
-              </h2>
-              {filterModulo !== 'all' && (
-                <button
-                  onClick={() => setFilterModulo('all')}
-                  className="text-[10px] font-black uppercase text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 transition-all px-3 py-1 bg-gray-100 rounded-full active:scale-95"
-                >
-                  Ver Todos
-                </button>
-              )}
-            </div>
-            {/* Student List Grid/Table Area */}
-            <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
-              <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
-                <h3 className="text-xl font-black text-gray-900">
-                  {topTab === 'reports' ? 'Centro de Moderacion' : 'Estudiantes Registrados'}
-                </h3>
-                {topTab === 'reports' ? (
-                  <div className="flex items-center gap-2">
-                    <button onClick={loadReports} className="p-2 text-gray-400 hover:text-brand-blue transition-all">
-                      <Clock3 size={18} />
-                    </button>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
-                      {reports.length} reportes pendientes
-                    </span>
-                  </div>
-                ) : (
-                  <div className="w-full sm:w-auto flex items-center gap-2">
-                    <button
-                      onClick={exportStudentsCsv}
-                      className="px-4 py-2 rounded-xl bg-gray-900 text-white text-[11px] font-black uppercase tracking-wider hover:bg-black hover:shadow-lg active:scale-95 transition-all"
-                    >
-                      Exportar CSV
-                    </button>
-                    <div className="relative w-full sm:w-64">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <Search size={16} />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Buscar estudiante..."
-                        className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all shadow-inner"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-grow overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-max">
-                  <thead>
-                    <tr className="bg-gray-50 text-[10px] uppercase tracking-widest font-black text-gray-400">
-                      {topTab === 'reports' ? (
-                        <>
-                          <th className="px-6 py-4">Autor</th>
-                          <th className="px-6 py-4">Motivo</th>
-                          <th className="px-6 py-4">Foro / Mensaje</th>
-                          <th className="px-6 py-4 text-right">Acciones</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className="px-6 py-4">Estudiante</th>
-                          <th className="px-6 py-4">Módulo</th>
-                          <th className="px-6 py-4">Fecha Reg.</th>
-                          <th className="px-6 py-4 text-right">Acciones</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {topTab === 'reports' ? (
-                      reports.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">Sin reportes pendientes</td>
-                        </tr>
-                      ) : (
-                        reports.map(rep => (
-                          <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <UserAvatar photo={rep.reported_photo} name={rep.reported_name} userId={rep.reported_id} size="w-8 h-8" />
-                                <div>
-                                  <p className="font-bold text-gray-900 text-xs">{rep.reported_name}</p>
-                                  <p className="text-[9px] text-gray-400">Reportado por: {rep.reporter_name}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="max-w-xs">
-                                <p className="text-xs font-bold text-gray-700">{rep.reason}</p>
-                                <p className="text-[10px] text-gray-400 mt-1">{new Date(rep.created_at).toLocaleString()}</p>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button
-                                onClick={() => navigate(`/modulo/${rep.modulo_id || 0}?forumId=${rep.target_id}`)}
-                                className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase border border-amber-100 hover:bg-amber-100 transition-all"
-                              >
-                                {rep.target_type === 'thread' ? 'Ver Pregunta' : 'Ver Respuesta'}
-                              </button>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <button
-                                disabled={resolvingReportId === rep.id}
-                                onClick={() => handleResolveReport(rep.id)}
-                                className="px-4 py-2 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50"
-                              >
-                                {resolvingReportId === rep.id ? '...' : 'Resolver'}
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )
-                    ) : (
-                      (() => {
-                        const filteredRegistrations = students
-                          .filter(st => filterModulo === 'all' || st.modulo === filterModulo)
-                          .filter(st =>
-                            (st.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                            (st.studentEmail?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                            (st.modulo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-                          );
-
-                        const groupedMap = filteredRegistrations.reduce((acc, reg) => {
-                          if (!acc[reg.studentEmail]) {
-                            acc[reg.studentEmail] = { ...reg, modulos: [reg.modulo], regIds: [reg.id] };
-                          } else if (!acc[reg.studentEmail].modulos.includes(reg.modulo)) {
-                            acc[reg.studentEmail].modulos.push(reg.modulo);
-                            acc[reg.studentEmail].regIds.push(reg.id);
-                          }
-                          return acc;
-                        }, {});
-
-                        const uniqueStudents = Object.values(groupedMap);
-
-                        if (uniqueStudents.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan="4" className="px-6 py-20 text-center">
-                                <div className="flex flex-col items-center gap-4">
-                                  <AlertCircle size={48} className="text-gray-200" />
-                                  <p className="text-gray-400 font-bold">No hay estudiantes encontrados</p>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return uniqueStudents.map(st => (
-                          <tr key={st.studentEmail} className="hover:bg-gray-50 transition-all group">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} />
-                                <div>
-                                  <p className="font-bold text-gray-900">{st.studentName}</p>
-                                  <p className="text-xs text-gray-400">{st.studentEmail}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-wrap gap-1.5">
-                                {st.modulos.map((m, idx) => (
-                                  <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
-                                    {m}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-xs text-gray-500">
-                              {new Date(st.registeredAt).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <button
-                                onClick={() => handleOpenDelete(st)}
-                                className="p-2 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
-                              >
-                                <Trash2 size={20} />
-                              </button>
-                            </td>
-                          </tr>
-                        ));
-                      })()
-                    )}
-                  </tbody>
-                </table>
               </div>
             </div>
-          </div>
-        </div>
 
-        <RoleStatsPanel />
-        </>
+            <RoleStatsPanel />
+          </>
         )}
       </div>
 
@@ -1132,11 +1250,10 @@ const MonitorDashboard = () => {
                   key={idx}
                   type="button"
                   onClick={() => setDeleteTargetId(selectedStudent.regIds[idx])}
-                  className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between text-xs font-bold ${
-                    deleteTargetId === selectedStudent.regIds[idx]
-                      ? 'border-red-600 bg-red-50 text-red-900'
-                      : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
-                  }`}
+                  className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between text-xs font-bold ${deleteTargetId === selectedStudent.regIds[idx]
+                    ? 'border-red-600 bg-red-50 text-red-900'
+                    : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
+                    }`}
                 >
                   <span>{mod}</span>
                   {deleteTargetId === selectedStudent.regIds[idx] && <UserCheck size={14} className="text-red-600" />}
@@ -1344,31 +1461,31 @@ const MonitorDashboard = () => {
             />
           </div>
 
-            {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'Híbrido') && (
-              <InputField
-                label="Salón"
-                value={createFormData.salon}
-                onChange={(e) => setCreateFormData({ ...createFormData, salon: e.target.value })}
-                placeholder="Ej. Salón 204 Bloque B"
-              />
-            )}
+          {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'Híbrido') && (
+            <InputField
+              label="Salón"
+              value={createFormData.salon}
+              onChange={(e) => setCreateFormData({ ...createFormData, salon: e.target.value })}
+              placeholder="Ej. Salón 204 Bloque B"
+            />
+          )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <InputField
-                type="select"
-                label="Modalidad"
-                value={createFormData.modalidad}
-                onChange={(e) => setCreateFormData({ ...createFormData, modalidad: e.target.value })}
-                options={dbModalidades}
-              />
-              <InputField
-                type="select"
-                label="Cuatrimestre"
-                value={createFormData.cuatrimestre}
-                onChange={(e) => setCreateFormData({ ...createFormData, cuatrimestre: e.target.value })}
-                options={dbCuatrimestres}
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <InputField
+              type="select"
+              label="Modalidad"
+              value={createFormData.modalidad}
+              onChange={(e) => setCreateFormData({ ...createFormData, modalidad: e.target.value })}
+              options={dbModalidades}
+            />
+            <InputField
+              type="select"
+              label="Cuatrimestre"
+              value={createFormData.cuatrimestre}
+              onChange={(e) => setCreateFormData({ ...createFormData, cuatrimestre: e.target.value })}
+              options={dbCuatrimestres}
+            />
+          </div>
 
           <DayPicker
             selected={createFormData.dias}

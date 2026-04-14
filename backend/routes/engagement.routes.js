@@ -76,4 +76,7 @@ router.post('/forums/report', requireUserContext, engagementController.reportFor
 router.get('/forums/reports', requireUserContext, engagementController.getReports);
 router.post('/forums/reports/:id/resolve', requireUserContext, engagementController.resolveReport);
 
+// DEV ONLY: Reset functional scan data
+router.post('/dev/reset-scans', requireUserContext, engagementController.resetScans);
+
 export default router;

@@ -11,6 +11,10 @@ class EngagementRepositoryMySQL {
   }
 
   async canAccessModule(userId, moduleId, userEmail = null) {
+    const user = await this.getUserById(userId);
+    const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
+    if (isModerator) return true;
+
     const [rows] = await pool.query(
       `
       SELECT 1
@@ -21,7 +25,7 @@ class EngagementRepositoryMySQL {
       WHERE m.id = ? AND (m.monitorId = ? OR r.id IS NOT NULL)
       LIMIT 1
       `,
-      [userEmail || '', moduleId, userId]
+      [userEmail || user?.email || '', moduleId, userId]
     );
     return rows.length > 0;
   }
@@ -275,6 +279,17 @@ class EngagementRepositoryMySQL {
   async deleteMessage(messageId) {
     const [result] = await pool.query('DELETE FROM forum_messages WHERE id = ?', [messageId]);
     return result.affectedRows > 0;
+  }
+
+  async resetAllScans() {
+    // This is a developer-only cleanup tool. 
+    // It clears high-volume operational tables for testing.
+    await pool.query('DELETE FROM attendance');
+    await pool.query('DELETE FROM lunch_usage');
+    await pool.query('DELETE FROM qr_scan_logs');
+    // Delete all registered QRs as requested for test cleanup
+    await pool.query('DELETE FROM qr_codes');
+    return true;
   }
 
   async saveForumThread(userId, threadId) {
@@ -704,7 +719,7 @@ class EngagementRepositoryMySQL {
       FROM users u
       LEFT JOIN modules m ON m.id = ? AND m.monitorId = u.id
       LEFT JOIN registrations r ON r.monitorId = ? AND r.studentEmail = u.email
-      WHERE (m.id IS NOT NULL OR r.id IS NOT NULL OR LOWER(u.role) IN ('admin', 'monitor_administrativo', 'dev'))
+      WHERE (m.id IS NOT NULL OR r.id IS NOT NULL)
         AND u.is_active = 1
       ORDER BY u.nombre ASC
       `,

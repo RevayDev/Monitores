@@ -102,7 +102,7 @@ const ProfileMedicalHistory = () => {
               {forumHistory.map((item) => (
                 <div 
                   key={item.id} 
-                  onClick={() => navigate(`/modulo/${item.modulo_id || 0}?forumId=${item.id}&readOnly=true`)}
+                  onClick={() => navigate(`/modules/${item.modulo_id || 0}/forum?forumId=${item.id}&readOnly=true`)}
                   className="bg-blue-50/40 rounded-xl p-3 border border-transparent hover:border-blue-200 hover:bg-blue-100/50 cursor-pointer transition-all active:scale-[0.98] group relative"
                 >
                   <div className="flex justify-between items-start pr-8">
@@ -133,7 +133,7 @@ const ProfileMedicalHistory = () => {
               {savedForums.map((item) => (
                 <div 
                   key={item.id} 
-                  onClick={() => navigate(`/modulo/${item.modulo_id || 0}?forumId=${item.id}&readOnly=true`)}
+                  onClick={() => navigate(`/modules/${item.modulo_id || 0}/forum?forumId=${item.id}&readOnly=true`)}
                   className="bg-amber-50/40 rounded-xl p-3 border border-transparent hover:border-amber-200 hover:bg-amber-100/50 cursor-pointer transition-all active:scale-[0.98] group"
                 >
                   <p className="text-sm font-black text-gray-800 group-hover:text-amber-700 transition-colors uppercase tracking-tight">{item.title}</p>

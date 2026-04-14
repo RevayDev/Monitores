@@ -610,7 +610,7 @@ const AdminDashboard = () => {
                             </td>
                             <td className="px-8 py-6">
                               <button
-                                onClick={() => navigate(`/modulo/${rep.modulo_id || 0}?forumId=${rep.target_id}`)}
+                                onClick={() => navigate(`/modules/${rep.modulo_id || 0}/forum?forumId=${rep.target_id}`)}
                                 className="px-4 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-xl uppercase border border-amber-200 hover:bg-amber-600 hover:text-white transition-all shadow-sm"
                               >
                                 {rep.target_type === 'thread' ? 'Ir al Foro' : 'Ir al Mensaje'}

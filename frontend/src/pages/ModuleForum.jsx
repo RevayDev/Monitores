@@ -304,9 +304,8 @@ const renderInlines = (text, members = [], monitorId) => {
       const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
       const member = (members || []).find((m) => Number(m.id) === id);
       const label = member ? `@${member.nombre}#${member.id}` : part;
-      const vRole = getVisualRole(member?.id, member?.role, monitorId);
       return (
-        <span key={`m-${idx}`} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black leading-none border shadow-sm ${roleChip(vRole)} whitespace-nowrap mx-0.5`}>
+        <span key={`m-${idx}`} className="inline-flex items-center text-brand-blue font-black hover:underline cursor-pointer group whitespace-nowrap mx-0.5">
           {label}
         </span>
       );
@@ -417,6 +416,14 @@ const ModuleForum = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState([]);
+  const [showBanner, setShowBanner] = useState(false);
+  const bannerTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+    };
+  }, []);
   const [replyText, setReplyText] = useState('');
   const [replyAttachments, setReplyAttachments] = useState([]);
   const [selectedCreateModuleId, setSelectedCreateModuleId] = useState(moduleId);
@@ -431,7 +438,13 @@ const ModuleForum = () => {
   const [reporting, setReporting] = useState(false);
 
   const location = useLocation();
-  const isReadOnly = useMemo(() => new URLSearchParams(location.search).get('readOnly') === 'true', [location.search]);
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const isReadOnlyParam = useMemo(() => queryParams.get('readOnly') === 'true', [queryParams]);
+  const forumIdParam = useMemo(() => queryParams.get('forumId'), [queryParams]);
+
+  const isReadOnly = useMemo(() => {
+    return isReadOnlyParam || (detail && detail.is_active_member === false);
+  }, [isReadOnlyParam, detail]);
 
   const handleReport = async () => {
     if (!reportReason.trim() || !reportTarget) return;
@@ -516,9 +529,9 @@ const ModuleForum = () => {
       const bMonitor = String(b.role || '').includes('monitor') ? 0 : 1;
       return aMonitor - bMonitor;
     });
-    if (!query) return sorted;
-    return sorted.filter((member) => {
-      if (Number(member.id) === Number(currentUser?.id)) return false;
+    const base = sorted.filter(m => Number(m.id) !== Number(currentUser?.id));
+    if (!query) return base;
+    return base.filter((member) => {
       if (member.is_active === 0 || member.is_active === false) return false;
       const name = String(member.nombre || '').toLowerCase();
       const username = String(member.username || '').toLowerCase();
@@ -529,9 +542,10 @@ const ModuleForum = () => {
   const [typingUsers, setTypingUsers] = useState([]);
 
   useEffect(() => {
-    if (!selectedId || !currentUser) return;
+    if (!selectedId || !currentUser || isReadOnly) return;
     
     const pollPresence = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         const data = await getForumPresence(selectedId);
         setTypingUsers(data || []);
@@ -541,9 +555,9 @@ const ModuleForum = () => {
     };
     
     pollPresence();
-    const interval = setInterval(pollPresence, 5000);
+    const interval = setInterval(pollPresence, 20000); // 20s
     return () => clearInterval(interval);
-  }, [selectedId, currentUser]);
+  }, [selectedId, currentUser, isReadOnly]);
 
   useEffect(() => {
     if (!selectedId || !replyText.trim()) return;
@@ -581,7 +595,15 @@ const ModuleForum = () => {
   const loadThreads = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const [forumRows, modulesRows] = await Promise.all([getForumsByModule(moduleId), getMyModules()]);
+      const fetchThreadsPromise = getForumsByModule(moduleId).catch(err => {
+        // Si no tiene acceso, devolvemos lista vacia en lugar de fallar todo el componente
+        if (err.message?.toLowerCase().includes('acceso') || err.message?.toLowerCase().includes('perteneces')) {
+          return [];
+        }
+        throw err; // Otros errores si se lanzan
+      });
+
+      const [forumRows, modulesRows] = await Promise.all([fetchThreadsPromise, getMyModules()]);
       const list = forumRows || [];
       const ownModules = modulesRows || [];
       setThreads(list);
@@ -604,8 +626,23 @@ const ModuleForum = () => {
 
       if (!lastSeenId && maxId) setLastSeenId(maxId);
       if (lastSeenId && maxId > lastSeenId) setNewCount(maxId - lastSeenId);
-      if (!selectedId && list.length) setSelectedId(list[0].id);
-      if (selectedId && !list.some((item) => Number(item.id) === Number(selectedId))) setSelectedId(list[0]?.id || null);
+      
+      // Inicializar selectedId prioritariamente desde URL si existe
+      if (forumIdParam && !selectedId) {
+        const pId = Number(forumIdParam);
+        if (pId > 0) setSelectedId(pId);
+      } else if (!selectedId && list.length) {
+        setSelectedId(list[0].id);
+      }
+      
+      // Solo limpiar selectedId si no estamos en modo lectura/historico (URL con forumId)
+      // Y asegurarnos de que la busqueda en la lista sea robusta
+      if (selectedId && !forumIdParam) {
+        const exists = list.some((item) => Number(item.id) === Number(selectedId));
+        if (!exists && list.length > 0) {
+           setSelectedId(list[0].id);
+        }
+      }
 
       const current = ownModules.find((m) => Number(m.id) === moduleId);
       setModuleData(current || null);
@@ -623,19 +660,28 @@ const ModuleForum = () => {
       const data = await getForumById(threadId);
       
       // Notificar menciones en respuestas nuevas
-      if (detail && data && silent) {
-        const oldReplies = (detail.replies || detail.comments || []);
-        const currentReplies = (data.replies || data.comments || []);
-        if (currentReplies.length > oldReplies.length) {
-          currentReplies.slice(oldReplies.length).forEach(reply => {
-            if (isMeMentioned(reply.content, currentUser?.id)) {
-              showToast(`${reply.author_name} te menciono en una respuesta.`, 'info');
-            }
-          });
-        }
+      // Actualizar lastSeenId localmente si es necesario
+      const replies = (data.replies || data.comments || []);
+      const maxReplyId = replies.reduce((acc, r) => Math.max(acc, Number(r.id)), 0);
+      
+      const storageKey = `forum_seen_reply_${threadId}`;
+      const savedLastSeen = Number(localStorage.getItem(storageKey) || 0);
+
+      setDetail({
+        ...data,
+        lastSeenReplyId: savedLastSeen
+      });
+
+      if (maxReplyId > savedLastSeen) {
+        setShowBanner(true);
+        if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = setTimeout(() => setShowBanner(false), 240000); // 4 minutos
+
+        setTimeout(() => {
+          localStorage.setItem(storageKey, maxReplyId);
+        }, 5000);
       }
 
-      setDetail(data || null);
       if (!silent) {
         setReplyText('');
         setReplyAttachments([]);
@@ -669,17 +715,22 @@ const ModuleForum = () => {
 
   useEffect(() => { loadDetail(selectedId); }, [selectedId]);
   
-  // Tiempo real: Polling cada 5s para hilos y 4s para el hilo abierto
+  // Tiempo real: Polling moderado para hilos
   useEffect(() => {
-    const timer = setInterval(() => loadThreads({ silent: true }), 5000);
+    if (isReadOnly) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') loadThreads({ silent: true });
+    }, 30000); // 30s
     return () => clearInterval(timer);
-  }, [moduleId, lastSeenId]);
+  }, [moduleId, isReadOnly]);
 
   useEffect(() => {
-    if (!selectedId) return;
-    const dTimer = setInterval(() => loadDetail(selectedId, { silent: true }), 4000);
+    if (!selectedId || isReadOnly) return;
+    const dTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') loadDetail(selectedId, { silent: true });
+    }, 20000); // 20s
     return () => clearInterval(dTimer);
-  }, [selectedId]);
+  }, [selectedId, isReadOnly]);
 
   const markSeen = () => {
     const maxId = threads.reduce((acc, item) => Math.max(acc, Number(item.id || 0)), 0);
@@ -1083,14 +1134,21 @@ const ModuleForum = () => {
 
         <div className="bg-white p-6 rounded-3xl border border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-black text-gray-900">Foro del modulo</h1>
-            <p className="text-gray-500 text-sm mt-1">{moduleData?.modulo || `Modulo #${moduleId}`}</p>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Foro del modulo</h1>
+            <p className="text-gray-500 text-sm mt-1">{moduleData?.modulo || detail?.module_name || `Modulo #${moduleId}`}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={loadThreads} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-black">Actualizar</button>
-            <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-brand-blue text-white rounded-xl text-xs font-black inline-flex items-center gap-2">
-              <Plus size={14} /> Crear pregunta
-            </button>
+            {!isReadOnly && (
+              <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-brand-blue text-white rounded-xl text-xs font-black inline-flex items-center gap-2">
+                <Plus size={14} /> Crear pregunta
+              </button>
+            )}
+            {isReadOnly && (
+              <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-xl text-[10px] font-black uppercase text-center border border-dashed border-gray-200">
+                Lectura
+              </div>
+            )}
             {newCount > 0 && (
               <button onClick={markSeen} className="px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black inline-flex items-center gap-1">
                 <BellDot size={14} /> {newCount} nuevas
@@ -1099,34 +1157,36 @@ const ModuleForum = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <section className="lg:col-span-1 bg-white p-4 rounded-3xl border border-gray-100 space-y-3">
-            <h2 className="font-black text-gray-900 text-sm uppercase">Preguntas</h2>
-            <div className="space-y-2 max-h-[62vh] overflow-auto pr-1">
-              {threads.map((thread) => (
-                <div key={thread.id} className={`w-full text-left rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
-                  <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
-                    <p className="text-sm text-gray-900 line-clamp-1">{thread.title}</p>
-                    <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{thread.content}</p>
-                    <p className="text-[11px] text-gray-400 mt-2">{thread.responses_count || 0} respuestas</p>
-                  </button>
-                  <div className="mt-2 flex items-center justify-end gap-2">
-                    <button onClick={() => handleSaveToggle(thread.id)} className={`px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 ${thread.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}>
-                      <Bookmark size={11} /> {thread.is_saved ? 'Guardado' : 'Guardar'}
+        <div className={`grid grid-cols-1 ${isReadOnly ? '' : 'lg:grid-cols-3'} gap-4`}>
+          {!isReadOnly && (
+            <section className="lg:col-span-1 bg-white p-4 rounded-3xl border border-gray-100 space-y-3">
+              <h2 className="font-black text-gray-900 text-sm uppercase">Preguntas</h2>
+              <div className="space-y-2 max-h-[62vh] overflow-auto pr-1">
+                {threads.map((thread) => (
+                  <div key={thread.id} className={`w-full text-left rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
+                    <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
+                      <p className="text-sm text-gray-900 line-clamp-1">{thread.title}</p>
+                      <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{thread.content}</p>
+                      <p className="text-[11px] text-gray-400 mt-2">{thread.responses_count || 0} respuestas</p>
                     </button>
-                    {(Number(thread.user_id) === Number(currentUser?.id) || canModerate) && (
-                      <button onClick={() => setConfirmDelete({ id: thread.id, type: 'forum' })} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600">
-                        <Trash2 size={11} /> Borrar
+                    <div className="mt-2 flex items-center justify-end gap-2">
+                      <button onClick={() => handleSaveToggle(thread.id)} className={`px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 ${thread.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}>
+                        <Bookmark size={11} /> {thread.is_saved ? 'Guardado' : 'Guardar'}
                       </button>
-                    )}
+                      {(Number(thread.user_id) === Number(currentUser?.id) || canModerate) && (
+                        <button onClick={() => setConfirmDelete({ id: thread.id, type: 'forum' })} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600">
+                          <Trash2 size={11} /> Borrar
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {!threads.length && <p className="text-sm text-gray-400">No hay preguntas todavia.</p>}
-            </div>
-          </section>
+                ))}
+                {!threads.length && <p className="text-sm text-gray-400">No hay preguntas todavia.</p>}
+              </div>
+            </section>
+          )}
 
-          <section className="lg:col-span-2 bg-white p-5 rounded-3xl border border-gray-100 space-y-4">
+          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-white p-5 rounded-3xl border border-gray-100 space-y-4`}>
             {!detail ? (
               <p className="text-sm text-gray-500">Selecciona una pregunta para ver el detalle.</p>
             ) : (
@@ -1235,117 +1295,140 @@ const ModuleForum = () => {
                   )}
                 </div>
 
-                <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
-                  {(detail.replies || detail.comments || []).map((reply) => (
-                    <div 
-                      key={reply.id} 
-                      className={`rounded-2xl border transition-all duration-500 p-4 relative ${
-                        isNewlyCreated(reply.created_at)
-                          ? 'bg-amber-50 border-amber-200 shadow-amber-100'
-                          : 'bg-white border-gray-100'
-                      }`}
-                    >
-                      {isNewlyCreated(reply.created_at) && (
-                        <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm animate-pulse">
-                          {isMeMentioned(reply.content, currentUser?.id) ? '✨ Te mencionaron' : '🔥 NUEVO'}
-                        </div>
-                      )}
-                      <div className="flex justify-between items-start mb-2 text-xs">
-                        <div className="flex items-center gap-2 text-gray-500">
-                          <UserAvatar photo={reply.author_photo} name={reply.author_name} userId={reply.user_id} userRole={reply.author_role} monitorId={moduleMonitorId} size="w-6 h-6" />
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-gray-900">{reply.author_name}</span>
-                              <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border shadow-sm ${roleChip(getVisualRole(reply.user_id, reply.author_role, moduleMonitorId))}`}>
-                                {roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId)}
-                              </span>
-                              {reply.author_active === 0 && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase bg-red-100 text-red-700 border border-red-200">
-                                  Abandono / Inactivo
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[9px]">
-                              {new Date(reply.created_at).toLocaleString()}
-                              {reply.updated_at && (new Date(reply.updated_at).getTime() - new Date(reply.created_at).getTime() > 1000) && (
-                                <span className="ml-1 text-gray-400 italic">(editado)</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-1 h-fit relative">
-                          <button 
-                            onClick={() => quickReply(reply)} 
-                            className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"
-                            title="Responder"
-                          >
-                            <CornerUpLeft size={14} />
-                          </button>
-                          
-                          <button 
-                            onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)}
-                            className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"
-                          >
-                            <MoreVertical size={14} />
-                          </button>
+                <div className="space-y-3 max-h-[40vh] overflow-auto pr-1">
+                  {(() => {
+                    const allReplies = (detail.replies || detail.comments || []);
+                    const lastSeen = detail.lastSeenReplyId || 0;
+                    const result = [];
+                    let bannerShown = false;
 
-                          {activeMenuId === `reply-${reply.id}` && (
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-scale-in">
-                              {Number(reply.user_id) !== Number(currentUser?.id) && (
-                                <button 
-                                  onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} 
-                                  className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
-                                >
-                                  <AlertOctagon size={12} /> Reportar
-                                </button>
-                              )}
-                              {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && (
-                                <button 
-                                  onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} 
-                                  className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
-                                >
-                                  <Edit3 size={12} /> Editar
-                                </button>
-                              )}
-                              {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && (
-                                <button 
-                                  onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} 
-                                  className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <Trash2 size={12} /> Eliminar
-                                </button>
-                              )}
+                    allReplies.forEach((reply) => {
+                      if (!bannerShown && showBanner && lastSeen > 0 && Number(reply.id) > lastSeen) {
+                        result.push(
+                          <div key="new-banner" className="flex items-center gap-4 py-4">
+                            <div className="flex-1 h-px bg-emerald-100" />
+                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+                              - Mensajes nuevos -
+                            </span>
+                            <div className="flex-1 h-px bg-emerald-100" />
+                          </div>
+                        );
+                        bannerShown = true;
+                      }
+                      
+                      result.push(
+                        <div 
+                          key={reply.id} 
+                          className={`rounded-2xl border transition-all duration-500 p-4 relative ${
+                            isNewlyCreated(reply.created_at)
+                              ? 'bg-amber-50 border-amber-200 shadow-amber-100'
+                              : 'bg-white border-gray-100'
+                          }`}
+                        >
+                          {isMeMentioned(reply.content, currentUser?.id) && (
+                            <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm animate-pulse">
+                              ✨ Te mencionaron
                             </div>
                           )}
-                        </div>
-                      </div>
+                          <div className="flex justify-between items-start mb-2 text-xs">
+                            <div className="flex items-center gap-2 text-gray-500">
+                              <UserAvatar photo={reply.author_photo} name={reply.author_name} userId={reply.user_id} userRole={reply.author_role} monitorId={moduleMonitorId} size="w-6 h-6" />
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-gray-900">{reply.author_name}</span>
+                                  {reply.author_active === 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase bg-red-100 text-red-700 border border-red-200">
+                                      Abandono / Inactivo
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[9px]">
+                                  {new Date(reply.created_at).toLocaleString()}
+                                  {reply.updated_at && (new Date(reply.updated_at).getTime() - new Date(reply.created_at).getTime() > 1000) && (
+                                    <span className="ml-1 text-gray-400 italic">(editado)</span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 h-fit relative">
+                              {!isReadOnly && (
+                                <button 
+                                  onClick={() => quickReply(reply)} 
+                                  className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"
+                                  title="Responder"
+                                >
+                                  <CornerUpLeft size={14} />
+                                </button>
+                              )}
+                              
+                              <button 
+                                onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)}
+                                className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"
+                              >
+                                <MoreVertical size={14} />
+                              </button>
 
-                      {editingId?.id === reply.id && editingId.isReply ? (
-                        <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
-                          <MentionHighlighter
-                            value={editContent}
-                            members={members}
-                            monitorId={moduleMonitorId}
-                            onChange={(e) => onMentionAwareInput('edit', e.target.value)}
-                            onKeyDown={(e) => handleInputKeyDown('edit', e)}
-                            placeholder="Edita tu respuesta..."
-                            minHeight="60px"
-                            onSelect={() => handleEditorSelection('edit')}
-                          />
-                          <div className="flex justify-end gap-2 text-[10px]">
-                            <button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button>
-                            <button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button>
+                              {activeMenuId === `reply-${reply.id}` && (
+                                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                                  {Number(reply.user_id) !== Number(currentUser?.id) && (
+                                    <button 
+                                      onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                    >
+                                      <AlertOctagon size={12} /> Reportar
+                                    </button>
+                                  )}
+                                  {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && (
+                                    <button 
+                                      onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                                    >
+                                      <Edit3 size={12} /> Editar
+                                    </button>
+                                  )}
+                                  {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && (
+                                    <button 
+                                      onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                      <Trash2 size={12} /> Eliminar
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {editingId?.id === reply.id && editingId.isReply ? (
+                            <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
+                              <MentionHighlighter
+                                value={editContent}
+                                members={members}
+                                monitorId={moduleMonitorId}
+                                onChange={(e) => onMentionAwareInput('edit', e.target.value)}
+                                onKeyDown={(e) => handleInputKeyDown('edit', e)}
+                                placeholder="Edita tu respuesta..."
+                                minHeight="60px"
+                                onSelect={() => handleEditorSelection('edit')}
+                              />
+                              <div className="flex justify-end gap-2 text-[10px]">
+                                <button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button>
+                                <button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">
+                              {renderRichText(reply.content, members, moduleMonitorId)}
+                            </div>
+                          )}
+                          
+                          {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
                         </div>
-                      ) : (
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">
-                          {renderRichText(reply.content, members, moduleMonitorId)}
-                        </div>
-                      )}
-                      
-                      {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
-                    </div>
-                  ))}
+                      );
+                    });
+
+                    return result;
+                  })()}
                    {!(detail.replies || detail.comments || []).length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
                   <div ref={repliesEndRef} />
                 </div>

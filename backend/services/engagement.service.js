@@ -6,8 +6,37 @@ import { fileURLToPath } from 'url';
 
 const QR_VALIDITY_HOURS = 2;
 const DUPLICATE_SCAN_MINUTES = 5;
-const toYmd = (date) => date.toISOString().slice(0, 10);
-const todayBogota = () => new Date().toISOString().slice(0, 10);
+
+const getBogotaDateStr = () => {
+  return new Intl.DateTimeFormat('fr-CA', { 
+    timeZone: 'America/Bogota', 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).format(new Date());
+};
+
+const todayBogota = () => {
+  return new Intl.DateTimeFormat('fr-CA', { 
+    timeZone: 'America/Bogota', 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(new Date()).replace(/,/g, '');
+};
+
+const toYmd = (date) => {
+  return new Intl.DateTimeFormat('fr-CA', { 
+    timeZone: 'America/Bogota', 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).format(new Date(date));
+};
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FORUM_UPLOADS_DIR = path.resolve(__dirname, '../uploads/forum');
@@ -44,8 +73,9 @@ class EngagementService {
     const current = await engagementRepository.getCurrentQrByUser(userId);
     if (!current) return null;
     const now = new Date();
-    const today = toYmd(now);
-    const canGenerate = !(current.code_date === today && now > new Date(current.expires_at));
+    const today = getBogotaDateStr();
+    const qrDate = toYmd(current.code_date || current.created_at);
+    const canGenerate = !(qrDate === today && now > new Date(current.expires_at));
     return {
       ...current,
       can_generate: canGenerate,
@@ -67,8 +97,10 @@ class EngagementService {
 
     const latestQr = await engagementRepository.getCurrentQrByUser(userId);
     const now = new Date();
-    const today = toYmd(now);
-    if (latestQr && latestQr.code_date === today && now > new Date(latestQr.expires_at)) {
+    const today = getBogotaDateStr();
+    const latestQrDate = latestQr ? toYmd(latestQr.code_date || latestQr.created_at) : null;
+
+    if (latestQr && latestQrDate === today && now > new Date(latestQr.expires_at)) {
       throw new Error('Tu QR de hoy ya expiro. Podras generar uno nuevo manana.');
     }
 
@@ -339,6 +371,7 @@ class EngagementService {
     });
 
     const scanner = await engagementRepository.getUserById(scannerUserId);
+    const student = await engagementRepository.getUserById(qr.user_id);
     await engagementRepository.createNotification({
       userId: qr.user_id,
       type: 'lunch_delivered',
@@ -356,7 +389,15 @@ class EngagementService {
       userAgent: context.userAgent
     });
 
-    return { success: true, lunchId, userId: qr.user_id, date: todayBogota() };
+    return { 
+      success: true, 
+      lunchId, 
+      userId: qr.user_id, 
+      date: todayBogota(),
+      student: {
+        nombre: student?.nombre || 'Estudiante'
+      }
+    };
   }
 
   async getModuleForum(moduleId, userId) {
@@ -533,7 +574,7 @@ class EngagementService {
     if (!Number.isInteger(moduleId) || moduleId <= 0) throw new Error('Modulo invalido.');
     const user = await engagementRepository.getUserById(userId);
     const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
-    if (!canAccess) throw new Error('No tienes acceso a este modulo.');
+    if (!canAccess) return []; // Retornar lista vacia en lugar de error para acceso historico
     return engagementRepository.getForumCardsForUser(moduleId, userId);
   }
 
@@ -541,7 +582,7 @@ class EngagementService {
     if (!Number.isInteger(moduleId) || moduleId <= 0) throw new Error('Modulo invalido.');
     const user = await engagementRepository.getUserById(userId);
     const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
-    if (!canAccess) throw new Error('No tienes acceso a este modulo.');
+    if (!canAccess) return []; // Retornar lista vacia en lugar de error para acceso historico
     return engagementRepository.getForumMentionableUsers(moduleId);
   }
 
@@ -616,8 +657,7 @@ class EngagementService {
     const user = await engagementRepository.getUserById(userId);
     const moduleId = Number(forum.modulo_id || forum.subject_id);
     const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
-    
-    // Permitir acceso si el usuario es el autor o si tiene el foro guardado
+
     const isOwner = Number(forum.user_id) === Number(userId);
     const isSaved = Number(forum.is_saved) === 1;
 
@@ -634,16 +674,31 @@ class EngagementService {
         attachments: await engagementRepository.getForumAttachments({ replyId: Number(reply.id) })
       }))
     );
-    return { ...forum, modulo_id: moduleId, attachments, comments: enrichedReplies, replies: enrichedReplies };
+    return { 
+      ...forum, 
+      modulo_id: moduleId, 
+      attachments, 
+      comments: enrichedReplies, 
+      replies: enrichedReplies,
+      is_active_member: canAccess
+    };
   }
 
   async updateForum(userId, forumId, payload) {
     const forum = await engagementRepository.getForumById(Number(forumId));
     if (!forum) throw new Error('Foro no encontrado.');
     const user = await engagementRepository.getUserById(userId);
-    const isModerator = ['admin', 'dev'].includes(user?.role);
+    const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
+    
+    const moduleId = Number(forum.modulo_id || forum.subject_id);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+
     if (Number(forum.user_id) !== Number(userId) && !isModerator) {
       throw new Error('No autorizado para editar esta pregunta.');
+    }
+
+    if (!canAccess && !isModerator) {
+      throw new Error('No puedes editar foros si ya no perteneces al modulo.');
     }
     await engagementRepository.updateForum(Number(forumId), {
       title: payload.title?.trim(),
@@ -734,14 +789,32 @@ class EngagementService {
     const { type, targetId, reason } = payload;
     if (!type || !targetId || !reason) throw new Error('type, targetId y reason son obligatorios.');
     
-    let reportedId;
+    const user = await engagementRepository.getUserById(userId);
+    let moduleId;
+
     if (type === 'thread') {
       const forum = await engagementRepository.getForumById(Number(targetId));
       if (!forum) throw new Error('Foro no encontrado.');
-      reportedId = forum.user_id;
+      moduleId = Number(forum.modulo_id || forum.subject_id);
     } else {
       const reply = await engagementRepository.getForumReplyById(Number(targetId));
       if (!reply) throw new Error('Respuesta no encontrada.');
+      const forum = await engagementRepository.getForumById(Number(reply.forum_id));
+      moduleId = Number(forum?.modulo_id || forum?.subject_id);
+    }
+
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+    const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
+    if (!canAccess && !isModerator) {
+      throw new Error('No puedes reportar contenido si no perteneces al modulo.');
+    }
+
+    let reportedId;
+    if (type === 'thread') {
+      const forum = await engagementRepository.getForumById(Number(targetId));
+      reportedId = forum.user_id;
+    } else {
+      const reply = await engagementRepository.getForumReplyById(Number(targetId));
       reportedId = reply.user_id;
     }
 
@@ -781,10 +854,19 @@ class EngagementService {
   async updateForumReply(userId, replyId, payload) {
     const reply = await engagementRepository.getForumReplyById(Number(replyId));
     if (!reply) throw new Error('Respuesta no encontrada.');
+    const forum = await engagementRepository.getForumById(Number(reply.forum_id));
     const user = await engagementRepository.getUserById(userId);
-    const isModerator = ['admin', 'dev'].includes(user?.role);
+    const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
+    
+    const moduleId = Number(forum?.modulo_id || forum?.subject_id);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+
     if (Number(reply.user_id) !== Number(userId) && !isModerator) {
       throw new Error('No autorizado para editar esta respuesta.');
+    }
+
+    if (!canAccess && !isModerator) {
+      throw new Error('No puedes editar respuestas si ya no perteneces al modulo.');
     }
     await engagementRepository.updateForumReply(Number(replyId), {
       content: payload.content?.trim(),
@@ -812,11 +894,19 @@ class EngagementService {
   async deleteForum(forumId, userId) {
     const forum = await engagementRepository.getForumById(Number(forumId));
     if (!forum) throw new Error('Foro no encontrado.');
-    const actor = await engagementRepository.getUserById(userId);
-    const role = String(actor?.role || '').toLowerCase();
+    const user = await engagementRepository.getUserById(userId);
+    const role = String(user?.role || '').toLowerCase();
     const canModerate = ['admin', 'dev'].includes(role);
+
+    const moduleId = Number(forum.modulo_id || forum.subject_id);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+
     if (Number(forum.user_id) !== Number(userId) && !canModerate) {
       throw new Error('No autorizado para borrar este foro.');
+    }
+
+    if (!canAccess && !canModerate) {
+      throw new Error('No puedes borrar foros si ya no perteneces al modulo.');
     }
 
     // Recolecta URLs de adjuntos y contenido markdown para borrar archivos físicos locales.
@@ -895,6 +985,22 @@ class EngagementService {
 
   async getForumPresence(forumId, userId) {
     return engagementRepository.getForumPresence(forumId, userId);
+  }
+
+  async resetAllScans(userId) {
+    const user = await engagementRepository.getUserById(userId);
+    const isDev = ['dev'].includes(String(user?.role || '').toLowerCase());
+    if (!isDev) throw new Error('No autorizado para esta operacion.');
+
+    await engagementRepository.createActivityLog({
+      userId,
+      action: 'DEV_RESET_SCANS',
+      entityType: 'database',
+      entityId: 0,
+      metadata: { timestamp: new Date().toISOString() }
+    });
+
+    return engagementRepository.resetAllScans();
   }
 }
 

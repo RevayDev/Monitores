@@ -444,5 +444,13 @@ export default {
   getForumPresence,
   reportForum,
   getReports,
-  resolveReport
+  resolveReport,
+  resetScans: async (req, res) => {
+    try {
+      await engagementService.resetAllScans(req.userContext.userId);
+      res.json({ success: true, message: 'Todos los registros de escaneo han sido eliminados.' });
+    } catch (error) {
+      res.status(403).json({ error: error.message });
+    }
+  }
 };

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, Users } from 'lucide-react';
+import { PlusCircle, Users, Trophy, Zap, Sparkles } from 'lucide-react';
 import { getAllUsers, getMaintenanceConfig } from '../services/api';
 import StaffCard from '../components/StaffCard';
 import PageTransition from '../components/PageTransition';
@@ -103,24 +103,63 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Benefits Section */}
         <section className="py-10 sm:py-16 md:py-20 bg-gray-50 px-4 sm:px-6">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
               {[
-                { title: 'Excelencia Académica', desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.', color: 'bg-blue-50 text-brand-blue', hover: 'hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:ring-4 hover:ring-blue-50' },
-                { title: 'Flexibilidad Total', desc: 'Modalidades presenciales y virtuales adaptadas a tu ritmo de estudio.', color: 'bg-green-50 text-green-600', hover: 'hover:bg-green-600 hover:text-white hover:border-green-600 hover:ring-4 hover:ring-green-50' },
-                { title: 'Gestión Transparente', desc: 'Poder seleconar tu propia monitoria.', color: 'bg-yellow-50 text-yellow-600', hover: 'hover:bg-amber-500 hover:text-white hover:border-amber-500 hover:ring-4 hover:ring-amber-50' }
+                {
+                  title: 'Excelencia Académica',
+                  desc: 'Monitores seleccionados por su alto rendimiento y compromiso pedagógico.',
+                  gradient: 'from-blue-700 via-blue-600 to-blue-500',
+                  bg: 'bg-blue-50',
+                  icon: <Trophy size={24} />
+                },
+                {
+                  title: 'Flexibilidad Total',
+                  desc: 'Modalidades presenciales y virtuales adaptadas a tu ritmo de estudio.',
+                  gradient: 'from-emerald-600 via-emerald-500 to-teal-400',
+                  bg: 'bg-emerald-50',
+                  icon: <Zap size={24} />
+                },
+                {
+                  title: 'Gestión Transparente',
+                  desc: 'Poder seleccionar tu propia monitoría con claridad total.',
+                  gradient: 'from-amber-600 via-orange-500 to-yellow-400',
+                  bg: 'bg-amber-50',
+                  icon: <Sparkles size={24} />
+                }
               ].map((item, i) => (
-                <div key={i} className={`bg-white p-5 sm:p-8 rounded-[32px] shadow-sm border border-gray-100 flex flex-col items-start gap-4 transition-all duration-500 group cursor-pointer ${item.hover}`}>
-                  <div className={`${item.color} w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-base sm:text-xl group-hover:rotate-6 transition-transform`}>
-                    0{i + 1}
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08, duration: 0.4, ease: "circOut" }}
+                  whileHover={{ y: -10, scale: 1.02 }}
+                  className="relative group cursor-pointer"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} rounded-[40px] blur-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
+
+                  <div className="relative bg-white p-8 rounded-[40px] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-full flex flex-col gap-6 overflow-hidden">
+                    {/* Background number accent */}
+                    <div className="absolute -top-6 -right-6 text-[120px] font-black text-gray-50 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity select-none italic pointer-events-none">
+                      {i + 1}
+                    </div>
+
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-white shadow-xl shadow-blue-500/10 group-hover:rotate-12 transition-transform duration-500`}>
+                      {item.icon}
+                    </div>
+
+                    <div className="space-y-3">
+                      <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight transition-colors">
+                        {item.title}
+                      </h3>
+                      <p className="text-gray-500 text-sm font-medium leading-relaxed opacity-80">
+                        {item.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base sm:text-xl font-black text-gray-900 mb-1 tracking-tight">{item.title}</h3>
-                    <p className="text-gray-500 text-sm font-medium leading-relaxed">{item.desc}</p>
-                  </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>

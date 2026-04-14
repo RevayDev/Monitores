@@ -41,10 +41,13 @@ const Navbar = () => {
       }
     };
     loadNotifications();
+    const interval = setInterval(loadNotifications, 30000); // Polling cada 30s
+
     // Re-fetch user when profile is updated from another page
     window.addEventListener('profile-updated', fetchUser);
     window.addEventListener('notifications-updated', loadNotifications);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('profile-updated', fetchUser);
       window.removeEventListener('notifications-updated', loadNotifications);
     };
@@ -146,6 +149,60 @@ const Navbar = () => {
     ]
   };
 
+  const NotificationBell = () => (
+    <div className="relative" ref={notificationRef}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setNotificationsOpen(!notificationsOpen);
+          if (!notificationsOpen) markAllNotificationsAsRead();
+        }}
+        className="relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue transition-all active:scale-90"
+      >
+        <Bell size={18} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black grid place-items-center">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+      {notificationsOpen && (
+        <div className="absolute right-0 mt-2 w-80 max-h-[400px] overflow-auto bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100]">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Notificaciones</span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {notifications.length ? notifications.map((n) => {
+              const isRecent = isNewlyCreated(n.created_at);
+              const isMention = n.type === 'forum_mention';
+              return (
+                <div key={n.id} className={`px-4 py-3 flex items-start gap-2 transition-all hover:bg-gray-50 group ${isRecent ? (isMention ? 'bg-emerald-50 border-l-4 border-l-emerald-400' : 'bg-amber-50 border-l-4 border-l-amber-400') : ''}`}>
+                  <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <p className={`text-[10px] font-black uppercase tracking-tighter ${isRecent ? (isMention ? 'text-emerald-700' : 'text-amber-700') : 'text-gray-900'}`}>
+                        {n.type?.replace(/_/g, ' ')}
+                      </p>
+                      {isRecent && (
+                        <span className={`${isMention ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'} text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter animate-pulse`}>
+                          Nuevo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug">{n.message}</p>
+                    <p className="text-[8px] text-gray-400 mt-1 font-bold uppercase">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </button>
+                  <button onClick={() => handleDeleteNotification(n.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            }) : <p className="px-4 py-8 text-sm text-gray-400 text-center">Sin notificaciones</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const currentLinks = isGuest ? navLinks.guest : navLinks.student;
 
   return (
@@ -179,55 +236,8 @@ const Navbar = () => {
 
 
             <div className="ml-4 pl-4 border-l border-gray-100 flex items-center gap-3">
-              {!isGuest && (
-                <div className="relative" ref={notificationRef}>
-                  <button
-                    onClick={() => {
-                      setNotificationsOpen(!notificationsOpen);
-                      if (!notificationsOpen) markAllNotificationsAsRead();
-                    }}
-                    className="relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue"
-                  >
-                    <Bell size={18} />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black grid place-items-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </button>
-                  {notificationsOpen && (
-                    <div className="absolute right-0 mt-2 w-80 max-h-80 overflow-auto bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
-                      <div className="px-4 py-3 border-b border-gray-100 text-xs font-black uppercase tracking-widest text-gray-500">Notificaciones</div>
-                      <div className="divide-y divide-gray-100">
-                        {notifications.length ? notifications.map((n, idx) => {
-                          const isRecent = isNewlyCreated(n.created_at);
-                          return (
-                            <div key={n.id} className={`px-4 py-3 flex items-start gap-2 transition-all hover:bg-gray-50 group ${isRecent ? 'bg-amber-50 border-l-4 border-l-amber-400' : ''}`}>
-                              <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
-                                <div className="flex items-center gap-2">
-                                  <p className={`text-[10px] font-black uppercase tracking-tighter ${isRecent ? 'text-amber-700' : 'text-gray-900'}`}>
-                                    {n.type?.replace(/_/g, ' ')}
-                                  </p>
-                                  {isRecent && (
-                                    <span className="bg-amber-200 text-amber-800 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter animate-pulse">
-                                      Nuevo
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-0.5 leading-snug">{n.message}</p>
-                                <p className="text-[8px] text-gray-400 mt-1 font-bold uppercase">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                              </button>
-                              <button onClick={() => handleDeleteNotification(n.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          );
-                        }) : <p className="px-4 py-8 text-sm text-gray-400 text-center">Sin notificaciones</p>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {!isGuest && <NotificationBell />}
+
               {/* Dedicated Panel Buttons based on baseRole */}
               {!isGuest && (user.role === 'monitor' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button
@@ -320,7 +330,8 @@ const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center gap-2">
+            {!isGuest && <NotificationBell />}
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-2 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all"

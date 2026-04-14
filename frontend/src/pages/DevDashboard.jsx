@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wrench, Shield, Globe, Users, BookOpen, UserPlus, LogIn, Activity, AlertTriangle, Edit3, Trash2, Mail, Lock, PlusCircle, ShieldCheck, UserCheck, MapPin } from 'lucide-react';
-import { getMaintenanceConfig, setMaintenanceConfig, getAllUsers, createUser, updateUser, deleteUser, getSedes, getCuatrimestres } from '../services/api';
+import { 
+  getMaintenanceConfig, setMaintenanceConfig, getAllUsers, 
+  createUser, updateUser, deleteUser, getSedes, getCuatrimestres,
+  resetScans
+} from '../services/api';
 import Modal from '../components/Modal';
 import { ToastContext } from '../App';
 import UserAvatar from '../components/UserAvatar';
@@ -25,6 +29,8 @@ const DevDashboard = () => {
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [selectedDev, setSelectedDev] = useState(null);
   
   // DB Data
@@ -73,6 +79,19 @@ const DevDashboard = () => {
       console.error("Error fetching dev data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetData = async () => {
+    try {
+      setIsResetting(true);
+      await resetScans();
+      showToast('Todos los registros QR han sido eliminados correctamente', 'success');
+      setIsResetModalOpen(false);
+    } catch (error) {
+      showToast(error.message || 'Error al resetear datos', 'error');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -328,6 +347,26 @@ const DevDashboard = () => {
             ))}
           </div>
         </div>
+
+        {/* Data Reset Utility (Dev Only) */}
+        <div className="bg-red-50/50 border-2 border-dashed border-red-200 rounded-[32px] p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+            <Trash2 size={32} />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-xl font-black text-red-900">Utilidad de Limpieza</h2>
+            <p className="text-sm font-medium text-red-600/70 max-w-md mx-auto">
+              Borra todos los registros de asistencia, almuerzos y logs de escaneo. 
+              Esta acción es permanente y se usa principalmente para pruebas.
+            </p>
+          </div>
+          <button 
+            onClick={() => setIsResetModalOpen(true)}
+            className="px-8 py-3 bg-red-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-all active:scale-95 shadow-xl shadow-red-500/20"
+          >
+            Borrar Todos los Registros QR
+          </button>
+        </div>
       </div>
 
       {/* Modals */}
@@ -393,6 +432,30 @@ const DevDashboard = () => {
               Confirmar Eliminación
             </button>
             <button onClick={() => setIsDeleteOpen(false)} className="w-full py-4 bg-white text-gray-400 font-bold border-2 border-gray-100 rounded-2xl hover:bg-gray-50 transition-all text-xs uppercase">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="¿BORRAR TODOS LOS DATOS?">
+        <div className="space-y-8 text-center py-4">
+          <div className="bg-red-600 p-6 rounded-2xl inline-block text-white shadow-2xl shadow-red-600/30">
+            <AlertTriangle size={64} />
+          </div>
+          <div className="space-y-3 px-4">
+            <p className="text-2xl font-black text-gray-900 leading-tight tracking-tighter uppercase">ATENCIÓN: ELIMINACIÓN MASIVA</p>
+            <p className="text-gray-500 font-medium">Se borrarán permanentemente todas las asistencias, almuerzos y logs de escaneo del sistema. Esta acción NO se puede deshacer.</p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={handleResetData}
+              disabled={isResetting}
+              className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 transition-all text-sm uppercase tracking-widest disabled:opacity-50"
+            >
+              {isResetting ? 'Borrando...' : 'Sí, borrar todo permanentemente'}
+            </button>
+            <button onClick={() => setIsResetModalOpen(false)} className="w-full py-4 bg-white text-gray-400 font-bold border-2 border-gray-100 rounded-2xl hover:bg-gray-50 transition-all text-xs uppercase">
               Cancelar
             </button>
           </div>

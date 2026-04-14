@@ -361,3 +361,8 @@ export const setMaintenanceConfig = (config) => request('/maintenance', {
   method: 'PUT',
   body: JSON.stringify(config)
 });
+
+export const resetScans = () => request('/dev/reset-scans', {
+  method: 'POST',
+  body: JSON.stringify({})
+});
