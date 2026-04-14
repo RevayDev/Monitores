@@ -50,7 +50,14 @@ const Navbar = () => {
        socket = io('http://localhost:3000');
        socket.emit('join_user', user.id);
        socket.on('new_notification', (data) => {
-         showToast(data.body || 'Nueva notificación recibida', 'info');
+         const activeForumId = localStorage.getItem('monitores_active_forum_id');
+         const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id;
+         
+         // Only show toast if NOT looking at that specific forum thread
+         if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {
+           showToast(data.body || 'Nueva notificación recibida', 'info');
+         }
+         
          loadNotifications();
          setBellAnimating(true);
          setTimeout(() => setBellAnimating(false), 600);

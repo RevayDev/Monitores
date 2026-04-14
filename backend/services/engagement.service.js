@@ -640,7 +640,6 @@ class EngagementService {
       });
     }
 
-    const mentionIds = this.extractMentionIds(content);
     if (mentionIds.length) {
       const mentionedUsers = await engagementRepository.getUsersByIdsInModule(moduleId, mentionIds);
       await Promise.all(
@@ -759,7 +758,10 @@ class EngagementService {
       attachments: this.normalizeAttachments(attachments)
     });
 
-    if (Number(forum.user_id) !== Number(userId)) {
+    const mentionIds = this.extractMentionIds(content);
+    const isAuthorMentioned = mentionIds.includes(Number(forum.user_id));
+
+    if (Number(forum.user_id) !== Number(userId) && !isAuthorMentioned) {
       await engagementRepository.createNotification({
         userId: forum.user_id,
         type: 'respuesta_foro',
@@ -793,7 +795,6 @@ class EngagementService {
       });
     }
 
-    const mentionIds = this.extractMentionIds(content);
     if (mentionIds.length) {
       const mentionedUsers = await engagementRepository.getUsersByIdsInModule(moduleId, mentionIds);
       await Promise.all(

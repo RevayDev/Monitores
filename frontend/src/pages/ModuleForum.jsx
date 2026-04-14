@@ -595,7 +595,11 @@ const ModuleForum = () => {
   }, []);
 
   useEffect(() => {
-    if (!socket || !selectedId) return;
+    if (!socket || !selectedId) {
+      localStorage.removeItem('monitores_active_forum_id');
+      return;
+    }
+    localStorage.setItem('monitores_active_forum_id', String(selectedId));
     socket.emit('join_forum', selectedId);
     setHasEnteredThread(false);
 
@@ -623,6 +627,7 @@ const ModuleForum = () => {
     });
 
     return () => {
+      localStorage.removeItem('monitores_active_forum_id');
       socket.off('user_typing');
       socket.off('user_stop_typing');
       socket.off('message_received');
