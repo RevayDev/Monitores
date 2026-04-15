@@ -39,12 +39,13 @@ class AnalyticsRepositoryMySQL {
       item.status,
       item.excuse_reason || null,
       item.excuse_description || null,
-      item.rating || null
+      item.rating || null,
+      item.comment || null
     ]);
     await pool.query(
       `
       INSERT INTO academic_session_attendance
-      (session_id, student_id, student_name, status, excuse_reason, excuse_description, rating, created_at)
+      (session_id, student_id, student_name, status, excuse_reason, excuse_description, rating, comment, created_at)
       VALUES ?
       `,
       [values]
@@ -107,6 +108,7 @@ class AnalyticsRepositoryMySQL {
         excuse_reason,
         excuse_description,
         rating,
+        comment,
         created_at
       FROM academic_session_attendance
       WHERE session_id = ?
@@ -197,6 +199,55 @@ class AnalyticsRepositoryMySQL {
         total_sessions: Number(hoursRows[0]?.total_sessions || 0)
       },
       students: studentsRows
+    };
+  }
+
+  async getAcademicStudentSummary(studentId) {
+    const [statusRows] = await pool.query(
+      `
+      SELECT
+        SUM(CASE WHEN status = 'PRESENTE' THEN 1 ELSE 0 END) AS total_assistances,
+        SUM(CASE WHEN status = 'AUSENTE' THEN 1 ELSE 0 END) AS total_absences,
+        SUM(CASE WHEN status = 'EXCUSA' THEN 1 ELSE 0 END) AS total_excuses,
+        COUNT(*) AS total_records
+      FROM academic_session_attendance
+      WHERE student_id = ?
+      `,
+      [studentId]
+    );
+
+    const [historyRows] = await pool.query(
+      `
+      SELECT
+        a.id,
+        a.status,
+        a.excuse_reason,
+        a.excuse_description,
+        a.rating,
+        a.comment,
+        s.start_time,
+        m.modulo AS module_name,
+        m.id AS module_id
+      FROM academic_session_attendance a
+      JOIN academic_sessions s ON s.id = a.session_id
+      JOIN modules m ON m.id = s.module_id
+      WHERE a.student_id = ?
+      ORDER BY s.start_time DESC
+      LIMIT 100
+      `,
+      [studentId]
+    );
+
+    const totals = statusRows[0] || {};
+    const totalRecords = Number(totals.total_records || 0);
+    const present = Number(totals.total_assistances || 0);
+
+    return {
+      total_assistances: present,
+      total_absences: Number(totals.total_absences || 0),
+      total_excuses: Number(totals.total_excuses || 0),
+      attendance_frequency: totalRecords > 0 ? Number(((present / totalRecords) * 100).toFixed(2)) : 0,
+      session_history: historyRows
     };
   }
 

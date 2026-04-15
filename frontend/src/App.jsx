@@ -17,11 +17,11 @@ import DevDashboard from './pages/DevDashboard';
 import Login from './pages/Login';
 import ModuleForum from './pages/ModuleForum';
 import MonitorAttendanceSheet from './pages/MonitorAttendanceSheet';
-import Toast from './components/Toast';
+import Toaster from './components/Toaster';
 import { getMaintenanceConfig, getCurrentUser } from './services/api';
 import { Wrench, ShieldAlert } from 'lucide-react';
 
-export const ToastContext = React.createContext();
+import { ToastContext } from './context/ToastContext';
 
 function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
   const location = useLocation();
@@ -185,7 +185,7 @@ function App() {
       </Router>
       <AnimatePresence>
         {toast && (
-          <Toast
+          <Toaster
             message={toast.message}
             type={toast.type}
             onClose={() => setToast(null)}

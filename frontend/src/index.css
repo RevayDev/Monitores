@@ -199,3 +199,30 @@ textarea.bg-transparent::selection {
 .animate-notification-zoom {
   animation: notification-zoom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
+
+/* Shake Bell Animation */
+@keyframes shake-bell {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-15deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-10deg); }
+  75% { transform: rotate(5deg); }
+  85% { transform: rotate(-5deg); }
+  100% { transform: rotate(0); }
+}
+
+.animate-shake-bell {
+  display: inline-block;
+  animation: shake-bell 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Slide In Right Animation */
+@keyframes slide-in-right {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

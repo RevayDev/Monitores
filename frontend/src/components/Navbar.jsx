@@ -18,7 +18,7 @@ import {
 import UserAvatar from './UserAvatar';
 import { getCurrentUser, switchRole, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
 import { io } from 'socket.io-client';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -44,7 +44,7 @@ const Navbar = () => {
     };
     loadNotifications();
 
-    // Socket connection for notifications
+    // Socket connection for notifications (Restored)
     let socket;
     if (user?.id) {
        socket = io('http://localhost:3000');
@@ -53,14 +53,16 @@ const Navbar = () => {
          const activeForumId = localStorage.getItem('monitores_active_forum_id');
          const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id;
          
-         // Only show toast if NOT looking at that specific forum thread
-         if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {
-           showToast(data.body || 'Nueva notificación recibida', 'info');
-         }
-         
-         loadNotifications();
-         setBellAnimating(true);
-         setTimeout(() => setBellAnimating(false), 600);
+          // Only show toast if NOT looking at that specific forum thread
+          if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {
+            showToast(data.message || { title: data.title, body: data.body }, 'notification');
+          }
+          
+          loadNotifications();
+          if (data.metadata?.priority === 'high' || data.priority === 'high') {
+            setBellAnimating(true);
+            setTimeout(() => setBellAnimating(false), 800);
+          }
        });
     }
 
@@ -194,7 +196,7 @@ const Navbar = () => {
           setNotificationsOpen(!notificationsOpen);
           if (!notificationsOpen) markAllNotificationsAsRead();
         }}
-        className={`relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue transition-all active:scale-90 ${bellAnimating ? 'animate-notification-zoom' : ''}`}
+        className={`relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-brand-blue transition-all active:scale-90 ${bellAnimating ? 'animate-shake-bell' : ''}`}
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -298,7 +300,7 @@ const Navbar = () => {
               {!isGuest && (user.role === 'dev' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/dev-dashboard')}
-                  className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-purple-700 active:scale-95 transition-all shadow-md shadow-purple-600/20"
+                  className="px-4 py-1.5 bg-violet-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-violet-700 active:scale-95 transition-all shadow-md shadow-violet-600/20"
                 >
                   <Wrench size={13} /> Panel DEV
                 </button>
@@ -465,7 +467,7 @@ const Navbar = () => {
                   {(user.role === 'dev' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/dev-dashboard'); }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-purple-600 text-white text-sm font-black rounded-xl hover:bg-purple-700 transition-all shadow-md shadow-purple-600/20 uppercase tracking-widest"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-violet-600 text-white text-sm font-black rounded-xl hover:bg-violet-700 transition-all shadow-md shadow-violet-600/20 uppercase tracking-widest"
                     >
                       <Wrench size={18} /> Panel DEV
                     </button>

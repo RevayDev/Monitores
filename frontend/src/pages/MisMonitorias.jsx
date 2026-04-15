@@ -10,7 +10,7 @@ import {
   getMyModules,
   uploadForumFile
 } from '../services/api';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import MonitorCard from '../components/MonitorCard';
 import Modal from '../components/Modal';
 import UserAvatar from '../components/UserAvatar';

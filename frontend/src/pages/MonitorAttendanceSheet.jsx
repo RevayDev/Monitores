@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Download, Wine } from 'lucide-react';
 import { getModuleAttendanceSheet, saveModuleAttendanceSheet } from '../services/api';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 
 const exportCsv = (fileName, rows) => {
   const header = ['Nombre', 'Email', 'Estado'];

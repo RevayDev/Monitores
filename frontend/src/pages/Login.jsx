@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login, getMaintenanceConfig } from '../services/api';
 import { Mail, Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight, Clock, Wrench } from 'lucide-react';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import InputField from '../components/InputField';
 
 const Login = () => {

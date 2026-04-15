@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signupStudent, getSedes, getCuatrimestres, getMaintenanceConfig } from '../services/api';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import {
   User,
   UserCheck,

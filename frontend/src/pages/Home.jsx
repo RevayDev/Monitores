@@ -5,9 +5,11 @@ import { PlusCircle, Users, Trophy, Zap, Sparkles } from 'lucide-react';
 import { getAllUsers, getMaintenanceConfig } from '../services/api';
 import StaffCard from '../components/StaffCard';
 import PageTransition from '../components/PageTransition';
+import { ToastContext } from '../context/ToastContext';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { showToast } = React.useContext(ToastContext);
   const [staff, setStaff] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState('monitor');

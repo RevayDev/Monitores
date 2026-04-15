@@ -55,6 +55,8 @@ class MonitoriasRepositoryMySQL {
   }
 
   async delete(id) {
+    // Delete associated registrations safely before deleting the module to prevent constraints and orphans
+    await pool.query('DELETE FROM registrations WHERE monitorId = ?', [id]);
     const [result] = await pool.query('DELETE FROM modules WHERE id = ?', [id]);
     return result.affectedRows > 0;
   }

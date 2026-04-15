@@ -4,7 +4,7 @@ import MonitorCard from '../components/MonitorCard';
 import Modal from '../components/Modal';
 import { Search, Filter, Info, CheckCircle2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import SearchBar from '../components/SearchBar';
 
 const Monitorias = () => {

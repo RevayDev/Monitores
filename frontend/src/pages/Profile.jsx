@@ -22,7 +22,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import Modal from '../components/Modal';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
 import QrCard from '../components/QrCard';
@@ -71,6 +71,7 @@ const Profile = () => {
           setFormData({
             nombre: dbUser.nombre || '',
             email: dbUser.email || '',
+            username: dbUser.username || '',
             sede: dbUser.sede || '',
             cuatrimestre: dbUser.cuatrimestre || ''
           });
@@ -87,6 +88,7 @@ const Profile = () => {
         setFormData({
           nombre: sessionUser.nombre || '',
           email: sessionUser.email || '',
+          username: sessionUser.username || '',
           sede: sessionUser.sede || '',
           cuatrimestre: sessionUser.cuatrimestre || ''
         });
@@ -404,65 +406,80 @@ const Profile = () => {
               <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
                 <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
                   <User className="text-brand-blue" /> Datos Personales
-                  <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg border border-amber-100 flex items-center gap-1 font-bold">
-                    <Lock size={10} /> Solo Lectura
-                  </span>
+                  {(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') && (
+                    <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg border border-amber-100 flex items-center gap-1 font-bold">
+                      <Lock size={10} /> Solo Lectura
+                    </span>
+                  )}
                 </h2>
                 <form className="space-y-4">
                   <InputField
                     label="Nombre Completo"
                     icon={<User />}
                     value={formData.nombre}
-                    onChange={() => { }}
+                    onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                     placeholder="Tu nombre completo"
-                    disabled
+                    disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
                   />
                   <InputField
                     label="Email Institucional"
                     icon={<Mail />}
                     type="email"
                     value={formData.email}
-                    onChange={() => { }}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
                     placeholder="tu@u.edu"
-                    disabled
+                    disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
                   />
                   <div className="grid grid-cols-2 gap-4">
                     <InputField
                       label="Username"
                       icon={<User />}
-                      value={user.username || '-'}
-                      onChange={() => { }}
-                      disabled
+                      value={formData.username || ''}
+                      onChange={e => setFormData({ ...formData, username: e.target.value })}
+                      disabled={user?.role !== 'dev' && !user?.is_principal}
                     />
                     <InputField
                       label="Rol"
                       icon={<ShieldCheck />}
                       value={String(user.role || 'monitor').toUpperCase()}
                       onChange={() => { }}
-                      disabled
+                      disabled // Role is always locked for safety as per requirement
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <InputField
-                      label="Sede"
-                      icon={<MapPin />}
-                      type="select"
-                      value={formData.sede}
-                      onChange={() => { }}
-                      options={formData.sede ? [formData.sede] : ['No registrada']}
-                      disabled
-                    />
-                    <InputField
-                      label="Ciclo/Cuatrimestre"
-                      icon={<BookOpen />}
-                      type="select"
-                      value={formData.cuatrimestre}
-                      onChange={() => { }}
-                      options={formData.cuatrimestre ? [formData.cuatrimestre] : ['No registrado']}
-                      disabled
-                    />
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
+                      <select 
+                        className={`w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none text-gray-900 font-bold transition-all ${(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') ? 'opacity-50 cursor-not-allowed' : 'focus:border-brand-blue/30'}`}
+                        value={formData.sede} 
+                        onChange={e => setFormData({ ...formData, sede: e.target.value })}
+                        disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
+                      >
+                        {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
+                      <select 
+                        className={`w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none text-gray-900 font-bold transition-all ${(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') ? 'opacity-50 cursor-not-allowed' : 'focus:border-brand-blue/30'}`}
+                        value={formData.cuatrimestre} 
+                        onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
+                        disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
+                      >
+                        {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
                   </div>
+
+                  {(user?.is_principal || user?.role === 'admin' || user?.role === 'dev') && (
+                    <button 
+                      onClick={handleUpdateInfo}
+                      className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all text-sm flex items-center justify-center gap-2 mt-4"
+                    >
+                      <Save size={18} /> Guardar Cambios
+                    </button>
+                  )}
                 </form>
               </section>
 
@@ -516,18 +533,44 @@ const Profile = () => {
         )}
 
         {activeTab === 'info' && (
-          <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-red-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center sm:text-left">
-              <h2 className="text-xl font-black text-red-600">Zona de Peligro</h2>
-              <p className="text-sm text-gray-400 font-medium">Una vez eliminada la cuenta, no hay vuelta atrás. Tus datos serán borrados permanentemente.</p>
+          <>
+            <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-red-100 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 text-center sm:text-left">
+                <h2 className="text-xl font-black text-red-600">Zona de Peligro</h2>
+                <p className="text-sm text-gray-400 font-medium">Una vez eliminada la cuenta, no hay vuelta atrás. Tus datos serán borrados permanentemente.</p>
+              </div>
+              <button
+                onClick={() => setIsDeleteOpen(true)}
+                className="shrink-0 px-6 py-4 bg-red-50 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-95 flex items-center gap-2 text-sm"
+              >
+                <Trash2 size={18} /> Eliminar Mi Cuenta
+              </button>
+            </section>
+            <div className="pt-6 border-t border-red-50">
+              <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-4">Zona de Peligro Especial</p>
+              {(user?.role === 'admin' || user?.role === 'dev' || user?.is_principal) ? (
+                <div className="p-4 bg-red-50/50 border border-red-100 rounded-2xl">
+                  <p className="text-[11px] text-red-600 font-bold leading-relaxed flex items-start gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    Tu cuenta tiene privilegios administrativos. Para solicitar la eliminación de tu perfil, debes contactar con la administración principal del sistema.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsDeleteOpen(true)}
+                  className="flex items-center gap-3 text-red-500 hover:text-red-600 transition-colors group"
+                >
+                  <div className="p-3 bg-red-50 rounded-xl group-hover:bg-red-100 transition-colors">
+                    <Trash2 size={18} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-black">Eliminar mi cuenta</p>
+                    <p className="text-[10px] text-red-400 font-medium tracking-tight">Perderás todo tu historial permanentemente</p>
+                  </div>
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => setIsDeleteOpen(true)}
-              className="shrink-0 px-6 py-4 bg-red-50 text-red-600 font-black rounded-2xl hover:bg-red-600 hover:text-white transition-all active:scale-95 flex items-center gap-2 text-sm"
-            >
-              <Trash2 size={18} /> Eliminar Mi Cuenta
-            </button>
-          </section>
+          </>
         )}
       </div>
 

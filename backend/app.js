@@ -7,6 +7,7 @@ import engagementRoutes from './routes/engagement.routes.js';
 import statsRoutes from './routes/stats.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import devRoutes from './routes/dev.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -41,6 +42,7 @@ app.use('/api', engagementRoutes);
 app.use('/api', statsRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api', adminRoutes);
+app.use('/api', devRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

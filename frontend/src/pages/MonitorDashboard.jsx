@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 import Modal from '../components/Modal';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import {
   Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2,
   MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle,
@@ -574,16 +574,43 @@ const MonitorDashboard = () => {
     return (
       <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="bg-teal-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <h1 className="text-3xl font-black tracking-tight">Panel Administrativo</h1>
-              <p className="text-teal-100 text-sm mt-1">Control de comedor, escaneo QR y supervision de consumo.</p>
+          <div className="bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-700 rounded-[32px] p-5 md:p-7 text-white relative overflow-hidden shadow-[0_20px_50px_rgba(13,148,136,0.3)] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-500">
+            {/* Background Accents */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-[60px]"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-[30px]"></div>
+            
+            <div className="relative z-10 text-center md:text-left space-y-1">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 bg-white/10 rounded-full border border-white/10 backdrop-blur-md mb-1">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,1)]"></span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-50">Sesión Administrativa</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black tracking-tighter leading-none mb-1">
+                Panel Administrativo
+              </h1>
+              <p className="text-teal-50 text-xs font-medium opacity-90 max-w-sm">
+                Control de comedor y gestión de asistencias QR.
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setTopTab('stats')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'stats' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Estadisticas</button>
-              <button onClick={() => setTopTab('scanner')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'scanner' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Escaner QR</button>
-              <button onClick={() => setTopTab('students')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'students' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Atendidos</button>
-              <button onClick={() => setTopTab('history')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${topTab === 'history' ? 'bg-white text-teal-700 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30'}`}>Historial</button>
+
+            <div className="relative z-10 flex flex-wrap justify-center gap-1.5 p-1 bg-black/10 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-inner">
+              {[
+                { id: 'stats', label: 'Estadísticas' },
+                { id: 'scanner', label: 'Escáner QR' },
+                { id: 'students', label: 'Atendidos' },
+                { id: 'history', label: 'Historial' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setTopTab(tab.id)}
+                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                    topTab === tab.id 
+                      ? 'bg-white text-teal-700 shadow-md' 
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -803,59 +830,57 @@ const MonitorDashboard = () => {
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold">
           ← Volver
         </button>
-        {/* Header */}
-        <div className="bg-emerald-600 rounded-[32px] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-800/40 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
-
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10 text-center sm:text-left">
-            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center text-white font-black overflow-hidden shadow-2xl bg-emerald-700/50 backdrop-blur-md ring-4 ring-white/20`}>
-              <Users size={48} className="text-emerald-100" />
-            </div>
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 backdrop-blur-sm border border-white/10">
-                <Users size={10} className="text-emerald-100" />
-                <span className="text-emerald-50 text-center">Bienvenido, {session?.nombre || 'Monitor'}</span>
+        {/* Redesigned Header Academic Monitor (Compact) */}
+        <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-700 rounded-[32px] p-4 md:p-6 text-white relative overflow-hidden shadow-[0_20px_40px_rgba(16,185,129,0.2)] flex flex-col items-center justify-between gap-6 transition-all duration-700">
+          {/* Enhanced Background Accents */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-[80px] animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-900/40 rounded-full translate-y-1/2 -translate-x-1/2 blur-[50px]"></div>
+          
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6 relative z-10 w-full">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black overflow-hidden shadow-xl bg-emerald-700/40 backdrop-blur-xl ring-2 ring-white/20 transition-transform duration-500 hover:rotate-3">
+                  <Users size={36} className="text-emerald-50" />
+                </div>
               </div>
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tighter leading-tight mb-1.5">
-                Panel Monitor Academico
-              </h1>
-              <p className="text-emerald-100 text-sm font-medium leading-relaxed max-w-lg">
-                Gestiona tus monitorías, comparte enlaces y supervisa tus asistencias.
-              </p>
-            </div>
-          </div>
 
-          <div className="relative z-10 flex gap-2 self-end md:self-start">
-            <div className="flex bg-gray-50 p-1.5 rounded-2xl w-fit border border-gray-100 mb-8 overflow-auto max-w-full">
-              <button
-                onClick={() => setTopTab('')}
-                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${!topTab ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-              >
-                <Users size={14} /> Alumnos
-              </button>
-              <button
-                onClick={() => setTopTab('stats')}
-                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'stats' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-              >
-                <AlertCircle size={14} /> Estadisticas
-              </button>
-              <button
-                onClick={() => setTopTab('reports')}
-                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${topTab === 'reports' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-              >
-                <AlertOctagon size={14} className={topTab === 'reports' ? 'text-amber-500' : ''} /> Reportes
-              </button>
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/10 rounded-full border border-white/10 backdrop-blur-md shadow-inner">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,1)]"></div>
+                  <span className="text-emerald-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido, {session?.nombre || 'Monitor'}</span>
+                </div>
+                <h1 className="text-2xl md:text-3xl font-black tracking-tighter leading-none mb-1 drop-shadow-sm">
+                  Panel Monitor Académico
+                </h1>
+                <p className="text-emerald-50 text-xs font-medium opacity-90 max-w-lg leading-snug">
+                  Gestión integral de monitorías y seguimiento de asistencias.
+                </p>
+              </div>
             </div>
-            <button
-              onClick={() => setTopTab((prev) => (prev === 'history' ? '' : 'history'))}
-              className={`px-4 py-2 rounded-xl text-xs font-black ${topTab === 'history' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white'}`}
-            >
-              Asistencia
-            </button>
+
+            <div className="flex flex-col items-center md:items-end gap-3">
+              <div className="flex p-1 bg-black/10 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-inner overflow-auto max-w-full">
+                {[
+                  { id: '', label: 'Alumnos', icon: <Users size={12} /> },
+                  { id: 'stats', label: 'Estadísticas', icon: <AlertCircle size={12} /> },
+                  { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={12} /> },
+                  { id: 'history', label: 'Asistencia', icon: <ClipboardList size={12} /> }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setTopTab(tab.id)}
+                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all duration-300 active:scale-95 whitespace-nowrap ${
+                      topTab === tab.id 
+                        ? 'bg-white text-emerald-900 shadow-md scale-[1.02]' 
+                        : 'text-white/60 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

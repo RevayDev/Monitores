@@ -21,6 +21,10 @@ export const initSocket = (httpServer) => {
       socket.join(`user_${userId}`);
     });
 
+    socket.on('join_dev_console', () => {
+      socket.join('dev_console_logs');
+    });
+
     socket.on('typing', ({ forumId, user }) => {
       socket.to(`forum_${forumId}`).emit('user_typing', { user });
     });

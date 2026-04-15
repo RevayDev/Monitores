@@ -126,9 +126,29 @@ class AnalyticsService {
   async getAdminUserStats(targetId, requesterId) {
     const user = await this.getCurrentUser(requesterId);
     if (!ADMIN_ROLES.has(user.role)) throw new Error('Solo admin/dev pueden ver estadisticas de miembros.');
-    const userStats = await statsService.getUserStats(requesterId, Number(targetId));
-    const diningHistory = await analyticsRepository.getDiningStudentHistory(Number(targetId), null);
-    return { user_stats: userStats, dining_history: diningHistory };
+
+    const [academic, consumptionHistory, monitorActivity] = await Promise.all([
+      analyticsRepository.getAcademicStudentSummary(targetId),
+      analyticsRepository.getDiningStudentHistory(Number(targetId), null),
+      statsService.getUserStats(requesterId, Number(targetId))
+    ]);
+
+    // Format meals summary
+    const totalMeals = consumptionHistory.length;
+    const lastMeal = totalMeals > 0 ? consumptionHistory[0].created_at : null;
+    const activeDays = new Set(consumptionHistory.map(c => String(c.created_at || '').slice(0, 10))).size;
+
+    return {
+      academic,
+      meals: {
+        total_meals: totalMeals,
+        last_meal_at: lastMeal,
+        usage_frequency: totalMeals > 0 ? Number((totalMeals / 4).toFixed(1)) : 0, // approximation
+        active_days: activeDays,
+        consumption_history: consumptionHistory
+      },
+      monitor_activity: (monitorActivity.role !== 'student' && monitorActivity.role !== 'estudiante') ? monitorActivity.totals : null
+    };
   }
 }
 

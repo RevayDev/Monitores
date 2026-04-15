@@ -55,8 +55,8 @@ const ProfilePersonalStats = () => {
       <h2 className="text-xl font-black text-gray-900">Mis Estadisticas</h2>
 
       <div className="space-y-4">
-        <p className="text-sm font-black uppercase text-gray-500 flex items-center gap-2">
-          <GraduationCap size={14} /> Mi actividad como estudiante
+        <p className="text-sm font-black uppercase text-gray-400 flex items-center gap-2">
+          <GraduationCap size={16} className="text-brand-blue" /> Mi actividad como estudiante
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <NumberCard label="Asistencias" value={academic.total_assistances || 0} />
@@ -65,40 +65,40 @@ const ProfilePersonalStats = () => {
           <NumberCard label="Frecuencia %" value={academic.attendance_frequency || 0} />
         </div>
         <div className="rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs uppercase font-black text-gray-500 mb-2">Historial de sesiones</p>
+          <p className="text-xs uppercase font-black text-gray-400 mb-2">Historial de sesiones</p>
           <div className="space-y-2 max-h-56 overflow-auto">
             {(academic.session_history || []).map((row) => (
               <div key={`ac-${row.id}`} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
                 <p className="font-bold text-gray-900">{row.module_name || `Modulo #${row.module_id || '-'}`}</p>
                 <p className="text-xs text-gray-500">{row.start_time ? new Date(row.start_time).toLocaleString() : '-'}</p>
-                <p className="text-xs text-gray-700 mt-1">Estado: <span className="font-black">{row.status}</span></p>
+                <p className="text-xs text-gray-700 mt-1">Estado: <span className={`font-black ${row.status === 'PRESENTE' ? 'text-emerald-600' : 'text-red-600'}`}>{row.status}</span></p>
                 {row.status === 'EXCUSA' && (
                   <p className="text-xs text-gray-500">Excusa: {row.excuse_reason || '-'} {row.excuse_description ? `- ${row.excuse_description}` : ''}</p>
                 )}
               </div>
             ))}
-            {!academic.session_history?.length && <p className="text-sm text-gray-400">Sin historial academico.</p>}
+            {!academic.session_history?.length && <p className="text-sm text-gray-400">Sin historial académico.</p>}
           </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <p className="text-sm font-black uppercase text-gray-500 flex items-center gap-2">
-          <Coffee size={14} /> Mi actividad administrativa (comedor)
+        <p className="text-sm font-black uppercase text-gray-400 flex items-center gap-2">
+          <Coffee size={16} className="text-emerald-600" /> Mi actividad académica (comedor)
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <NumberCard label="Total comidas" value={meals.total_meals || 0} />
-          <NumberCard label="Ultima comida" value={meals.last_meal_at ? new Date(meals.last_meal_at).toLocaleDateString() : '-'} />
+          <NumberCard label="Última comida" value={meals.last_meal_at ? new Date(meals.last_meal_at).toLocaleDateString() : '-'} />
           <NumberCard label="Frecuencia semanal" value={meals.usage_frequency || 0} />
-          <NumberCard label="Dias con consumo" value={meals.active_days || 0} />
+          <NumberCard label="Días con consumo" value={meals.active_days || 0} />
         </div>
         <div className="rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs uppercase font-black text-gray-500 mb-2">Historial de consumo</p>
+          <p className="text-xs uppercase font-black text-gray-400 mb-2">Historial de consumo</p>
           <div className="space-y-2 max-h-56 overflow-auto">
             {(meals.consumption_history || []).map((row) => (
               <div key={`meal-${row.id}`} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
                 <p className="font-bold text-gray-900">{new Date(row.created_at).toLocaleString()}</p>
-                <p className="text-xs text-gray-500">Registrado por: {row.scanner_name || '-'}</p>
+                <p className="text-xs text-gray-400">Registrado por: {row.scanner_name || '-'}</p>
               </div>
             ))}
             {!meals.consumption_history?.length && <p className="text-sm text-gray-400">Sin historial de consumo.</p>}

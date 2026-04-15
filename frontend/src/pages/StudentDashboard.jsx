@@ -10,7 +10,7 @@ import {
   acceptForumAnswer,
   getForumHistory 
 } from '../services/api';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import { 
   BookOpen, 
   MessageSquare, 

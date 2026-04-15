@@ -17,7 +17,7 @@ const pushNotification = (item) => {
 };
 
 // Helper for fetch
-const request = async (endpoint, options = {}) => {
+export const request = async (endpoint, options = {}) => {
   const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -25,7 +25,7 @@ const request = async (endpoint, options = {}) => {
       'Content-Type': 'application/json',
       ...(sessionUser?.id ? { 'x-user-id': String(sessionUser.id) } : {}),
       ...(sessionUser?.role || sessionUser?.baseRole
-        ? { 'x-user-role': String(sessionUser.baseRole || sessionUser.role).toLowerCase() }
+        ? { 'x-user-role': String(sessionUser.baseRole === 'dev' ? 'dev' : (sessionUser.role || sessionUser.baseRole)).toLowerCase() }
         : {}),
       ...options.headers
     }
@@ -369,3 +369,10 @@ export const resetScans = () => request('/dev/reset-scans', {
   method: 'POST',
   body: JSON.stringify({})
 });
+
+// --- Dev Utilities (Scripts) ---
+export const dbReset = () => request('/dev/db-reset', { method: 'POST', body: JSON.stringify({}) });
+export const dbPopulate = () => request('/dev/db-populate', { method: 'POST', body: JSON.stringify({}) });
+export const fixUsernames = () => request('/dev/fix-usernames', { method: 'POST', body: JSON.stringify({}) });
+export const getDiagnostics = () => request('/dev/diagnostics');
+export const executeTerminalCommand = (command, cwd) => request('/dev/terminal', { method: 'POST', body: JSON.stringify({ command, cwd }) });

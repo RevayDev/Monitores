@@ -20,14 +20,15 @@ import {
   setMaintenanceConfig,
   getGlobalStats,
   getUserStats,
-  getUserStatsById,
+  getAdminUserFullStats,
   adminGetModules,
   adminUpdateModule,
   adminDeleteModule,
   getForumReports,
-  resolveForumReport
+  resolveForumReport,
+  request
 } from '../services/api';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 import Modal from '../components/Modal';
 import {
   Users,
@@ -58,7 +59,8 @@ import {
   Check,
   BarChart3,
   PieChart,
-  UtensilsCrossed
+  UtensilsCrossed,
+  MessageSquare
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
@@ -135,7 +137,7 @@ const Donut = ({ percent = 0, size = 120, color = '#2563EB', track = '#E5E7EB', 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-  const [activeTab, setActiveTab] = useState('students');
+  const [activeTab, setActiveTab] = useState('users');
   const { showToast } = React.useContext(ToastContext);
 
   // Users data
@@ -154,6 +156,7 @@ const AdminDashboard = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [statusTarget, setStatusTarget] = useState(null);
   const [userStatsModal, setUserStatsModal] = useState(null);
+  const [userStatsTab, setUserStatsTab] = useState('personal');
 
   // Toggles
   const [isNewMonitorOpen, setIsNewMonitorOpen] = useState(false);
@@ -169,8 +172,11 @@ const AdminDashboard = () => {
   const [globalStats, setGlobalStats] = useState(null);
   const [memberStats, setMemberStats] = useState(null);
   const [selectedStatsUserId, setSelectedStatsUserId] = useState('');
-  const [userStatsTab, setUserStatsTab] = useState('personal');
   const [searchTerm, setSearchTerm] = useState('');
+  const [academicModules, setAcademicModules] = useState([]);
+  const [selectedAcademicModuleId, setSelectedAcademicModuleId] = useState('');
+  const [academicStats, setAcademicStats] = useState(null);
+  const [loadingAcademic, setLoadingAcademic] = useState(false);
 
   // Config data
   const [dbSedes, setDbSedes] = useState([]);
@@ -196,14 +202,15 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [users, modules, sedesList, progsList, modsList, cuatsList, adminModules] = await Promise.all([
+      const [users, modules, sedesList, progsList, modsList, cuatsList, adminModules, academicMods] = await Promise.all([
         getAllUsers(),
         getMonitorias(),
         getSedes(),
         getProgramas(),
         getModalidades(),
         getCuatrimestres(),
-        adminGetModules()
+        adminGetModules(),
+        request('/academic/modules')
       ]);
 
       setMonitors(users.filter(u => ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(String(u.role || ''))));
@@ -217,6 +224,7 @@ const AdminDashboard = () => {
       setDbProgramas(progsList || []);
       setDbModalidades(modsList || []);
       setDbCuatrimestres(cuatsList || []);
+      setAcademicModules(academicMods || []);
 
       try {
         const gStats = await getGlobalStats();
@@ -424,7 +432,7 @@ const AdminDashboard = () => {
       return;
     }
     try {
-      const data = await getUserStatsById(targetId);
+      const data = await getAdminUserFullStats(targetId);
       setUserStatsModal({ user, data });
       setUserStatsTab('personal');
     } catch (error) {
@@ -458,448 +466,449 @@ const AdminDashboard = () => {
     return () => { active = false; };
   }, [selectedStatsUserId]);
 
+  useEffect(() => {
+    const loadAcademicStats = async () => {
+      if (!selectedAcademicModuleId) {
+        setAcademicStats(null);
+        return;
+      }
+      try {
+        setLoadingAcademic(true);
+        const res = await request(`/academic/modules/${selectedAcademicModuleId}/stats`);
+        setAcademicStats(res);
+      } catch (error) {
+        showToast('Error al cargar métricas académicas', 'error');
+      } finally {
+        setLoadingAcademic(false);
+      }
+    };
+    loadAcademicStats();
+  }, [selectedAcademicModuleId]);
 
   if (loading && !monitors.length) return <div className="min-h-screen flex items-center justify-center bg-brand-gray font-black text-brand-blue animate-pulse">Cargando Panel Central...</div>;
 
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="bg-amber-600 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-amber-700/30">
-          <div className="relative z-10 flex gap-6 items-center w-full">
-            <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center ring-4 ring-white/20 shadow-2xl">
-              <ShieldCheck size={56} className="text-white" />
-            </div>
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest mb-2 backdrop-blur-sm">
-                <ShieldCheck size={12} /> Institutional Central System
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="bg-orange-600 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl transition-all duration-700">
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="text-center md:text-left space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-md mb-2">
+                <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(251,146,60,1)]"></span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-50">Control de Gobierno</span>
               </div>
-              <h1 className="text-3xl md:text-5xl font-black tracking-tighter leading-none mb-1.5">Panel Administrativo</h1>
-              <p className="text-amber-50 text-sm font-bold opacity-90 max-w-2xl">Gestión institucional de usuarios, monitorías y auditoría de asistencia.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard icon={<GraduationCap />} title="Estudiantes" value={students.length} role="student" />
-          <StatCard icon={<Users />} title="Monitores" value={monitors.length} role="monitor" />
-          <StatCard icon={<ShieldCheck />} title="Administradores" value={admins.length} role="admin" />
-          <StatCard icon={<Activity />} title="Developers" value={devs.length} role="dev" />
-        </div>
-
-        {/* Global Monitoring Section */}
-        <section className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
-              <Activity className="text-brand-blue" /> Estadísticas Globales
-            </h3>
-            <div className="flex items-center gap-3">
-              <select
-                value={selectedStatsUserId}
-                onChange={(e) => setSelectedStatsUserId(e.target.value)}
-                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-brand-blue/20"
-              >
-                <option value="">Analizar Usuario...</option>
-                {[...students, ...monitors, ...admins, ...devs].map(u => <option key={u.id} value={u.id}>{u.nombre} ({u.role})</option>)}
-              </select>
-            </div>
-          </div>
-
-          {globalStats && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Asistencias Totales</p>
-                <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.total_assistances || 0}</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Rating Promedio</p>
-                <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.average_rating || 'N/A'}</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Estudiantes Activos</p>
-                <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.unique_students || 0}</p>
-              </div>
-            </div>
-          )}
-
-          {memberStats && (
-            <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 space-y-4">
-              <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest flex items-center gap-1.5">
-                <BarChart3 size={12} /> Vista por usuario seleccionado
+              <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-none mb-1">
+                Panel Administrativo
+              </h1>
+              <p className="text-orange-100 text-sm font-medium opacity-90 max-w-md">
+                Gestión centralizada de privilegios, estadísticas y auditoría institucional.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {Object.entries(memberStats.totals || {}).slice(0, 3).map(([key, value]) => (
-                  <div key={key} className="bg-white rounded-xl border border-gray-100 p-4">
-                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">{key.replaceAll('_', ' ')}</p>
-                    <p className="text-2xl font-black text-brand-blue">{value ?? 0}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Main Management Tabs */}
-        <div className="bg-white rounded-[32px] shadow-2xl border border-gray-100 overflow-hidden">
-          <div className="bg-gray-50/50 p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-2 p-1.5 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-auto max-w-full lg:max-w-none">
-              {['students', 'monitors', 'admins', 'devs', 'modules', 'reports', 'config'].map((tab) => {
-                const labelMap = {
-                  students: 'Estudiantes', monitors: 'Monitores', admins: 'Admins',
-                  devs: 'Devs', modules: 'Módulos', reports: 'Reportes', config: 'Config'
-                };
-                const IconMap = {
-                  students: GraduationCap, monitors: Users, admins: ShieldCheck,
-                  devs: Activity, modules: BookOpen, reports: AlertTriangle, config: Settings
-                };
-                const Icon = IconMap[tab];
-                if (tab === 'config' && session.role !== 'dev' && session.baseRole !== 'dev') return null;
-
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => { setActiveTab(tab); setSearchTerm(''); }}
-                    className={`px-6 py-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 active:scale-95 ${activeTab === tab ? 'bg-brand-blue text-white shadow-lg' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100/50'}`}
-                  >
-                    <Icon size={16} className={tab === 'reports' && activeTab === 'reports' ? 'text-amber-400' : ''} />
-                    <span>{labelMap[tab]}</span>
-                  </button>
-                );
-              })}
             </div>
 
-            {activeTab !== 'config' && (
-              <button
-                onClick={() => {
-                  resetForm();
-                  const roleMap = { students: 'student', monitors: 'monitor_academico', admins: 'admin', devs: 'dev' };
-                  setFormData(prev => ({ ...prev, role: roleMap[activeTab] || 'student' }));
-                  setIsNewMonitorOpen(true);
-                }}
-                className="flex items-center gap-2 px-8 py-3.5 bg-brand-blue text-white rounded-2xl font-black text-xs shadow-lg hover:bg-brand-dark-blue hover:shadow-xl active:scale-95 transition-all text-nowrap"
-              >
-                <PlusCircle size={16} /> Registrar Miembro
-              </button>
-            )}
+            <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-black/10 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-inner">
+              {[
+                { id: 'overview', label: 'Resumen', icon: <PieChart size={16} /> },
+                { id: 'users', label: 'Miembros', icon: <Users size={16} /> },
+                { id: 'modules', label: 'Monitorías', icon: <BookOpen size={16} /> },
+                { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
+                { id: 'complaints', label: 'Denuncias', icon: <MessageSquare size={16} /> },
+                { id: 'config', label: 'Sistema', icon: <Settings size={16} /> }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${activeTab === tab.id
+                    ? 'bg-white text-orange-700 shadow-xl'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
+        </header>
 
-          {activeTab !== 'config' && (
-            <div className="px-8 py-5 bg-white border-b border-gray-50 flex items-center gap-4">
-              <div className="relative flex-1 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-brand-blue transition-colors" size={18} />
-                <input
-                  type="text"
-                  placeholder="Buscar en esta sección por nombre, correo, usuario o sede..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-brand-blue/5 focus:bg-white focus:border-brand-blue/20 transition-all placeholder:text-gray-400 shadow-inner"
-                />
-              </div>
-              <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                <Info size={12} />
-                <span>Resultados Filtrados</span>
-              </div>
+        {activeTab === 'stats' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard icon={<GraduationCap />} title="Estudiantes" value={students.length} role="student" />
+              <StatCard icon={<Users />} title="Monitores" value={monitors.length} role="monitor" />
+              <StatCard icon={<ShieldCheck />} title="Administradores" value={admins.length} role="admin" />
+              <StatCard icon={<Activity />} title="Developers" value={devs.length} role="dev" />
             </div>
-          )}
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-x-auto"
-            >
-              {activeTab === 'config' ? (
-                <div className="p-10 space-y-10">
-                  <div className="flex items-center gap-4 bg-brand-blue/5 p-6 rounded-[24px] border border-brand-blue/10">
-                    <Info className="text-brand-blue shrink-0" size={24} />
-                    <p className="text-sm font-bold text-brand-blue leading-relaxed">Configuración global del sistema. Cambia el estado de mantenimiento de los módulos principales aquí.</p>
+            <section className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                  <Activity className="text-brand-blue" /> Estadísticas Globales
+                </h3>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedStatsUserId}
+                    onChange={(e) => setSelectedStatsUserId(e.target.value)}
+                    className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-brand-blue/20"
+                  >
+                    <option value="">Analizar Usuario...</option>
+                    {[...students, ...monitors, ...admins, ...devs].map(u => <option key={u.id} value={u.id}>{u.nombre} ({u.role})</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {globalStats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Asistencias Totales</p>
+                    <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.total_assistances || 0}</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {Object.entries(maintenance).map(([key, val]) => (
-                      <MaintToggle key={key} id={key} title={key.charAt(0).toUpperCase() + key.slice(1)} subtitle="Estado de Servicio" icon={Settings} active={val} onToggle={handleToggleMaintenance} />
+                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Rating Promedio</p>
+                    <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.average_rating || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Estudiantes Activos</p>
+                    <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.unique_students || 0}</p>
+                  </div>
+                </div>
+              )}
+
+              {memberStats && (
+                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 space-y-4">
+                  <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest flex items-center gap-1.5">
+                    <BarChart3 size={12} /> Vista por usuario seleccionado
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {Object.entries(memberStats.totals || {}).slice(0, 3).map(([key, value]) => (
+                      <div key={key} className="bg-white rounded-xl border border-gray-100 p-4">
+                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">{key.replaceAll('_', ' ')}</p>
+                        <p className="text-2xl font-black text-brand-blue">{value ?? 0}</p>
+                      </div>
                     ))}
                   </div>
                 </div>
-              ) : activeTab === 'modules' ? (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
-                      <th className="px-8 py-6">Módulo Académico</th>
-                      <th className="px-8 py-6">Responsable (Monitor)</th>
-                      <th className="px-8 py-6">Sede / Ciclo</th>
-                      <th className="px-8 py-6 text-right">Gestión</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {allAdminModules.filter(mod => {
-                      const search = searchTerm.toLowerCase();
-                      return mod.modulo?.toLowerCase().includes(search) || mod.monitor?.toLowerCase().includes(search) || mod.sede?.toLowerCase().includes(search);
-                    }).map(mod => {
-                      const monitorExists = monitors.some(m => m.id === mod.monitorId);
-                      return (
-                        <tr key={mod.id} className="hover:bg-gray-50 transition-all group">
-                          <td className="px-8 py-6">
-                            <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors">{mod.modulo}</p>
-                            <p className="text-[9px] text-gray-400 font-black">REF: #{mod.id}</p>
-                          </td>
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-3">
-                              {monitorExists ? (
-                                <>
-                                  <UserAvatar user={{ nombre: mod.monitor, role: 'monitor' }} size="sm" />
-                                  <div><p className="text-xs font-black text-gray-700">{mod.monitor}</p><p className="text-[9px] text-brand-blue font-bold uppercase italic">Activo</p></div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-red-500"><AlertTriangle size={16} /></div>
-                                  <div><p className="text-xs font-black text-red-600">INACTIVO / HUÉRFANO</p><p className="text-[9px] text-red-400 font-black uppercase italic">⚠️ Requiere Atención</p></div>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-8 py-6">
-                            <div className="space-y-1">
-                              <span className="block w-fit px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-black rounded uppercase">{mod.sede}</span>
-                              <span className="block w-fit px-2 py-0.5 bg-blue-50 text-brand-blue text-[9px] font-black rounded uppercase">{mod.cuatrimestre}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => handleEditModule(mod)} className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-xl transition-all active:scale-90"><Edit3 size={18} /></button>
-                              <button onClick={() => handleDeleteModule(mod.id)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"><Trash2 size={18} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              ) : activeTab === 'reports' ? (
-                <div className="bg-white overflow-hidden">
-                  <div className="p-8 border-b border-gray-100 bg-amber-50/30 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-black text-amber-900 tracking-tight">Reportes de Moderación</h3>
-                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-1">Revisión de contenido reportado por la comunidad</p>
+              )}
+
+              <div className="pt-6 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                    <GraduationCap className="text-emerald-500" size={18} /> Auditoría Académica
+                  </h4>
+                  <select 
+                    value={selectedAcademicModuleId}
+                    onChange={e => setSelectedAcademicModuleId(e.target.value)}
+                    className="bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl px-4 py-2 text-[10px] font-black uppercase outline-none"
+                  >
+                    <option value="">Seleccionar Módulo Académico...</option>
+                    {academicModules.map(m => (
+                      <option key={m.id} value={m.id}>{m.modulo} ({m.monitor})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {loadingAcademic ? (
+                  <div className="h-20 flex items-center justify-center text-[10px] font-black text-emerald-600 animate-pulse uppercase tracking-widest">Calculando Métricas Académicas...</div>
+                ) : academicStats ? (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                      <div className="rounded-xl border border-emerald-50 p-3 bg-emerald-50/30 text-center"><p className="text-[9px] font-black uppercase text-emerald-600 mb-1">Rating Avg</p><p className="text-lg font-black text-emerald-700">{academicStats?.totals?.avg_rating || 0}</p></div>
+                      <div className="rounded-xl border border-gray-50 p-3 bg-gray-50/50 text-center"><p className="text-[9px] font-black uppercase text-gray-500 mb-1">Presentes</p><p className="text-lg font-black text-gray-900">{academicStats?.totals?.present_count || 0}</p></div>
+                      <div className="rounded-xl border border-gray-50 p-3 bg-gray-50/50 text-center"><p className="text-[9px] font-black uppercase text-gray-500 mb-1">Ausentes</p><p className="text-lg font-black text-gray-900">{academicStats?.totals?.absent_count || 0}</p></div>
+                      <div className="rounded-xl border border-gray-50 p-3 bg-gray-50/50 text-center"><p className="text-[9px] font-black uppercase text-gray-500 mb-1">Excusas</p><p className="text-lg font-black text-gray-900">{academicStats?.totals?.excuse_count || 0}</p></div>
+                      <div className="rounded-xl border border-gray-50 p-3 bg-gray-50/50 text-center"><p className="text-[9px] font-black uppercase text-gray-500 mb-1">Horas Mon.</p><p className="text-lg font-black text-gray-900">{academicStats?.totals?.total_monitor_hours || 0}</p></div>
+                      <div className="rounded-xl border border-gray-50 p-3 bg-gray-50/50 text-center"><p className="text-[9px] font-black uppercase text-gray-500 mb-1">Sesiones</p><p className="text-lg font-black text-gray-900">{academicStats?.totals?.total_sessions || 0}</p></div>
                     </div>
-                    <button onClick={loadReports} className="p-3 bg-white text-amber-600 rounded-2xl border border-amber-100 shadow-sm hover:shadow-md transition-all active:scale-90">
-                      <Clock size={20} />
-                    </button>
+                    
+                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto">
+                        <table className="w-full text-[11px]">
+                          <thead className="bg-gray-50 sticky top-0 text-[9px] uppercase font-black text-gray-400 border-b border-gray-100">
+                            <tr>
+                               <th className="px-5 py-3 text-left">Alumno</th>
+                               <th className="px-5 py-3 text-center">Asistencia %</th>
+                               <th className="px-5 py-3 text-center">P</th>
+                               <th className="px-5 py-3 text-center">A</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 text-gray-600 font-bold">
+                            {(academicStats?.students || []).map(st => (
+                              <tr key={st.student_key}>
+                                <td className="px-5 py-2.5 text-gray-900">{st.student_name}</td>
+                                <td className="px-5 py-2.5 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full ${st.attendance_percent > 70 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                    {st.attendance_percent}%
+                                  </span>
+                                </td>
+                                <td className="px-5 py-2.5 text-center">{st.present_count}</td>
+                                <td className="px-5 py-2.5 text-center">{st.absent_count}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl py-8 text-center">
+                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">Selecciona un módulo para iniciar la auditoría de rendimiento</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab !== 'stats' && (
+          <div className="bg-white rounded-[32px] shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="bg-gray-50/50 p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                  {activeTab === 'users' ? <><Users className="text-orange-500" /> Directorio Institucional</> : 
+                   activeTab === 'modules' ? <><BookOpen className="text-orange-500" /> Módulos Académicos</> :
+                   activeTab === 'reports' ? <><AlertTriangle className="text-orange-500" /> Centro de Reportes</> :
+                   activeTab === 'config' ? <><Settings className="text-orange-500" /> Sistema</> : null}
+                </h3>
+              </div>
+
+              {activeTab !== 'config' && (
+                <button
+                  onClick={() => {
+                    resetForm();
+                    const roleMap = { users: 'student', modules: 'monitor_academico' };
+                    setFormData(prev => ({ ...prev, role: roleMap[activeTab] || 'student' }));
+                    setIsNewMonitorOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-8 py-3.5 bg-brand-blue text-white rounded-2xl font-black text-xs shadow-lg hover:bg-brand-dark-blue hover:shadow-xl active:scale-95 transition-all text-nowrap"
+                >
+                  <PlusCircle size={16} /> Registrar Miembro
+                </button>
+              )}
+            </div>
+
+            {activeTab !== 'config' && (
+              <div className="px-8 py-5 bg-white border-b border-gray-50 flex items-center gap-4">
+                <div className="relative flex-1 group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-brand-blue transition-colors" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Buscar en esta sección por nombre, correo, usuario o sede..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-brand-blue/5 focus:bg-white focus:border-brand-blue/20 transition-all placeholder:text-gray-400 shadow-inner"
+                  />
+                </div>
+              </div>
+            )}
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-x-auto"
+              >
+                {activeTab === 'config' ? (
+                  <div className="p-10 space-y-10">
+                    <div className="flex items-center gap-4 bg-brand-blue/5 p-6 rounded-[24px] border border-brand-blue/10">
+                      <Info className="text-brand-blue shrink-0" size={24} />
+                      <p className="text-sm font-bold text-brand-blue leading-relaxed">Configuración global del sistema. Cambia el estado de mantenimiento de los módulos principales aquí.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {Object.entries(maintenance).map(([key, val]) => (
+                        <MaintToggle key={key} id={key} title={key.charAt(0).toUpperCase() + key.slice(1)} subtitle="Estado de Servicio" icon={Settings} active={val} onToggle={handleToggleMaintenance} />
+                      ))}
+                    </div>
+                  </div>
+                ) : activeTab === 'modules' ? (
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="text-[10px] uppercase font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
-                        <th className="px-8 py-6">Autor Reportado</th>
-                        <th className="px-8 py-6">Evidencia / Motivo</th>
-                        <th className="px-8 py-6">Ubicación</th>
-                        <th className="px-8 py-6 text-right">Moderación</th>
+                      <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
+                        <th className="px-8 py-6">Módulo Académico</th>
+                        <th className="px-8 py-6">Responsable (Monitor)</th>
+                        <th className="px-8 py-6">Sede / Ciclo</th>
+                        <th className="px-8 py-6 text-right">Gestión</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {reports.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="px-8 py-20 text-center italic text-gray-400 font-bold">Excelente trabajo, no hay reportes pendientes.</td>
-                        </tr>
-                      ) : (
-                        reports.filter(rep => {
-                          const search = searchTerm.toLowerCase();
-                          return rep.reported_name?.toLowerCase().includes(search) || rep.reporter_name?.toLowerCase().includes(search) || rep.reason?.toLowerCase().includes(search);
-                        }).map(rep => (
-                          <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
+                      {allAdminModules.filter(mod => {
+                        const search = searchTerm.toLowerCase();
+                        return mod.modulo?.toLowerCase().includes(search) || mod.monitor?.toLowerCase().includes(search) || mod.sede?.toLowerCase().includes(search);
+                      }).map(mod => {
+                        const monitorExists = mod.monitorId && monitors.some(m => m.id === mod.monitorId);
+                        return (
+                          <tr key={mod.id} className="hover:bg-gray-50 transition-all group border-b border-gray-50">
                             <td className="px-8 py-6">
-                              <div className="flex items-center gap-4 text-left">
-                                <UserAvatar user={{ nombre: rep.reported_name, foto: rep.reported_photo, role: 'student' }} size="sm" />
-                                <div>
-                                  <p className="font-extrabold text-gray-900 truncate max-w-[150px]">{rep.reported_name}</p>
-                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Reportado por: {rep.reporter_name}</p>
-                                </div>
+                              <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors flex items-center gap-2">
+                                {mod.modulo}
+                                {!monitorExists && <span className="text-[8px] bg-red-100 text-red-600 px-2 py-0.5 rounded uppercase font-black">Huérfano</span>}
+                              </p>
+                              <p className="text-[9px] text-gray-400 font-black">REF: #{mod.id}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-3">
+                                {monitorExists ? (
+                                  <>
+                                    <UserAvatar user={{ nombre: mod.monitor, role: 'monitor' }} size="sm" />
+                                    <div><p className="text-xs font-black text-gray-700">{mod.monitor}</p><p className="text-[9px] text-brand-blue font-bold uppercase italic">Activo</p></div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-400"><AlertTriangle size={16} /></div>
+                                    <div><p className="text-xs font-black text-gray-500">Tutor no disponible</p><p className="text-[8px] text-gray-400 font-black uppercase italic">Requiere reasignación</p></div>
+                                  </>
+                                )}
                               </div>
                             </td>
                             <td className="px-8 py-6">
-                              <div className="max-w-md">
-                                <p className="text-sm font-bold text-gray-700 leading-tight">"{rep.reason}"</p>
-                                <p className="text-[10px] text-gray-400 font-medium mt-1">{new Date(rep.created_at).toLocaleString()}</p>
+                              <div className="space-y-1">
+                                <span className="block w-fit px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-black rounded uppercase">{mod.sede}</span>
+                                <span className="block w-fit px-2 py-0.5 bg-blue-50 text-brand-blue text-[9px] font-black rounded uppercase">{mod.cuatrimestre}</span>
                               </div>
-                            </td>
-                            <td className="px-8 py-6">
-                              <button
-                                onClick={() => navigate(`/modules/${rep.modulo_id || 0}/forum?forumId=${rep.target_id}`)}
-                                className="px-4 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-xl uppercase border border-amber-200 hover:bg-amber-600 hover:text-white transition-all shadow-sm"
-                              >
-                                {rep.target_type === 'thread' ? 'Ir al Foro' : 'Ir al Mensaje'}
-                              </button>
                             </td>
                             <td className="px-8 py-6 text-right">
-                              <button
-                                disabled={resolvingReportId === rep.id}
-                                onClick={() => handleResolveReport(rep.id)}
-                                className="px-6 py-2.5 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-2xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50"
-                              >
-                                {resolvingReportId === rep.id ? '...' : 'Marcar Resuelto'}
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleEditModule(mod)} className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5"><Edit3 size={18} /></button>
+                                <button onClick={() => handleDeleteModule(mod.id)} className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 size={18} /></button>
+                              </div>
                             </td>
                           </tr>
-                        ))
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
-                </div>
-              ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="text-[10px] uppercase font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
-                      <th className="px-8 py-6">Perfil Institucional</th>
-                      <th className="px-8 py-6">Identidad</th>
-                      <th className="px-8 py-6">Estado Institucional</th>
-                      <th className="px-8 py-6 text-right">Operaciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {(activeTab === 'monitors' ? monitors : activeTab === 'admins' ? admins : activeTab === 'devs' ? devs : students).filter(u => {
-                      const search = searchTerm.toLowerCase();
-                      return u.nombre?.toLowerCase().includes(search) || u.email?.toLowerCase().includes(search) || u.username?.toLowerCase().includes(search) || u.sede?.toLowerCase().includes(search);
-                    }).map(user => {
-                      const isBlocked = user.is_active === 0 || (user.restrictions && JSON.parse(user.restrictions).login);
-                      return (
-                        <tr key={user.id} className="hover:bg-gray-50 transition-all group">
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-4">
-                              <UserAvatar user={user} size="md" />
-                              <div>
-                                <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors truncate max-w-[180px]">{user.nombre}</p>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase italic tracking-tighter">ID: {user.id}</p>
+                ) : activeTab === 'reports' ? (
+                  <div className="bg-white overflow-hidden">
+                    <div className="p-8 border-b border-gray-100 bg-amber-50/30 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-black text-amber-900 tracking-tight">Reportes de Moderación</h3>
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-1">Revisión de contenido reportado por la comunidad</p>
+                      </div>
+                      <button onClick={loadReports} className="p-3 bg-white text-amber-600 rounded-2xl border border-amber-100 shadow-sm hover:shadow-md transition-all active:scale-90">
+                        <Clock size={20} />
+                      </button>
+                    </div>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="text-[10px] uppercase font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
+                          <th className="px-8 py-6">Autor Reportado</th>
+                          <th className="px-8 py-6">Evidencia / Motivo</th>
+                          <th className="px-8 py-6 text-right">Moderación</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {reports.length === 0 ? (
+                          <tr><td colSpan="3" className="px-8 py-20 text-center italic text-gray-400 font-bold">Sin reportes pendientes.</td></tr>
+                        ) : (
+                          reports.map(rep => (
+                            <tr key={rep.id} className="hover:bg-gray-50 transition-all">
+                              <td className="px-8 py-6">
+                                <div className="flex items-center gap-4">
+                                  <UserAvatar user={{ nombre: rep.reported_name }} size="sm" />
+                                  <div><p className="font-extrabold text-gray-900">{rep.reported_name}</p></div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6"><p className="text-sm font-bold text-gray-700">"{rep.reason}"</p></td>
+                              <td className="px-8 py-6 text-right">
+                                <button
+                                  onClick={() => handleResolveReport(rep.id)}
+                                  className="px-6 py-2.5 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-2xl"
+                                >
+                                  Marcar Resuelto
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="text-[10px] uppercase font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
+                        <th className="px-8 py-6">Perfil Institucional</th>
+                        <th className="px-8 py-6">Identidad</th>
+                        <th className="px-8 py-6">Estado Institucional</th>
+                        <th className="px-8 py-6 text-right">Operaciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {[...devs, ...admins, ...monitors, ...students].filter(u => {
+                        const search = searchTerm.toLowerCase();
+                        return u.nombre?.toLowerCase().includes(search) || u.email?.toLowerCase().includes(search) || u.username?.toLowerCase().includes(search);
+                      }).map(user => {
+                        const isBlocked = user.is_active === 0;
+                        return (
+                          <tr key={user.id} className="hover:bg-gray-50 transition-all">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <UserAvatar user={user} size="md" />
+                                <div><p className="font-extrabold text-gray-900">{user.nombre}</p><p className="text-[10px] text-gray-400 font-bold uppercase italic">ID: {user.id}</p></div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6">
-                            <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-black uppercase tracking-wider italic">@{user.username}</span>
-                          </td>
-                          <td className="px-8 py-6">
-                            <div className="space-y-1.5">
+                            </td>
+                            <td className="px-8 py-6"><span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-black uppercase tracking-wider italic">@{user.username}</span></td>
+                            <td className="px-8 py-6">
                               {isBlocked ? (
                                 <span className="w-fit px-3 py-1 bg-red-50 text-red-600 text-[9px] font-black rounded-lg uppercase flex items-center gap-1.5"><Lock size={10} /> Suspendido</span>
                               ) : (
                                 <span className="w-fit px-3 py-1 bg-green-50 text-green-600 text-[9px] font-black rounded-lg uppercase flex items-center gap-1.5"><Check size={10} /> Certificado</span>
                               )}
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                <span className="px-2 py-0.5 bg-brand-blue/10 text-brand-blue text-[8px] font-black rounded uppercase">{(user.role || 'User').replace('_', ' ')}</span>
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[8px] font-black rounded uppercase truncate max-w-[80px]">{user.sede || 'Global Access'}</span>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {session.id !== user.id && (
+                                  <>
+                                    <button onClick={() => openUserStatsModal(user)} className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-brand-blue"><BarChart3 size={16} /></button>
+                                    <button onClick={() => handleEditUser(user)} className="p-2.5 text-gray-400 hover:text-brand-blue rounded-xl"><Edit3 size={18} /></button>
+                                    <button onClick={() => { setStatusTarget(user); setIsStatusModalOpen(true); }} className={`p-2.5 rounded-xl ${isBlocked ? 'text-red-500 bg-red-50' : 'text-green-500 bg-green-50'}`}>{isBlocked ? <Lock size={18} /> : <Unlock size={18} />}</button>
+                                    <button onClick={() => openDeleteConfirm(user, user.role)} className="p-2.5 text-gray-400 hover:text-red-500 rounded-xl"><Trash2 size={18} /></button>
+                                  </>
+                                )}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {session.id !== user.id && (
-                                <>
-                                  <button
-                                    onClick={() => openUserStatsModal(user)}
-                                    className="p-2.5 rounded-xl bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:shadow-sm transition-all active:scale-95"
-                                    title="Estadisticas"
-                                    aria-label="Ver estadisticas"
-                                  >
-                                    <BarChart3 size={16} />
-                                  </button>
-                                  <button onClick={() => handleEditUser(user)} className="p-2.5 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-xl transition-all active:scale-90"><Edit3 size={18} /></button>
-                                  <button onClick={() => { setStatusTarget(user); setIsStatusModalOpen(true); }} className={`p-2.5 rounded-xl transition-all active:scale-90 ${isBlocked ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-green-500 bg-green-50 hover:bg-green-100'}`}>{isBlocked ? <Lock size={18} /> : <Unlock size={18} />}</button>
-                                  <button onClick={() => openDeleteConfirm(user, user.role)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"><Trash2 size={18} /></button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
-      {/* Modals Section */}
+      {/* Modals placed outside main container for clarity and to avoid nesting errors */}
       <Modal isOpen={isNewMonitorOpen} onClose={() => { setIsNewMonitorOpen(false); resetForm(); }} title="Registrar en Sistema Central">
         <form onSubmit={handleCreate} className="space-y-5 py-2">
           <InputField label="Cargo Institucional" type="select" value={formData.role}
             onChange={e => setFormData({ ...formData, role: e.target.value })}
-            options={[
-              { value: 'student', label: 'Estudiante' },
-              { value: 'monitor_academico', label: 'Monitor Académico' },
-              { value: 'monitor_administrativo', label: 'Monitor Administrativo' },
-              { value: 'admin', label: 'Administrador' }
-            ]} />
-          <div className="grid grid-cols-2 gap-4">
-            <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
-            <InputField label="Usuario ID" icon={<UserCheck />} value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
-          </div>
+            options={[{ value: 'student', label: 'Estudiante' }, { value: 'monitor_academico', label: 'Monitor Académico' }, { value: 'admin', label: 'Administrador' }]} />
+          <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
+          <InputField label="Usuario ID" icon={<UserCheck />} value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
           <InputField label="Correo Institucional" icon={<Mail />} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-          <InputField label="Contraseña Temporal" icon={<Lock />} type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
-          <div className="grid grid-cols-2 gap-4">
-            <InputField label="Sede" type="select" options={dbSedes.map(s => ({ value: s, label: s }))} value={formData.sede} onChange={e => setFormData({ ...formData, sede: e.target.value })} />
-            <InputField label="Ciclo" type="select" options={dbCuatrimestres.map(c => ({ value: c, label: c }))} value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })} />
-          </div>
-          <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-2xl shadow-xl hover:bg-brand-dark-blue hover:shadow-2xl active:scale-[0.98] transition-all">Sincronizar Datos</button>
+          <InputField label="Contraseña" icon={<Lock />} type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+          <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-2xl shadow-xl">Sincronizar Datos</button>
         </form>
       </Modal>
 
-      <Modal isOpen={isEditUserOpen} onClose={() => setIsEditUserOpen(false)} title="Modificar Entidad Institucional">
+      <Modal isOpen={isEditUserOpen} onClose={() => setIsEditUserOpen(false)} title="Modificar Entidad">
         <form onSubmit={confirmUpdateUser} className="space-y-5 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
-            <InputField label="Usuario" icon={<UserCheck />} value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
-          </div>
-          <InputField label="Rol Académico" type="select" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
-            options={[
-              { value: 'student', label: 'Estudiante' },
-              { value: 'monitor_academico', label: 'Monitor Académico' },
-              { value: 'monitor_administrativo', label: 'Monitor Administrativo' },
-              { value: 'admin', label: 'Admin' }
-            ]} />
+          <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
           <InputField label="Correo" icon={<Mail />} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-          <div className="grid grid-cols-2 gap-4">
-            <InputField label="Sede" type="select" options={dbSedes.map(s => ({ value: s, label: s }))} value={formData.sede} onChange={e => setFormData({ ...formData, sede: e.target.value })} />
-            <InputField label="Ciclo" type="select" options={dbCuatrimestres.map(c => ({ value: c, label: c }))} value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })} />
-          </div>
-
-          <div className="pt-4 border-t border-gray-100 space-y-4">
-            <p className="text-[10px] font-black text-brand-blue uppercase tracking-widest">Nuevas Credenciales (Opcional)</p>
-            <div className="grid grid-cols-2 gap-4">
-              <InputField label="Contraseña" icon={<Lock />} type="password" value={passwordData.password} onChange={e => setPasswordData({ ...passwordData, password: e.target.value })} />
-              <InputField label="Confirmar" icon={<Lock />} type="password" value={passwordData.confirmPassword} onChange={e => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} />
-            </div>
-          </div>
-          <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-[24px] shadow-2xl hover:bg-brand-dark-blue transition-all">Actualizar Registro</button>
+          <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-2xl shadow-xl">Actualizar Registro</button>
         </form>
       </Modal>
 
       <Modal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} title="Seguridad Institucional">
         <div className="space-y-8 text-center py-6">
-          <div className={`p-10 rounded-[20px] inline-block shadow-2xl ${localRestrictions.login ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'} animate-pulse`}>
-            {localRestrictions.login ? <Lock size={30} /> : <Unlock size={30} />}
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-3xl font-black text-gray-900 leading-none">{statusTarget?.nombre}</h3>
-            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Control de Privilegios y Restricciones</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4 px-6">
-            {Object.entries(localRestrictions).map(([k, v]) => (
-              <div key={k} className="bg-gray-50 border border-gray-100 p-4 rounded-2xl flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-gray-500">{k}</span>
-                <button onClick={() => setLocalRestrictions(p => ({ ...p, [k]: !p[k] }))} className={`w-10 h-6 rounded-full relative transition-all ${v ? 'bg-red-500' : 'bg-gray-200'}`}>
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${v ? 'left-5' : 'left-1'}`} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="px-6 space-y-3">
-            <button onClick={async () => {
-              try {
-                await updateUser(statusTarget.id, { is_active: !localRestrictions.login ? 1 : 0, restrictions: JSON.stringify(localRestrictions), currentUserId: session.id });
-                fetchData(); setIsStatusModalOpen(false); showToast('Sincronizado', 'success');
-              } catch { showToast('Error', 'error'); }
-            }} className="w-full py-5 bg-brand-blue text-white font-black rounded-3xl shadow-xl">Aplicar Cambios Institucionales</button>
-          </div>
+          <p className="text-xl font-black">{statusTarget?.nombre}</p>
+          <button onClick={async () => {
+            try {
+              await updateUser(statusTarget.id, { is_active: !localRestrictions.login ? 1 : 0, currentUserId: session.id });
+              fetchData(); setIsStatusModalOpen(false); showToast('Sincronizado', 'success');
+            } catch { showToast('Error', 'error'); }
+          }} className="w-full py-5 bg-brand-blue text-white font-black rounded-3xl shadow-xl">Guardar Cambios</button>
         </div>
       </Modal>
 
@@ -911,18 +920,14 @@ const AdminDashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setUserStatsTab(tab.id)}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${userStatsTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
+                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase ${userStatsTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
-            <div className="bg-slate-50 rounded-3xl p-6 border border-gray-200 min-h-[200px] space-y-6 shadow-inner">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <StatMetricCard icon={UserCheck} label="Usuario" value={userStatsModal.user.nombre || 'N/A'} color="text-gray-900" />
-                <StatMetricCard icon={Mail} label="Correo" value={userStatsModal.user.email || 'N/A'} color="text-gray-900" />
-              </div>
-
+            <div className="bg-slate-50 rounded-3xl p-6 border border-gray-200 space-y-6">
+              <StatMetricCard icon={UserCheck} label="Usuario" value={userStatsModal.user.nombre || 'N/A'} color="text-gray-900" />
               {userStatsTab === 'personal' ? (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -987,9 +992,6 @@ const AdminDashboard = () => {
                                 <td className="py-2">{row.status || 'N/A'}</td>
                               </tr>
                             ))}
-                            {(userStatsModal.data?.academic?.session_history || []).length === 0 && (
-                              <tr><td colSpan="3" className="py-3 text-xs font-bold text-gray-400 italic">Sin datos</td></tr>
-                            )}
                           </tbody>
                         </table>
                       </div>
@@ -1012,9 +1014,6 @@ const AdminDashboard = () => {
                                 <td className="py-2">{row.scanner_name || 'N/A'}</td>
                               </tr>
                             ))}
-                            {(userStatsModal.data?.meals?.consumption_history || []).length === 0 && (
-                              <tr><td colSpan="2" className="py-3 text-xs font-bold text-gray-400 italic">Sin datos</td></tr>
-                            )}
                           </tbody>
                         </table>
                       </div>
@@ -1067,10 +1066,16 @@ const AdminDashboard = () => {
             <p className="text-3xl font-black text-gray-900 tracking-tighter leading-none">¿Expulsar a {deleteTarget?.user.nombre}?</p>
             <p className="text-gray-400 font-bold text-sm max-w-xs mx-auto">Esta acción revoca todos los permisos y borra el historial de forma irreversible.</p>
           </div>
-          <div className="px-6 flex flex-col gap-3">
-            <button onClick={executeDelete} className="w-full py-5 bg-red-600 text-white font-black rounded-3xl shadow-2xl hover:bg-red-700">Confirmar Expulsión Permanente</button>
-            <button onClick={() => setIsConfirmDeleteOpen(false)} className="w-full py-5 bg-white text-gray-400 font-black border-2 border-gray-100 rounded-3xl">Desistir</button>
-          </div>
+          {(deleteTarget?.user.role === 'admin' || deleteTarget?.user.role === 'dev' || deleteTarget?.user.is_principal) && !session?.is_principal ? (
+            <div className="px-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold text-xs leading-relaxed">
+              Este usuario tiene un rol protegido. Solo el administrador principal puede eliminar cuentas administrativas o de desarrollo.
+            </div>
+          ) : (
+            <div className="px-6 flex flex-col gap-3">
+              <button onClick={executeDelete} className="w-full py-5 bg-red-600 text-white font-black rounded-3xl shadow-2xl hover:bg-red-700">Confirmar Expulsión Permanente</button>
+              <button onClick={() => setIsConfirmDeleteOpen(false)} className="w-full py-5 bg-white text-gray-400 font-black border-2 border-gray-100 rounded-3xl">Desistir</button>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -1107,4 +1112,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

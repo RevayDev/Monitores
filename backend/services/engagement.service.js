@@ -546,7 +546,31 @@ class EngagementService {
     if (Number(thread.created_by) !== Number(userId) && !isModerator) {
       throw new Error('No autorizado para borrar este thread.');
     }
+    
+    // Extract Image URLs before wiping DB
+    const messages = await engagementRepository.getForumMessagesByThread(threadId);
+    const urlsToClean = [];
+    for (const msg of messages) {
+       const links = String(msg.message || '').match(/https?:\/\/[^\s)]+/g) || [];
+       urlsToClean.push(...links);
+    }
+
     await engagementRepository.deleteThread(threadId);
+
+    // Physically erase attachments on disk
+    for (const url of urlsToClean) {
+      if (!url || !url.includes('/uploads/forum/')) continue;
+      const fileName = url.split('/uploads/forum/')[1];
+      if (!fileName) continue;
+      const target = path.resolve(FORUM_UPLOADS_DIR, fileName);
+      if (!target.startsWith(FORUM_UPLOADS_DIR)) continue;
+      try {
+        if (fs.existsSync(target)) fs.unlinkSync(target);
+      } catch {
+        // no-op
+      }
+    }
+
     return { success: true };
   }
 
@@ -558,7 +582,26 @@ class EngagementService {
     if (Number(message.user_id) !== Number(userId) && !isModerator) {
       throw new Error('No autorizado para borrar este mensaje.');
     }
+    
+    // Extract Image URLs before wiping DB
+    const urlsToClean = String(message.message || '').match(/https?:\/\/[^\s)]+/g) || [];
+
     await engagementRepository.deleteMessage(messageId);
+
+    // Physically erase attachments on disk
+    for (const url of urlsToClean) {
+      if (!url || !url.includes('/uploads/forum/')) continue;
+      const fileName = url.split('/uploads/forum/')[1];
+      if (!fileName) continue;
+      const target = path.resolve(FORUM_UPLOADS_DIR, fileName);
+      if (!target.startsWith(FORUM_UPLOADS_DIR)) continue;
+      try {
+        if (fs.existsSync(target)) fs.unlinkSync(target);
+      } catch {
+        // no-op
+      }
+    }
+
     return { success: true };
   }
 

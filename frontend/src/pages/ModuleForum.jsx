@@ -26,7 +26,7 @@ import {
   getForumPresence,
   createForumReport
 } from '../services/api';
-import { ToastContext } from '../App';
+import { ToastContext } from '../context/ToastContext';
 
 const getVisualRole = (userId, userRole, monitorId, members = []) => {
   const roleStr = String(userRole || '').toLowerCase();

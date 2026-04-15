@@ -6,18 +6,17 @@ const router = Router();
 
 // Apply auth middleware to all admin routes
 router.use(authMiddleware);
-// Apply role middleware to ensure only admins enter
-router.use(roleMiddleware('admin'));
 
-router.get('/admin/stats', adminController.getStats);
-router.get('/admin/users', adminController.getUsers);
-router.get('/admin/complaints', adminController.getComplaints);
-router.delete('/admin/user/:id', adminController.deleteUser);
+// Las rutas admin individuales llevan su propio roleMiddleware para evitar fugas a otros routers
+router.get('/admin/stats', roleMiddleware('admin'), adminController.getStats);
+router.get('/admin/users', roleMiddleware('admin'), adminController.getUsers);
+router.get('/admin/complaints', roleMiddleware('admin'), adminController.getComplaints);
+router.delete('/admin/user/:id', roleMiddleware('admin'), adminController.deleteUser);
 
 // Module management
-router.get('/admin/modules-management', adminController.getModules);
-router.put('/admin/modules-management/:id', adminController.updateModule);
-router.delete('/admin/modules-management/:id', adminController.deleteModule);
+router.get('/admin/modules-management', roleMiddleware('admin'), adminController.getModules);
+router.put('/admin/modules-management/:id', roleMiddleware('admin'), adminController.updateModule);
+router.delete('/admin/modules-management/:id', roleMiddleware('admin'), adminController.deleteModule);
 
 // Only principal admin can call this
 router.post('/admin/create-admin', adminPrincipalMiddleware, adminController.createAdmin);
