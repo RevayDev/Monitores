@@ -5,17 +5,22 @@ import { deleteFile } from '../utils/upload.helper.js';
 import bcrypt from 'bcryptjs';
 
 class UsersService {
+  static VALID_ROLES = new Set(['dev', 'admin', 'student', 'monitor_academico', 'monitor_administrativo']);
+
   normalizeRole(role) {
     const map = {
-      student: 'estudiante',
+      student: 'student',
+      estudiante: 'student',
       monitor: 'monitor_academico',
+      MONITOR: 'monitor_academico',
       administrativo: 'monitor_administrativo',
       ADMINISTRATIVO: 'monitor_administrativo',
       MONITOR_ACADEMICO: 'monitor_academico',
       MONITOR_ADMINISTRATIVO: 'monitor_administrativo',
-      STUDENT: 'estudiante'
+      STUDENT: 'student'
     };
-    return map[role] || role;
+    const normalized = map[role] || role;
+    return String(normalized || '').toLowerCase();
   }
 
   isAdminRole(role) {
@@ -66,7 +71,7 @@ class UsersService {
     const user = await usersRepository.create({
       ...userData,
       password: hashedPassword,
-      role: 'estudiante'
+      role: 'student'
     });
     await engagementRepository.createNotification({
       userId: user.id,
@@ -92,6 +97,9 @@ class UsersService {
 
     // Only principal Admin can create other Admins
     const requestedRole = this.normalizeRole(userData.role);
+    if (!UsersService.VALID_ROLES.has(requestedRole)) {
+      throw new Error(`Rol invalido. Roles permitidos: ${[...UsersService.VALID_ROLES].join(', ')}`);
+    }
     const creatorRole = this.normalizeRole(creator.role);
     if (requestedRole === 'admin') {
       if (creatorRole !== 'admin' || !creator.is_principal) {
@@ -154,7 +162,7 @@ class UsersService {
       }
     }
 
-    const monitorRoles = new Set(['monitor', 'monitor_academico', 'monitor_administrativo']);
+    const monitorRoles = new Set(['monitor_academico', 'monitor_administrativo']);
     const previousRole = this.normalizeRole(target.role);
     let nextRole = previousRole;
 
@@ -180,7 +188,7 @@ class UsersService {
     }
 
     // Name & Email Sync: If monitor info changes, update modules table
-    if (['monitor', 'monitor_academico', 'monitor_administrativo'].includes(target.role)) {
+    if (['monitor_academico', 'monitor_administrativo'].includes(this.normalizeRole(target.role))) {
       if ((userData.nombre && userData.nombre !== target.nombre) || (userData.email && userData.email !== target.email)) {
         await monitoriasRepository.updateMonitorInfo(id, {
           nombre: userData.nombre || target.nombre,
@@ -190,7 +198,7 @@ class UsersService {
     }
 
     // Name & Email Sync: If student info changes, update registrations table
-    if (['student', 'estudiante', 'monitor', 'monitor_academico', 'monitor_administrativo'].includes(target.role)) {
+    if (['student', 'monitor_academico', 'monitor_administrativo'].includes(this.normalizeRole(target.role))) {
       if ((userData.nombre && userData.nombre !== target.nombre) || (userData.email && userData.email !== target.email)) {
         await monitoriasRepository.updateStudentInfo(target.email, {
           nombre: userData.nombre || target.nombre,
@@ -249,7 +257,7 @@ class UsersService {
 
     const role = this.normalizeRole(user.role);
     let monitorActivity = null;
-    if (['monitor', 'monitor_academico'].includes(role)) {
+    if (role === 'monitor_academico') {
       monitorActivity = await usersRepository.getMonitorAcademicActivity(user.id);
     } else if (role === 'monitor_administrativo') {
       monitorActivity = await usersRepository.getMonitorAdministrativeActivity(user.id);

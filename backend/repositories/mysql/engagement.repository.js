@@ -345,7 +345,7 @@ class EngagementRepositoryMySQL {
   }
 
   async getMyModules(userId, role, email) {
-    if (role === 'monitor') {
+    if (role === 'monitor_academico') {
       const [rows] = await pool.query(
         `
         SELECT m.*
@@ -423,13 +423,43 @@ class EngagementRepositoryMySQL {
     if (metadata?.moduleId) link = `/modules/${metadata.moduleId}/forum`;
     else if (metadata?.forumId) link = '/mis-monitorias';
     if (metadata?.threadId) link = '/mis-monitorias';
-    await pool.query(
+    const [result] = await pool.query(
       `
       INSERT INTO notifications (user_id, type, message, link, is_read, created_at)
       VALUES (?, ?, ?, ?, 0, NOW())
       `,
       [userId, type, message || title || body || 'Notificacion', link]
     );
+    const created = await this.getNotificationById(result.insertId, userId);
+    if (!created) {
+      return {
+        id: result.insertId,
+        user_id: userId,
+        type,
+        message: message || title || body || 'Notificacion',
+        link,
+        is_read: 0,
+        created_at: new Date().toISOString(),
+        metadata: metadata || null
+      };
+    }
+    return {
+      ...created,
+      metadata: metadata || null
+    };
+  }
+
+  async getNotificationById(notificationId, userId) {
+    const [rows] = await pool.query(
+      `
+      SELECT id, user_id, type, message, link, is_read, created_at
+      FROM notifications
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+      `,
+      [notificationId, userId]
+    );
+    return rows[0] || null;
   }
 
   async getUserNotifications(userId) {
@@ -897,7 +927,7 @@ class EngagementRepositoryMySQL {
       [user.id]
     );
     return {
-      role: 'estudiante',
+      role: 'student',
       totals: {
         assistances: attendanceTotalsRows[0]?.total_assistances || 0,
         lunches: lunchTotalsRows[0]?.total_lunches || 0
@@ -1018,8 +1048,8 @@ class EngagementRepositoryMySQL {
     const [totalRows] = await pool.query(
       `
       SELECT
-        (SELECT COUNT(*) FROM users WHERE role IN ('student','estudiante')) AS total_students,
-        (SELECT COUNT(*) FROM users WHERE role IN ('monitor','monitor_academico','monitor_administrativo')) AS total_monitors,
+        (SELECT COUNT(*) FROM users WHERE role IN ('student')) AS total_students,
+        (SELECT COUNT(*) FROM users WHERE role IN ('monitor_academico','monitor_administrativo')) AS total_monitors,
         (SELECT COUNT(*) FROM attendance) AS total_assistances,
         (SELECT COUNT(*) FROM lunch_usage WHERE used = 1) AS total_lunches
       `
@@ -1055,10 +1085,10 @@ class EngagementRepositoryMySQL {
   }
 
   async getGlobalStatsByRole(user) {
-    if (['student', 'estudiante'].includes(user.role)) {
+    if (['student'].includes(user.role)) {
       return this.getStudentStats(user);
     }
-    if (['monitor', 'monitor_academico'].includes(user.role)) {
+    if (['monitor_academico'].includes(user.role)) {
       return this.getMonitorAcademicStats(user);
     }
     if (user.role === 'monitor_administrativo') {

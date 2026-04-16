@@ -7,8 +7,8 @@ const router = Router();
 router.use(authMiddleware);
 
 // Expanded roles so monitors/admins can also participate as students if needed
-router.get('/student/modules', roleMiddleware('student', 'monitor', 'admin', 'dev'), studentController.getModules);
-router.post('/student/register', roleMiddleware('student', 'monitor', 'admin', 'dev'), studentController.register);
-router.get('/student/my-registrations', roleMiddleware('student', 'monitor', 'admin', 'dev'), studentController.getMyRegistrations);
+router.get('/student/modules', roleMiddleware('student', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'), studentController.getModules);
+router.post('/student/register', roleMiddleware('student', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'), studentController.register);
+router.get('/student/my-registrations', roleMiddleware('student', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'), studentController.getMyRegistrations);
 
 export default router;

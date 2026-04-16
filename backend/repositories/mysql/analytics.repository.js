@@ -321,7 +321,7 @@ class AnalyticsRepositoryMySQL {
         MAX(l.created_at) AS last_meal_at
       FROM users u
       LEFT JOIN lunch_usage l ON l.user_id = u.id ${scannerUserId ? ' AND l.scanner_user_id = ? ' : ''}
-      WHERE u.role IN ('student', 'estudiante')
+      WHERE u.role IN ('student')
       GROUP BY u.id, u.nombre
       HAVING last_meal_at IS NULL OR last_meal_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
       ORDER BY student_name ASC
@@ -418,7 +418,7 @@ class AnalyticsRepositoryMySQL {
         COUNT(al.id) AS activity_count
       FROM users u
       LEFT JOIN activity_logs al ON al.user_id = u.id
-      WHERE u.role IN ('monitor', 'monitor_academico', 'monitor_administrativo')
+      WHERE u.role IN ('monitor_academico', 'monitor_administrativo')
       GROUP BY u.id, u.nombre, u.role
       ORDER BY activity_count DESC, monitor_name ASC
       `

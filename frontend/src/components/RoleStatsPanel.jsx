@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getCurrentUser, getGlobalStats, getUserStats } from '../services/api';
 
-const GLOBAL_ROLES = new Set(['admin', 'dev', 'monitor', 'monitor_academico', 'monitor_administrativo']);
+const GLOBAL_ROLES = new Set(['admin', 'dev', 'monitor_academico', 'monitor_administrativo']);
 
 const getRoleColor = (role) => {
   const map = {
     'admin': 'orange',
     'dev': 'violet',
-    'monitor': 'emerald',
     'monitor_academico': 'emerald',
     'monitor_administrativo': 'teal',
     'student': 'blue'
@@ -195,7 +194,7 @@ const RoleStatsPanel = () => {
                 </div>
               )}
 
-              {(['monitor', 'monitor_academico', 'monitor_administrativo'].includes(userStats?.role)) && (
+              {(['monitor_academico', 'monitor_administrativo'].includes(userStats?.role)) && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-black uppercase text-gray-500 tracking-wider">Tu Actividad - Monitor</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -1,8 +1,8 @@
 import statsRepository from '../repositories/mysql/stats.repository.js';
 
 const ADMIN_ROLES = new Set(['admin', 'dev']);
-const MONITOR_ROLES = new Set(['monitor', 'monitor_academico', 'monitor_administrativo']);
-const STUDENT_ROLES = new Set(['student', 'estudiante']);
+const MONITOR_ROLES = new Set(['monitor_academico', 'monitor_administrativo']);
+const STUDENT_ROLES = new Set(['student']);
 
 const normalizeRole = (role) => String(role || '').toLowerCase();
 
@@ -16,7 +16,7 @@ class StatsService {
       throw new Error('No tienes permisos para consultar estadisticas globales.');
     }
 
-    if (role === 'monitor' || role === 'monitor_academico') {
+    if (role === 'monitor_academico') {
       const moduleIds = await statsRepository.getModuleIdsByMonitorUser(requester.id);
       return statsRepository.getGlobalStats(moduleIds);
     }

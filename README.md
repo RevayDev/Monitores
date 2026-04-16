@@ -66,3 +66,21 @@ Para aprender más sobre el funcionamiento interno, revisa:
 
 ## ⚖️ Licencia
 Este proyecto es de uso institucional y académico.
+
+## Inicio rapido desde la raiz
+
+Si quieres ejecutar todo desde `Monitores` (sin entrar a `frontend/` y `backend/`):
+
+1. Instala dependencias de ambos proyectos:
+   ```bash
+   npm run install:all
+   ```
+2. Ejecuta frontend y backend en paralelo:
+   ```bash
+   npm run dev
+   ```
+
+Comandos utiles desde raiz:
+- `npm run dev:backend`
+- `npm run dev:frontend`
+- `npm run build`

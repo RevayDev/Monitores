@@ -2,7 +2,7 @@ import analyticsRepository from '../repositories/mysql/analytics.repository.js';
 import statsService from './stats.service.js';
 
 const ADMIN_ROLES = new Set(['admin', 'dev']);
-const ACADEMIC_MONITOR_ROLES = new Set(['monitor', 'monitor_academico']);
+const ACADEMIC_MONITOR_ROLES = new Set(['monitor_academico']);
 const ADMIN_MONITOR_ROLES = new Set(['monitor_administrativo']);
 
 class AnalyticsService {
@@ -147,7 +147,7 @@ class AnalyticsService {
         active_days: activeDays,
         consumption_history: consumptionHistory
       },
-      monitor_activity: (monitorActivity.role !== 'student' && monitorActivity.role !== 'estudiante') ? monitorActivity.totals : null
+      monitor_activity: monitorActivity.role !== 'student' ? monitorActivity.totals : null
     };
   }
 }

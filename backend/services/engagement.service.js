@@ -43,6 +43,18 @@ const __dirname = path.dirname(__filename);
 const FORUM_UPLOADS_DIR = path.resolve(__dirname, '../uploads/forum');
 
 class EngagementService {
+  async pushNotification({ userId, type, title, body, metadata }) {
+    const notification = await engagementRepository.createNotification({
+      userId,
+      type,
+      title,
+      body,
+      metadata
+    });
+    notifyUser(userId, notification);
+    return notification;
+  }
+
   normalizeAttachments(items = []) {
     if (!Array.isArray(items)) return [];
     return items
@@ -373,14 +385,8 @@ class EngagementService {
 
     const scanner = await engagementRepository.getUserById(scannerUserId);
     const student = await engagementRepository.getUserById(qr.user_id);
-    await engagementRepository.createNotification({
+    await this.pushNotification({
       userId: qr.user_id,
-      type: 'lunch_delivered',
-      title: 'Almuerzo registrado',
-      body: `Tu almuerzo fue registrado por ${scanner?.nombre || 'monitor'}.`,
-      metadata: { lunchId }
-    });
-    notifyUser(qr.user_id, {
       type: 'lunch_delivered',
       title: 'Almuerzo registrado',
       body: `Tu almuerzo fue registrado por ${scanner?.nombre || 'monitor'}.`,
@@ -477,14 +483,8 @@ class EngagementService {
     });
 
     if (Number(thread.created_by) !== Number(userId)) {
-      await engagementRepository.createNotification({
+      await this.pushNotification({
         userId: thread.created_by,
-        type: 'forum_reply',
-        title: 'Respondieron tu foro',
-        body: `Nuevo comentario en "${thread.title}"`,
-        metadata: { threadId: thread.id, moduleId: thread.module_id }
-      });
-      notifyUser(thread.created_by, {
         type: 'forum_reply',
         title: 'Respondieron tu foro',
         body: `Nuevo comentario en "${thread.title}"`,
@@ -542,7 +542,7 @@ class EngagementService {
     const thread = await engagementRepository.getForumThreadById(threadId);
     if (!thread) throw new Error('Thread no encontrado.');
     const user = await engagementRepository.getUserById(userId);
-    const isModerator = ['monitor', 'admin', 'dev'].includes(user?.role);
+    const isModerator = ['monitor_academico', 'monitor_administrativo', 'admin', 'dev'].includes(user?.role);
     if (Number(thread.created_by) !== Number(userId) && !isModerator) {
       throw new Error('No autorizado para borrar este thread.');
     }
@@ -611,12 +611,14 @@ class EngagementService {
 
   async readNotifications(userId) {
     await engagementRepository.markNotificationsAsRead(userId);
+    notifyUser(userId, { event: 'notifications_read_all' });
     return { success: true };
   }
 
   async deleteNotification(userId, notificationId) {
     const ok = await engagementRepository.deleteNotification(notificationId, userId);
     if (!ok) throw new Error('Notificacion no encontrada.');
+    notifyUser(userId, { event: 'notification_deleted', notificationId });
     return { success: true };
   }
 
@@ -667,14 +669,7 @@ class EngagementService {
     const moduleRow = await engagementRepository.getModuleById(moduleId);
     const monitorId = Number(moduleRow?.monitorId || 0);
     if (monitorId > 0 && monitorId !== Number(userId)) {
-      await engagementRepository.createNotification({
-        userId: monitorId,
-        type: 'actividad_foro_monitor',
-        title: 'Nueva pregunta en tu modulo',
-        body: String(title).trim(),
-        metadata: { forumId, moduleId }
-      });
-      notifyUser(monitorId, {
+      await this.pushNotification({
         userId: monitorId,
         type: 'actividad_foro_monitor',
         title: 'Nueva pregunta en tu modulo',
@@ -690,19 +685,12 @@ class EngagementService {
         mentionedUsers
           .filter((member) => Number(member.id) !== Number(userId))
           .map((member) =>
-            engagementRepository.createNotification({
+            this.pushNotification({
               userId: member.id,
               type: 'mencion_foro',
               title: 'Te mencionaron en una pregunta',
               body: String(title).trim(),
               metadata: { forumId, moduleId }
-            }).then(() => {
-              notifyUser(member.id, {
-                type: 'mencion_foro',
-                title: 'Te mencionaron en una pregunta',
-                body: String(title).trim(),
-                metadata: { forumId, moduleId }
-              });
             })
           )
       );
@@ -806,14 +794,8 @@ class EngagementService {
     const isAuthorMentioned = mentionIds.includes(Number(forum.user_id));
 
     if (Number(forum.user_id) !== Number(userId) && !isAuthorMentioned) {
-      await engagementRepository.createNotification({
+      await this.pushNotification({
         userId: forum.user_id,
-        type: 'respuesta_foro',
-        title: 'Respondieron tu pregunta',
-        body: forum.title,
-        metadata: { forumId: Number(forumId), moduleId }
-      });
-      notifyUser(forum.user_id, {
         type: 'respuesta_foro',
         title: 'Respondieron tu pregunta',
         body: forum.title,
@@ -824,14 +806,8 @@ class EngagementService {
     // Notificar al monitor del modulo si no es el autor de la respuesta
     const monitorId = Number(forum.module_monitor_id);
     if (monitorId && monitorId !== Number(userId) && monitorId !== Number(forum.user_id)) {
-      await engagementRepository.createNotification({
+      await this.pushNotification({
         userId: monitorId,
-        type: 'actividad_foro_monitor',
-        title: 'Actividad en tu modulo',
-        body: `Nueva respuesta en "${forum.title}"`,
-        metadata: { forumId: Number(forumId), moduleId }
-      });
-      notifyUser(monitorId, {
         type: 'actividad_foro_monitor',
         title: 'Actividad en tu modulo',
         body: `Nueva respuesta en "${forum.title}"`,
@@ -845,19 +821,12 @@ class EngagementService {
         mentionedUsers
           .filter((member) => Number(member.id) !== Number(userId))
           .map((member) =>
-            engagementRepository.createNotification({
+            this.pushNotification({
               userId: member.id,
               type: 'mencion_foro',
               title: 'Te mencionaron en un foro',
               body: forum.title,
               metadata: { forumId: Number(forumId), moduleId }
-            }).then(() => {
-              notifyUser(member.id, {
-                type: 'mencion_foro',
-                title: 'Te mencionaron en un foro',
-                body: forum.title,
-                metadata: { forumId: Number(forumId), moduleId }
-              });
             })
           )
       );
@@ -930,7 +899,7 @@ class EngagementService {
     const role = String(user?.role || '').toLowerCase();
     
     const queryFilters = {};
-    if (['monitor', 'monitor_academico'].includes(role)) {
+    if (['monitor_academico'].includes(role)) {
       queryFilters.monitorId = userId;
     } else if (!['admin', 'dev'].includes(role)) {
       throw new Error('No autorizado para ver reportes.');
@@ -941,7 +910,7 @@ class EngagementService {
 
   async resolveReport(userId, reportId, resolutionNote) {
     const user = await engagementRepository.getUserById(userId);
-    if (!['admin', 'dev', 'monitor', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
+    if (!['admin', 'dev', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
       throw new Error('No autorizado.');
     }
     await engagementRepository.resolveForumReport(reportId, userId, resolutionNote);
@@ -960,7 +929,7 @@ class EngagementService {
 
   async getModerationLogs(userId) {
     const user = await engagementRepository.getUserById(userId);
-    if (!['admin', 'dev', 'monitor', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
+    if (!['admin', 'dev', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
       throw new Error('No autorizado.');
     }
     return engagementRepository.getActivityLogs({ action: 'FORUM_REPORT_RESOLVED' });
@@ -1069,14 +1038,14 @@ class EngagementService {
   async getStudentStats(userId) {
     const user = await engagementRepository.getUserById(userId);
     if (!user) throw new Error('Usuario no encontrado.');
-    if (!['student', 'estudiante'].includes(user.role)) throw new Error('Acceso no permitido para este endpoint.');
+    if (!['student'].includes(user.role)) throw new Error('Acceso no permitido para este endpoint.');
     return engagementRepository.getStudentStats(user);
   }
 
   async getMonitorAcademicStats(userId) {
     const user = await engagementRepository.getUserById(userId);
     if (!user) throw new Error('Usuario no encontrado.');
-    if (!['monitor', 'monitor_academico'].includes(user.role)) throw new Error('Acceso no permitido para este endpoint.');
+    if (!['monitor_academico'].includes(user.role)) throw new Error('Acceso no permitido para este endpoint.');
     return engagementRepository.getMonitorAcademicStats(user);
   }
 
@@ -1104,8 +1073,9 @@ class EngagementService {
 
   async resetAllScans(userId) {
     const user = await engagementRepository.getUserById(userId);
-    const isDev = ['dev'].includes(String(user?.role || '').toLowerCase());
-    if (!isDev) throw new Error('No autorizado para esta operacion.');
+    const role = String(user?.role || '').toLowerCase();
+    const canReset = ['dev', 'admin'].includes(role);
+    if (!canReset) throw new Error('No autorizado para esta operacion.');
 
     await engagementRepository.createActivityLog({
       userId,

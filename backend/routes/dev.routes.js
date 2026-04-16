@@ -9,6 +9,7 @@ router.use(authMiddleware);
 
 // Endpoints Técnicos con roleMiddleware específico para evitar fugas
 router.post('/dev/db-reset', roleMiddleware('dev', 'admin'), devController.resetDatabase);
+router.post('/dev/db-ensure', roleMiddleware('dev', 'admin'), devController.ensureDatabase);
 router.post('/dev/db-nuke', roleMiddleware('dev', 'admin'), devController.nukeDatabase);
 router.post('/dev/db-populate', roleMiddleware('dev', 'admin'), devController.populateTestData);
 router.post('/dev/db-populate-volume', roleMiddleware('dev', 'admin'), devController.populateVolume);
@@ -17,7 +18,10 @@ router.get('/dev/diagnostics', roleMiddleware('dev', 'admin'), devController.run
 router.post('/dev/terminal', roleMiddleware('dev', 'admin'), devController.runTerminalCommand);
 router.post('/dev/terminal/suggestions', roleMiddleware('dev', 'admin'), devController.getTerminalSuggestions);
 import multer from 'multer';
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 150 * 1024 * 1024 }
+});
 
 // ROOT Terminal routes
 router.post('/dev/root/enable', roleMiddleware('dev', 'admin'), devController.rootEnable);

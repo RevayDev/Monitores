@@ -5,6 +5,6 @@ import { authMiddleware, roleMiddleware } from '../middlewares/auth.middleware.j
 const router = express.Router();
 
 router.get('/qr', authMiddleware, qrController.generateQR);
-router.post('/qr/validate', authMiddleware, roleMiddleware('monitor', 'admin'), qrController.validateQR);
+router.post('/qr/validate', authMiddleware, roleMiddleware('monitor_academico', 'monitor_administrativo', 'admin', 'dev'), qrController.validateQR);
 
 export default router;

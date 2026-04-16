@@ -156,8 +156,8 @@ export const createMonitor = async (monitorData) => {
   // First create the user
   const user = await createUser({
     ...monitorData,
-    role: monitorData.role || 'monitor',
-    baseRole: 'monitor'
+    role: monitorData.role || 'monitor_academico',
+    baseRole: 'monitor_academico'
   });
 
   // If modulo info provided, create the first module
@@ -376,6 +376,7 @@ export const resetScans = () => request('/dev/reset-scans', {
 
 // --- Dev Utilities (Scripts) ---
 export const dbReset = () => request('/dev/db-reset', { method: 'POST', body: JSON.stringify({}) });
+export const dbEnsure = () => request('/dev/db-ensure', { method: 'POST', body: JSON.stringify({}) });
 export const dbNuke = () => request('/dev/db-nuke', { method: 'POST', body: JSON.stringify({}) });
 export const dbPopulate = () => request('/dev/db-populate', { method: 'POST', body: JSON.stringify({}) });
 export const dbPopulateVolume = () => request('/dev/db-populate-volume', { method: 'POST', body: JSON.stringify({}) });

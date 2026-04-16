@@ -138,7 +138,7 @@ class StatsRepositoryMySQL {
     );
 
     return {
-      role: 'monitor',
+      role: 'monitor_academico',
       totals: {
         total_students_attended: Number(totalsRows[0]?.total_students_attended || 0),
         average_rating_received: Number(totalsRows[0]?.average_rating_received || 0),

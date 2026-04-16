@@ -1,6 +1,107 @@
 import pool from './mysql.helper.js';
 
 const statements = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(180) NOT NULL,
+    username VARCHAR(120) NOT NULL,
+    email VARCHAR(180) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('student','monitor_academico','monitor_administrativo','admin','dev') NOT NULL DEFAULT 'student',
+    sede VARCHAR(120) NULL,
+    cuatrimestre VARCHAR(120) NULL,
+    foto VARCHAR(255) NULL,
+    restrictions JSON NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    is_principal TINYINT(1) NOT NULL DEFAULT 0,
+    root_attempts INT NOT NULL DEFAULT 0,
+    root_lockout_phase INT NOT NULL DEFAULT 0,
+    root_lockout_until DATETIME NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tipo_monitor VARCHAR(50) NULL,
+    tipo_soporte VARCHAR(50) NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS modules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    monitorId INT NULL,
+    monitor VARCHAR(180) NULL,
+    monitorEmail VARCHAR(180) NULL,
+    modulo VARCHAR(180) NOT NULL,
+    cuatrimestre VARCHAR(120) NULL,
+    modalidad VARCHAR(120) NULL,
+    horario VARCHAR(180) NULL,
+    salon VARCHAR(120) NULL,
+    sede VARCHAR(120) NULL,
+    descripcion TEXT NULL,
+    whatsapp VARCHAR(120) NULL,
+    teams VARCHAR(255) NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS registrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    studentName VARCHAR(180) NOT NULL,
+    studentEmail VARCHAR(180) NOT NULL,
+    modulo VARCHAR(180) NULL,
+    monitorId INT NOT NULL,
+    registeredAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS attendance (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    monitorId INT NULL,
+    studentName VARCHAR(180) NULL,
+    date DATE NULL,
+    rating TINYINT NULL,
+    comment TEXT NULL,
+    student_id INT NULL,
+    module_id INT NULL,
+    qr_code_id BIGINT NULL,
+    scan_time DATETIME NULL,
+    attendance_status ENUM('present','rejected_duplicate','rejected_expired','rejected_out_window') NOT NULL DEFAULT 'present',
+    modalidad VARCHAR(100) NULL,
+    estado VARCHAR(100) NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS complaints (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    monitorId INT NULL,
+    studentName VARCHAR(180) NULL,
+    studentEmail VARCHAR(180) NULL,
+    reason VARCHAR(255) NULL,
+    details TEXT NULL,
+    date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tipo VARCHAR(100) NULL,
+    reported_id INT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    config_key VARCHAR(120) NOT NULL,
+    config_value LONGTEXT NULL,
+    UNIQUE KEY uq_settings_key (config_key)
+  )`,
+  `CREATE TABLE IF NOT EXISTS static_data (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    data_key VARCHAR(80) NOT NULL,
+    item_value VARCHAR(180) NOT NULL,
+    UNIQUE KEY uq_static_data (data_key, item_value)
+  )`,
+  `INSERT IGNORE INTO static_data (data_key, item_value) VALUES
+    ('sedes', 'Sede Centro'),
+    ('sedes', 'Sede Norte'),
+    ('sedes', 'Sede Sur'),
+    ('sedes', 'Sede Virtual')`,
+  `INSERT IGNORE INTO static_data (data_key, item_value) VALUES
+    ('cuatrimestres', '1° Cuatrimestre'),
+    ('cuatrimestres', '2° Cuatrimestre'),
+    ('cuatrimestres', '3° Cuatrimestre'),
+    ('cuatrimestres', '4° Cuatrimestre')`,
+  `INSERT IGNORE INTO static_data (data_key, item_value) VALUES
+    ('modalidades', 'Presencial'),
+    ('modalidades', 'Virtual'),
+    ('modalidades', 'Híbrido')`,
+  `INSERT IGNORE INTO static_data (data_key, item_value) VALUES
+    ('programas', 'Programación'),
+    ('programas', 'Matemáticas'),
+    ('programas', 'Bases de Datos'),
+    ('programas', 'Redes')`,
   `CREATE TABLE IF NOT EXISTS qr_codes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -142,6 +243,15 @@ const statements = [
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_saved (user_id, thread_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS forum_presence (
+    forum_id BIGINT NOT NULL,
+    user_id INT NOT NULL,
+    is_typing TINYINT(1) NOT NULL DEFAULT 0,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    PRIMARY KEY (forum_id, user_id),
+    INDEX idx_forum_presence_expires (expires_at)
+  )`,
   `CREATE TABLE IF NOT EXISTS user_notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -219,7 +329,10 @@ const statements = [
   `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS modalidad VARCHAR(100)`,
   `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS estado VARCHAR(100)`,
   `ALTER TABLE forums ADD COLUMN IF NOT EXISTS modulo_id INT NULL`,
-  `ALTER TABLE users MODIFY COLUMN role ENUM('student','estudiante','monitor','monitor_academico','monitor_administrativo','admin','dev') NOT NULL`,
+  `UPDATE users SET role = 'student' WHERE role IN ('estudiante', 'STUDENT')`,
+  `UPDATE users SET role = 'monitor_academico' WHERE role IN ('monitor', 'MONITOR', 'MONITOR_ACADEMICO')`,
+  `UPDATE users SET role = 'monitor_administrativo' WHERE role IN ('administrativo', 'ADMINISTRATIVO', 'MONITOR_ADMINISTRATIVO')`,
+  `ALTER TABLE users MODIFY COLUMN role ENUM('student','monitor_academico','monitor_administrativo','admin','dev') NOT NULL`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS tipo_monitor VARCHAR(50)`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS tipo_soporte VARCHAR(50)`,
   `ALTER TABLE forum_messages MODIFY COLUMN role_snapshot VARCHAR(40) NOT NULL`,

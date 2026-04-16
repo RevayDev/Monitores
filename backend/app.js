@@ -17,6 +17,36 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+const wrapAsyncHandler = (fn) => {
+  if (typeof fn !== 'function' || fn.__isAsyncWrapped) return fn;
+  const wrapped = (req, res, next) => {
+    try {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    } catch (error) {
+      next(error);
+    }
+  };
+  wrapped.__isAsyncWrapped = true;
+  return wrapped;
+};
+
+const wrapRouterLayer = (layer) => {
+  if (layer?.route?.stack) {
+    layer.route.stack.forEach((routeLayer) => {
+      routeLayer.handle = wrapAsyncHandler(routeLayer.handle);
+    });
+  }
+
+  if (layer?.name === 'router' && Array.isArray(layer?.handle?.stack)) {
+    layer.handle.stack.forEach(wrapRouterLayer);
+  }
+};
+
+const wrapAllAsyncRoutes = (expressApp) => {
+  if (!Array.isArray(expressApp?._router?.stack)) return;
+  expressApp._router.stack.forEach(wrapRouterLayer);
+};
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -43,10 +73,14 @@ app.use('/api', statsRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', devRoutes);
+wrapAllAsyncRoutes(app);
 
 // Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  if (err?.code === 'ECONNREFUSED') {
+    return res.status(503).json({ error: 'Database service is unavailable. Please check MySQL and try again.' });
+  }
   const status = err.status || err.statusCode || 500;
   res.status(status).json({ error: err.message || 'Something went wrong!' });
 });

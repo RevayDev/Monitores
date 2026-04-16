@@ -2,6 +2,7 @@ import app from './app.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { ensureSchema } from './utils/schema-init.helper.js';
+import { ensureDatabaseExists } from './utils/mysql.helper.js';
 
 import { initSocket } from './socket.js';
 
@@ -13,6 +14,10 @@ const origLog = console.log;
 const origErr = console.error;
 const origWarn = console.warn;
 const origInfo = console.info;
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Promise rejection:', reason);
+});
 
 const emitToSocket = (type, args) => {
   try {
@@ -30,7 +35,8 @@ console.error = (...args) => { origErr(...args); emitToSocket('error', args); };
 console.warn = (...args) => { origWarn(...args); emitToSocket('warn', args); };
 console.info = (...args) => { origInfo(...args); emitToSocket('info', args); };
 
-ensureSchema()
+ensureDatabaseExists()
+  .then(() => ensureSchema())
   .then(() => {
     httpServer.listen(PORT, () => {
       console.log(`Backend running on http://localhost:${PORT}`);

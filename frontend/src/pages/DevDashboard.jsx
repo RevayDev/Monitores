@@ -2,18 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
-import { 
-  Wrench, Shield, Globe, Users, BookOpen, UserPlus, LogIn, Activity, 
-  AlertTriangle, Edit3, Trash2, Mail, Lock, PlusCircle, ShieldCheck, 
-  UserCheck, MapPin, Check, FileCode, FileJson, FileText as FileTextIcon, 
+import {
+  Wrench, Shield, Globe, Users, BookOpen, UserPlus, LogIn, Activity,
+  AlertTriangle, Edit3, Trash2, Mail, Lock, PlusCircle, ShieldCheck,
+  UserCheck, MapPin, Check, FileCode, FileJson, FileText as FileTextIcon,
   Image as ImageIcon, FolderOpen, Send
 } from 'lucide-react';
 import {
   getMaintenanceConfig, setMaintenanceConfig, getAllUsers,
   createUser, updateUser, deleteUser, getSedes, getCuatrimestres,
-  resetScans, dbReset, dbNuke, dbPopulate, dbPopulateVolume, fixUsernames, 
+  resetScans, dbReset, dbEnsure, dbNuke, dbPopulate, dbPopulateVolume, fixUsernames,
   getDiagnostics, executeTerminalCommand, request,
-  rootEnable, rootMemberAction, rootFileAction, getRootLogs
+  rootEnable, rootMemberAction, rootFileAction, getRootLogs,
+  rootSystemBackup, rootSystemRestore
 } from '../services/api';
 import Modal from '../components/Modal';
 import { ToastContext } from '../context/ToastContext';
@@ -26,22 +27,23 @@ import InputField from '../components/InputField';
 // component identity guarantees refs (scroll, bottomRef) persist across renders.
 const COMMANDS_BASE = [
   'help', 'clear', 'ping', 'diagnostics',
-  'populate', 'fix_users', 'wipe_db',
-  'ls', 'tree', 'pwd', 'sysinfo', 'cd', 'enable'
+  'populate', 'fix_users', 'wipe_db', 'ensure_db',
+  'ls', 'tree', 'pwd', 'sysinfo', 'cd', 'enable', 'exit'
 ];
-const COMMANDS_ROOT = ['exit', 'userlist', 'useradd', 'userdel', 'userrole', 'suspenduser', 'touch', 'rm', 'read', 'write', 'backup', 'restore'];
+const COMMANDS_ROOT = ['userlist', 'useradd', 'userdel', 'userrole', 'suspenduser', 'touch', 'rm', 'read', 'write', 'backup', 'restore'];
 
 const LiveTerminal = ({
   shellLogs, serverLogs, rootLogs, activeTermTab, setActiveTermTab,
   terminalCwd, setTerminalCwd, addLog, clearLogs,
-  runUtility, getDiagnostics, setIsFixing, dbPopulate, setIsPopulating,
+  runUtility, getDiagnostics, setIsFixing, dbPopulate, dbEnsure, setIsPopulating,
   fixUsernames, setIsResetModalOpen, executeTerminalCommand, request,
-  rootEnable, rootMemberAction, rootFileAction,
+  rootEnable, rootMemberAction, rootFileAction, rootSystemBackup, rootSystemRestore,
   FolderOpen, FileTextIcon, FileCode, FileJson, ImageIcon, Globe, ShieldCheck, Edit3, Send
 }) => {
   const scrollRef = React.useRef(null);
   const bottomRef = React.useRef(null);
   const inputRef = React.useRef(null);
+  const restoreInputRef = React.useRef(null);
   const [command, setCommand] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
@@ -94,7 +96,7 @@ const LiveTerminal = ({
 
         if (parts.length === 1) {
           // Autocomplete command names (synchronous)
-          const availableContextCmds = isRoot ? [...COMMANDS_BASE, ...COMMANDS_ROOT] : COMMANDS_BASE;
+          const availableContextCmds = [...new Set([...COMMANDS_BASE, ...COMMANDS_ROOT])];
           const matches = availableContextCmds.filter(c => c.startsWith(lastPart));
           if (matches.length === 1) { selectSuggestion(matches[0]); return; }
           if (matches.length > 1) { setAvailableSuggestions(matches); setShowSuggestions(true); setActiveSuggestion(0); }
@@ -112,7 +114,7 @@ const LiveTerminal = ({
               setShowSuggestions(true);
               setActiveSuggestion(0);
             }
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
       return;
@@ -129,7 +131,7 @@ const LiveTerminal = ({
     const fullCommand = command.trim();
     const parts = fullCommand.split(' ');
     const cmd = parts[0].toLowerCase();
-    
+
     // Check if we are prompting for ROOT password
     if (isPromptingPassword) {
       setCommand('');
@@ -157,7 +159,7 @@ const LiveTerminal = ({
         addLog('Sesión ROOT finalizada.', 'info');
         return;
       }
-      
+
       try {
         // Alias manual routing to existing rootMemberAction
         if (cmd === 'userlist') return await rootMemberAction('list', []).then(res => addLog(JSON.stringify(res.users, null, 2), 'info'));
@@ -182,14 +184,15 @@ const LiveTerminal = ({
         }
 
         if (cmd === 'backup') {
-          addLog("Iniciando volcado de BD y compresión de binarios...", 'info');
-          // TODO call endpoint
+          addLog('Iniciando backup de base de datos y archivos...', 'info');
+          await rootSystemBackup();
+          addLog('Backup generado y descargado correctamente.', 'success');
           return;
         }
 
         if (cmd === 'restore') {
-          addLog("Iniciando protocolo de restauración destructiva. Arrastra el Backup ZIP a la terminal...", 'warn');
-          // TODO UI state
+          addLog('Selecciona el archivo ZIP de backup para restaurar el sistema.', 'warn');
+          restoreInputRef.current?.click();
           return;
         }
 
@@ -214,12 +217,21 @@ const LiveTerminal = ({
         setIsPromptingPassword(true);
         addLog('Password:', 'warn');
         break;
-      case 'help': addLog('Comandos: enable, member, nano, clear, ping, diagnostics, populate, fix_users, wipe_db, ls, cd, pwd, sysinfo', 'success'); break;
+      case 'help': addLog('Comandos: enable, exit, clear, ping, diagnostics, populate, fix_users, wipe_db, ensure_db, ls, tree, cd, pwd, sysinfo', 'success'); break;
+      case 'exit':
+        if (isRoot) {
+          setIsRoot(false);
+          addLog('Sesion ROOT finalizada.', 'info');
+        } else {
+          addLog('No estas en modo ROOT.', 'warn');
+        }
+        break;
       case 'clear': clearLogs(); break;
       case 'ping': addLog('pong', 'success'); break;
       case 'diagnostics': runUtility(getDiagnostics, setIsFixing, 'Test completado', 'Diagnóstico Global'); break;
       case 'populate': runUtility(dbPopulate, setIsPopulating, 'Datos de prueba generados', 'Poblado de Base de Datos'); break;
       case 'fix_users': runUtility(fixUsernames, setIsFixing, 'Usernames corregidos', 'Reparación de Usernames'); break;
+      case 'ensure_db': runUtility(dbEnsure, setIsFixing, 'Base de datos verificada', 'Verificacion DB'); break;
       case 'wipe_db': setIsResetModalOpen(true); addLog('Confirmación requerida en la interfaz.', 'warn'); break;
       case 'cd': case 'ls': case 'tree': case 'pwd': case 'cwd': case 'sysinfo':
         try {
@@ -232,6 +244,19 @@ const LiveTerminal = ({
         } catch (err) { addLog(`Error: ${err.message}`, 'error'); }
         break;
       default: addLog(`Comando no reconocido: ${cmd}. Escribe 'help'.`, 'error');
+    }
+  };
+
+  const handleRestoreFile = async (event) => {
+    const file = event?.target?.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      addLog(`Restaurando desde: ${file.name}`, 'warn');
+      const result = await rootSystemRestore(file);
+      addLog(result?.message || 'Restore completado.', 'success');
+    } catch (err) {
+      addLog(`[ROOT ERROR] ${err.message}`, 'error');
     }
   };
 
@@ -294,10 +319,10 @@ const LiveTerminal = ({
                     const ext = item.name.split('.').pop().toLowerCase();
                     let Icon = Globe; let colorClass = 'text-gray-400';
                     if (item.isDirectory) { Icon = FolderOpen; colorClass = 'text-blue-500'; }
-                    else if (['js','jsx','ts','tsx','html','css'].includes(ext)) { Icon = FileCode; colorClass = 'text-amber-500'; }
+                    else if (['js', 'jsx', 'ts', 'tsx', 'html', 'css'].includes(ext)) { Icon = FileCode; colorClass = 'text-amber-500'; }
                     else if (ext === 'json') { Icon = FileJson; colorClass = 'text-emerald-500'; }
-                    else if (['png','jpg','jpeg','gif','svg'].includes(ext)) { Icon = ImageIcon; colorClass = 'text-violet-500'; }
-                    else if (['txt','md','log'].includes(ext)) { Icon = FileTextIcon; colorClass = 'text-gray-500'; }
+                    else if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) { Icon = ImageIcon; colorClass = 'text-violet-500'; }
+                    else if (['txt', 'md', 'log'].includes(ext)) { Icon = FileTextIcon; colorClass = 'text-gray-500'; }
                     return (
                       <div key={i} className="flex items-center gap-2 min-w-[140px] group/item">
                         <Icon size={14} className={`${colorClass} shrink-0 group-hover/item:scale-110 transition-transform`} />
@@ -326,6 +351,14 @@ const LiveTerminal = ({
             </div>
           </div>
         )}
+
+        <input
+          ref={restoreInputRef}
+          type="file"
+          accept=".zip,application/zip"
+          onChange={handleRestoreFile}
+          className="hidden"
+        />
 
         {/* Input area */}
         {activeTermTab === 'terminal' && (
@@ -366,7 +399,7 @@ const LiveTerminal = ({
                     setShowSuggestions(false);
                     setAvailableSuggestions([]);
                   } else if (!isPromptingPassword) {
-                    const availableContextCmds = isRoot ? [...COMMANDS_BASE, ...COMMANDS_ROOT] : COMMANDS_BASE;
+                    const availableContextCmds = [...new Set([...COMMANDS_BASE, ...COMMANDS_ROOT])];
                     const matches = availableContextCmds.filter(c => c.startsWith(val.toLowerCase()));
                     if (matches.length > 0 && !(matches.length === 1 && matches[0] === val)) {
                       setAvailableSuggestions(matches); setShowSuggestions(true); setActiveSuggestion(0);
@@ -381,13 +414,12 @@ const LiveTerminal = ({
                 autoComplete="off"
                 spellCheck="false"
               />
-              <button 
-                type="submit" 
-                className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors shadow-sm ml-1 ${
-                  command.trim() 
-                    ? 'bg-violet-600 border-violet-500 text-white hover:bg-violet-700' 
-                    : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+              <button
+                type="submit"
+                className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors shadow-sm ml-1 ${command.trim()
+                  ? 'bg-violet-600 border-violet-500 text-white hover:bg-violet-700'
+                  : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
                 disabled={!command.trim()}
                 title="Ejecutar (Enter)"
               >
@@ -405,9 +437,11 @@ const LiveTerminal = ({
             { cmd: 'help', desc: 'Manejo básico' },
             { cmd: 'enable', desc: 'Ser modo ROOT', requireRoot: false },
             { cmd: 'ls', desc: 'Lista archivos local' },
+            { cmd: 'tree', desc: 'Arbol de carpetas' },
             { cmd: 'pwd', desc: 'Directorio actual' },
             { cmd: 'ping', desc: 'Latencia y red' },
             { cmd: 'diagnostics', desc: 'Salud de la BD' },
+            { cmd: 'ensure_db', desc: 'Crear/verificar DB' },
             { cmd: 'sysinfo', desc: 'Consumo CPU/RAM' },
             { cmd: 'clear', desc: 'Limpia la terminal' },
             { cmd: 'userlist', desc: 'Listar DB Usuarios', requireRoot: true },
@@ -417,8 +451,8 @@ const LiveTerminal = ({
             { cmd: 'restore', desc: 'Poblar desde BKP', requireRoot: true },
             { cmd: 'exit', desc: 'Salir modo [ROOT]', requireRoot: true },
           ].filter(c => isRoot ? true : !c.requireRoot).map(c => (
-            <button 
-              key={c.cmd} 
+            <button
+              key={c.cmd}
               onClick={() => { setCommand(c.cmd + ' '); setTimeout(() => inputRef.current?.focus(), 50); }}
               className="bg-white border text-left border-gray-100 p-3 rounded-2xl shadow-sm hover:shadow-md hover:border-violet-300 transition-all flex flex-col gap-1 group active:scale-95"
             >
@@ -452,7 +486,7 @@ const DevDashboard = () => {
   const [currentUser, setCurrentUser] = useState({});
   const [loading, setLoading] = useState(true);
   const getColombiaTime = () => new Date().toLocaleTimeString('en-US', { timeZone: 'America/Bogota', hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
+
   const [shellLogs, setShellLogs] = useState([
     { id: 1, type: 'info', text: 'Terminal Interactiva inicializada. Esperando comandos...', timestamp: getColombiaTime() }
   ]);
@@ -464,14 +498,15 @@ const DevDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isCoreResetModalOpen, setIsCoreResetModalOpen] = useState(false);
+  const [coreResetConfirm, setCoreResetConfirm] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   const [isCompMapOpen, setIsCompMapOpen] = useState(false);
   const [selectedDev, setSelectedDev] = useState(null);
-  const [testingResult, setTestingResult] = useState(null);
-  const [isNukeModalOpen, setIsNukeModalOpen] = useState(false);
 
   // ROOT terminal
   const [rootLogs, setRootLogs] = useState([]);
+  const toolsRestoreInputRef = React.useRef(null);
 
   // DB Data
   const [dbSedes, setDbSedes] = useState([]);
@@ -561,7 +596,7 @@ const DevDashboard = () => {
 
   useEffect(() => {
     if (activeTermTab === 'root_audit') {
-      getRootLogs(0, 100).then(setRootLogs).catch(() => {});
+      getRootLogs(0, 100).then(setRootLogs).catch(() => { });
     }
   }, [activeTermTab]);
 
@@ -582,22 +617,61 @@ const DevDashboard = () => {
       addLog(`[INICIO] Ejecutando: ${actionName}...`, 'info');
       const res = await func();
       addLog(`[ÉXITO] ${res.message || successMsg}`, 'success');
-      
-      if (actionName === 'NUKE & REBUILD' && res.credentials) {
-        setTestingResult(res);
-      } else {
-        showToast(res.message || successMsg, 'success');
-      }
+
+      showToast(res.message || successMsg, 'success');
 
       if (res.status === 'healthy') {
         setDiagnostics(res);
         addLog(`[DIAG] Latencia: ${res.latency} | Usuarios: ${res.stats.users}`, 'info');
       }
+      return res;
     } catch (error) {
       addLog(`[ERROR] ${error.message}`, 'error');
       showToast(error.message, 'error');
+      return null;
     } finally {
       if (setLoadingControl) setLoadingControl(false);
+    }
+  };
+
+  const runCoreReset = async () => {
+    const res = await runUtility(dbNuke, setIsResettingDb, 'Core reconstruido', 'BORRAR CORE');
+    if (res?.credentials) {
+      addLog(`[ROOT] dev=${res.credentials.dev?.user} | admin=${res.credentials.admin?.user}`, 'warn');
+      addLog(`[ROOT] monitor_academico=${res.credentials.monitor_academico?.user} | monitor_administrativo=${res.credentials.monitor_administrativo?.user} | student=${res.credentials.student?.user}`, 'warn');
+    }
+    setIsCoreResetModalOpen(false);
+    setCoreResetConfirm('');
+  };
+
+  const handleToolsBackup = async () => {
+    try {
+      addLog('[INICIO] Generando backup del sistema...', 'info');
+      await rootSystemBackup();
+      addLog('[EXITO] Backup descargado.', 'success');
+      showToast('Backup generado correctamente.', 'success');
+    } catch (error) {
+      addLog(`[ERROR] ${error.message}`, 'error');
+      showToast(error.message, 'error');
+    }
+  };
+
+  const handleToolsRestoreClick = () => {
+    toolsRestoreInputRef.current?.click();
+  };
+
+  const handleToolsRestoreFile = async (event) => {
+    const file = event?.target?.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      addLog(`[INICIO] Restaurando backup: ${file.name}`, 'warn');
+      const result = await rootSystemRestore(file);
+      addLog(`[EXITO] ${result?.message || 'Restore completado.'}`, 'success');
+      showToast(result?.message || 'Restore completado.', 'success');
+    } catch (error) {
+      addLog(`[ERROR] ${error.message}`, 'error');
+      showToast(error.message, 'error');
     }
   };
 
@@ -740,52 +814,52 @@ const DevDashboard = () => {
         {activeTab === 'devs' && (
           <div className="space-y-8 animate-slide-up">
             <div className="bg-white rounded-[32px] p-6 md:p-8 shadow-sm border border-gray-100">
-               <div className="flex justify-between items-center mb-8">
-                  <div className="flex gap-4 items-center">
-                    <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center">
-                      <ShieldCheck size={24} />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-black text-gray-900 tracking-tight">Gestión de Desarrolladores</h2>
-                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">Control de acceso nivel ROOT</p>
-                    </div>
+              <div className="flex justify-between items-center mb-8">
+                <div className="flex gap-4 items-center">
+                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center">
+                    <ShieldCheck size={24} />
                   </div>
-                  {currentUser.is_principal && (
-                    <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-violet-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg hover:bg-violet-700 transition-all text-sm">
-                      <PlusCircle size={18} /> <span>Nuevo Developer</span>
-                    </button>
-                  )}
+                  <div>
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Gestión de Desarrolladores</h2>
+                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">Control de acceso nivel ROOT</p>
+                  </div>
                 </div>
+                {currentUser.is_principal && (
+                  <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-violet-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg hover:bg-violet-700 transition-all text-sm">
+                    <PlusCircle size={18} /> <span>Nuevo Developer</span>
+                  </button>
+                )}
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {devs.map(dev => (
-                    <div key={dev.id} className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group transition-all hover:bg-white hover:shadow-xl">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-4">
-                          <UserAvatar user={dev} size="md" />
-                          <div>
-                            <h4 className="font-bold text-gray-900 leading-tight mb-1">{dev.nombre}</h4>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate block max-w-[120px]">{dev.email}</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {currentUser.is_principal && (
-                            <>
-                              <button onClick={() => handleOpenEdit(dev)} className="p-2 text-gray-400 hover:text-violet-600">
-                                <Edit3 size={18} />
-                              </button>
-                              {dev.id !== currentUser.id && (
-                                <button onClick={() => { setSelectedDev(dev); setIsDeleteOpen(true); }} className="p-2 text-gray-400 hover:text-red-500">
-                                  <Trash2 size={18} />
-                                </button>
-                              )}
-                            </>
-                          )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {devs.map(dev => (
+                  <div key={dev.id} className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group transition-all hover:bg-white hover:shadow-xl">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-4">
+                        <UserAvatar user={dev} size="md" />
+                        <div>
+                          <h4 className="font-bold text-gray-900 leading-tight mb-1">{dev.nombre}</h4>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate block max-w-[120px]">{dev.email}</span>
                         </div>
                       </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {currentUser.is_principal && (
+                          <>
+                            <button onClick={() => handleOpenEdit(dev)} className="p-2 text-gray-400 hover:text-violet-600">
+                              <Edit3 size={18} />
+                            </button>
+                            {dev.id !== currentUser.id && (
+                              <button onClick={() => { setSelectedDev(dev); setIsDeleteOpen(true); }} className="p-2 text-gray-400 hover:text-red-500">
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -793,16 +867,16 @@ const DevDashboard = () => {
         {activeTab === 'utils' && (
           <div className="space-y-8 animate-slide-up pb-20">
             <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="flex gap-6 items-center">
-                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
-                    <Activity size={32} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-gray-900 leading-tight">Analíticas de Salud</h3>
-                    <p className="text-sm font-bold text-gray-400">Estado de latencia y volumen de datos.</p>
-                  </div>
+              <div className="flex gap-6 items-center">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+                  <Activity size={32} />
                 </div>
-                <button onClick={() => runUtility(getDiagnostics, setIsFixing, 'Diagnóstico completado', 'Diagnóstico')} className="px-6 py-4 bg-emerald-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-700 transition-all shadow-lg">Ejecutar Test</button>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 leading-tight">Analiticas de Salud</h3>
+                  <p className="text-sm font-bold text-gray-400">Estado de latencia y volumen de datos.</p>
+                </div>
+              </div>
+              <button onClick={() => runUtility(getDiagnostics, setIsFixing, 'Diagnostico completado', 'Diagnostico')} className="px-6 py-4 bg-emerald-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-700 transition-all shadow-lg">Ejecutar Test</button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -824,67 +898,130 @@ const DevDashboard = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm flex flex-col items-center text-center gap-4">
-                    <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center"><Trash2 size={24} /></div>
-                    <h4 className="font-black text-gray-900">Wipe de Actividad</h4>
-                    <button onClick={() => setIsResetModalOpen(true)} className="w-full py-4 bg-red-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-all">Limpiar Logs</button>
+            <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                  <ShieldCheck size={22} />
                 </div>
-                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm flex flex-col items-center text-center gap-4">
-                    <div className="w-14 h-14 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center"><UserCheck size={24} /></div>
-                    <h4 className="font-black text-gray-900">Normalizar Datos</h4>
-                    <button onClick={() => runUtility(fixUsernames, setIsFixing, 'Usernames corregidos', 'Normalización')} className="w-full py-4 bg-violet-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-violet-700 transition-all">Ejecutar Fix</button>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">Herramientas Normales</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Backup, importar, normalizar y mapa</p>
                 </div>
-                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm flex flex-col items-center text-center gap-4">
-                    <div className="w-14 h-14 bg-sky-50 text-sky-600 rounded-2xl flex items-center justify-center"><MapPin size={24} /></div>
-                    <h4 className="font-black text-gray-900">Mapa de Plataforma</h4>
-                    <button onClick={() => setIsCompMapOpen(true)} className="w-full py-4 bg-sky-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-sky-700 transition-all">Ver Arquitectura</button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 flex flex-col gap-4">
+                  <h4 className="font-black text-gray-900">Backup</h4>
+                  <p className="text-xs text-gray-500 font-medium">Descarga ZIP con base de datos y carpeta uploads.</p>
+                  <button
+                    onClick={handleToolsBackup}
+                    className="w-full py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-700 transition-all"
+                  >
+                    Descargar Backup
+                  </button>
                 </div>
+
+                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 flex flex-col gap-4">
+                  <h4 className="font-black text-gray-900">Importar</h4>
+                  <p className="text-xs text-gray-500 font-medium">Sube ZIP y restaura base de datos y archivos.</p>
+                  <button
+                    onClick={handleToolsRestoreClick}
+                    className="w-full py-3 bg-amber-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-amber-700 transition-all"
+                  >
+                    Subir y Restaurar
+                  </button>
+                </div>
+
+                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 flex flex-col gap-4">
+                  <h4 className="font-black text-gray-900">Normalizar</h4>
+                  <p className="text-xs text-gray-500 font-medium">Corrige usernames y encripta passwords legacy.</p>
+                  <button
+                    onClick={() => runUtility(fixUsernames, setIsFixing, 'Normalizacion completada', 'NORMALIZAR')}
+                    className="w-full py-3 bg-violet-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-violet-700 transition-all"
+                  >
+                    Ejecutar Normalizar
+                  </button>
+                </div>
+
+                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 flex flex-col gap-4">
+                  <h4 className="font-black text-gray-900">Mapa</h4>
+                  <p className="text-xs text-gray-500 font-medium">Tecnologias utilizada y arquitectura del sistema.</p>
+                  <button
+                    onClick={() => setIsCompMapOpen(true)}
+                    className="w-full py-3 bg-sky-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-sky-700 transition-all"
+                  >
+                    Ver Mapa
+                  </button>
+                </div>
+              </div>
+              <input
+                ref={toolsRestoreInputRef}
+                type="file"
+                accept=".zip,application/zip"
+                onChange={handleToolsRestoreFile}
+                className="hidden"
+              />
             </div>
 
-            {/* Testing Laboratory (ALTO RIESGO) */}
-            <div className={`p-8 rounded-[32px] border-2 border-dashed transition-all space-y-8 bg-gray-50/30 border-gray-200 mt-12`}>
+            <div className="p-8 rounded-[32px] border-2 border-dashed transition-all space-y-8 bg-gray-50/30 border-gray-200 mt-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                    <Shield className="text-violet-600" size={22} /> Laboratorio de Testing (ALTO RIESGO)
+                    <Shield className="text-violet-600" size={22} /> Laboratorio de Testing
                   </h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Solo para entornos de desarrollo y staging</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Borrar QR, borrar core y simular interaccion</p>
                 </div>
-                <div className="px-3 py-1 bg-violet-100 text-violet-600 rounded-full text-[9px] font-black uppercase">Test Suite v3.2</div>
+                <div className="px-3 py-1 bg-violet-100 text-violet-600 rounded-full text-[9px] font-black uppercase">LAB SUITE</div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col gap-5">
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-red-100 text-red-600 rounded-2xl"><AlertTriangle size={24} /></div>
                     <div>
-                      <h4 className="font-extrabold text-gray-900">NUKE & REBUILD</h4>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Reset Total + Cuentas Root</p>
+                      <h4 className="font-extrabold text-gray-900">BORRAR QR</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Limpieza de laboratorio</p>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 font-medium leading-relaxed">Elimina todos los datos y recrea automáticamente las cuentas maestras de Administración y Desarrollo.</p>
-                  <button onClick={() => setIsNukeModalOpen(true)} className="w-full py-4 bg-red-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-black transition-all shadow-lg">Nuclear Sistema</button>
+                  <p className="text-xs text-gray-500 font-medium leading-relaxed">Elimina asistencias, escaneos QR, almuerzos y codigos QR para reiniciar pruebas.</p>
+                  <button onClick={() => runUtility(resetScans, setIsResettingDb, 'Escaneos limpiados', 'BORRAR QR')} disabled={isResettingDb} className="w-full py-4 bg-red-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-all disabled:opacity-50">
+                    {isResettingDb ? 'Limpiando...' : 'Borrar QR'}
+                  </button>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col gap-5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-black/5 text-black rounded-2xl"><Trash2 size={24} /></div>
+                    <div>
+                      <h4 className="font-extrabold text-gray-900">BORRAR CORE</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Reset total + roles root</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium leading-relaxed">Limpia el db, reconstruye cuentas por defecto (dev, admin, monitor_academico, monitor_administrativo, student).</p>
+                  <button onClick={() => setIsCoreResetModalOpen(true)} disabled={isResettingDb} className="w-full py-4 bg-black text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-gray-900 transition-all disabled:opacity-50">
+                    {isResettingDb ? 'Reconstruyendo...' : 'Borrar Core'}
+                  </button>
                 </div>
 
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col gap-5">
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-violet-100 text-violet-600 rounded-2xl"><PlusCircle size={24} /></div>
                     <div>
-                      <h4 className="font-extrabold text-gray-900">GENERAR VOLUMEN</h4>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Poblado masivo (35 registros)</p>
+                      <h4 className="font-extrabold text-gray-900">SIMULAR INTERACCION</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">usuarios + asistencia + foros</p>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 font-medium leading-relaxed">Genera 20 estudiantes, 10 monitores, foros, hilos y actividad de asistencia masiva para pruebas de carga.</p>
-                  <button onClick={() => runUtility(dbPopulateVolume, setIsPopulating, 'Volumen generado', 'POBLAR VOLUMEN')} disabled={isPopulating} className="w-full py-4 bg-violet-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-violet-700 transition-all disabled:opacity-50">
-                    {isPopulating ? 'Poblando...' : 'Poblar Volumen'}
+                  <p className="text-xs text-gray-500 font-medium leading-relaxed">Genera datos de prueba para flujo real: usuarios, modulos, registros, asistencias y preguntas/respuestas de foro.</p>
+                  <button onClick={() => runUtility(dbPopulateVolume, setIsPopulating, 'Interaccion simulada cargada', 'SIMULAR INTERACCION')} disabled={isPopulating} className="w-full py-4 bg-violet-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-violet-700 transition-all disabled:opacity-50">
+                    {isPopulating ? 'Generando...' : 'Cargar Simulacion'}
                   </button>
                 </div>
               </div>
             </div>
+
+
           </div>
         )}
-
         {activeTab === 'console' && (
           <div className="animate-slide-up pb-20">
             <LiveTerminal
@@ -901,6 +1038,7 @@ const DevDashboard = () => {
               getDiagnostics={getDiagnostics}
               setIsFixing={setIsFixing}
               dbPopulate={dbPopulate}
+              dbEnsure={dbEnsure}
               setIsPopulating={setIsPopulating}
               fixUsernames={fixUsernames}
               setIsResetModalOpen={setIsResetModalOpen}
@@ -909,6 +1047,8 @@ const DevDashboard = () => {
               rootEnable={rootEnable}
               rootMemberAction={rootMemberAction}
               rootFileAction={rootFileAction}
+              rootSystemBackup={rootSystemBackup}
+              rootSystemRestore={rootSystemRestore}
               FolderOpen={FolderOpen}
               FileTextIcon={FileTextIcon}
               FileCode={FileCode}
@@ -965,13 +1105,52 @@ const DevDashboard = () => {
         </div>
       </Modal>
 
+      <Modal isOpen={isCoreResetModalOpen} onClose={() => setIsCoreResetModalOpen(false)} title="Confirmar Borrado Core">
+        <div className="space-y-6 py-4">
+          <div className="p-4 rounded-2xl bg-red-50 border border-red-100">
+            <p className="text-sm font-black text-red-700 uppercase tracking-widest">Accion critica</p>
+            <p className="text-xs text-red-700 font-bold mt-2">
+              Esta accion borra todos los datos de la base de datos, reinicia contadores y luego reconstruye roles root + datos de simulacion.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Escribe BORRAR CORE para continuar</label>
+            <input
+              value={coreResetConfirm}
+              onChange={(e) => setCoreResetConfirm(e.target.value)}
+              placeholder="BORRAR CORE"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-gray-100 bg-white font-black text-gray-900 outline-none focus:border-red-300"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={runCoreReset}
+              disabled={coreResetConfirm.trim().toUpperCase() !== 'BORRAR CORE' || isResettingDb}
+              className="w-full py-4 bg-black text-white font-black rounded-2xl shadow-lg hover:bg-gray-900 transition-all disabled:opacity-50"
+            >
+              {isResettingDb ? 'Reconstruyendo...' : 'Confirmar Borrado Core'}
+            </button>
+            <button
+              onClick={() => setIsCoreResetModalOpen(false)}
+              className="w-full py-4 bg-white text-gray-400 font-bold border-2 border-gray-100 rounded-2xl"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal isOpen={isCompMapOpen} onClose={() => setIsCompMapOpen(false)} title="Arquitectura del Sistema">
         <div className="space-y-4 py-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
           {[
-            { name: "Motor de Usuarios DB", desc: "Gestión unificada, roles y sesiones.", icon: <Users size={20} /> },
-            { name: "Asistencias & Track QR", desc: "Generación de IDs dinámicas y validación.", icon: <Activity size={20} /> },
-            { name: "Módulo Foros y Red P2P", desc: "Chat sincrónico y reportes rápidos.", icon: <Globe size={20} /> },
-            { name: "Boletería de Almuerzos", desc: "Tickets limitados y validación diaria.", icon: <BookOpen size={20} /> }
+            { name: "Frontend", desc: "React 18 + Vite + Tailwind + Framer Motion para UI y navegacion por roles.", icon: <Users size={20} /> },
+            { name: "Backend API", desc: "Node.js + Express con servicios y repositorios separados por dominio.", icon: <Activity size={20} /> },
+            { name: "Tiempo Real", desc: "Socket.IO para notificaciones en vivo y logs de consola DEV.", icon: <Globe size={20} /> },
+            { name: "Persistencia", desc: "MySQL con ensure_db, schema bootstrap y backup/restore en ZIP.", icon: <BookOpen size={20} /> },
+            { name: "Seguridad", desc: "bcrypt para credenciales y control de acceso por roles can�nicos.", icon: <ShieldCheck size={20} /> },
+            { name: "Flujo QR", desc: "Generacion, validacion, trazabilidad y limpieza de laboratorio de pruebas.", icon: <MapPin size={20} /> }
           ].map((item, idx) => (
             <div key={idx} className="flex gap-4 p-5 rounded-[24px] border border-gray-100 bg-white shadow-sm">
               <div className="text-sky-500 bg-sky-50 p-2.5 rounded-xl h-fit">{item.icon}</div>
@@ -980,47 +1159,11 @@ const DevDashboard = () => {
           ))}
         </div>
       </Modal>
-
-      <Modal isOpen={isNukeModalOpen} onClose={() => setIsNukeModalOpen(false)} title="RECONSTRUCCIÓN NUCLEAR">
-        <div className="p-2 space-y-6 text-center">
-            <div className="p-6 bg-red-50 text-red-600 rounded-3xl flex flex-col items-center gap-4">
-                <AlertTriangle size={48} className="animate-bounce" />
-                <h3 className="text-xl font-black uppercase">¿NUCLEAR SISTEMA?</h3>
-                <p className="text-sm font-bold opacity-80 leading-relaxed">Esta acción borrará ABSOLUTAMENTE TODO y reinstalará las cuentas raíz.</p>
-            </div>
-            <div className="flex flex-col gap-3">
-                <button onClick={async () => { setIsNukeModalOpen(false); await runUtility(dbNuke, setIsResettingDb, 'Sistema reconstruido', 'NUKE & REBUILD'); }} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all">SI, NUCLEAR Y RECONSTRUIR</button>
-                <button onClick={() => setIsNukeModalOpen(false)} className="w-full py-3 text-gray-400 font-bold text-xs uppercase">Cancelar</button>
-            </div>
-        </div>
-      </Modal>
-
-      <Modal isOpen={!!testingResult} onClose={() => { setTestingResult(null); window.location.reload(); }} title="Credenciales Institucionales">
-        <div className="p-2 space-y-6">
-            <div className="p-6 bg-emerald-50 text-emerald-600 rounded-3xl flex flex-col items-center gap-2">
-                <ShieldCheck size={40} /><h3 className="text-lg font-black uppercase">Sistema Reconstruido</h3><p className="text-xs font-bold text-center">Guarda estas credenciales (Cierre automático tras aceptar).</p>
-            </div>
-            <div className="space-y-3">
-                <div className="p-4 bg-white border-2 border-emerald-100 rounded-2xl">
-                    <p className="text-[10px] font-black text-emerald-600 uppercase mb-2">Dev Root</p>
-                    <div className="grid grid-cols-2 gap-4 font-mono text-[11px]">
-                        <div><span className="text-gray-400">User:</span> <span className="font-bold text-gray-900">{testingResult?.credentials?.dev?.user}</span></div>
-                        <div><span className="text-gray-400">Pass:</span> <span className="font-bold text-gray-900">{testingResult?.credentials?.dev?.pass}</span></div>
-                    </div>
-                </div>
-                <div className="p-4 bg-white border-2 border-brand-blue/10 rounded-2xl">
-                    <p className="text-[10px] font-black text-brand-blue uppercase mb-2">Admin Master</p>
-                    <div className="grid grid-cols-2 gap-4 font-mono text-[11px]">
-                        <div><span className="text-gray-400">User:</span> <span className="font-bold text-gray-900">{testingResult?.credentials?.admin?.user}</span></div>
-                        <div><span className="text-gray-400">Pass:</span> <span className="font-bold text-gray-900">{testingResult?.credentials?.admin?.pass}</span></div>
-                    </div>
-                </div>
-            </div>
-            <button onClick={() => { setTestingResult(null); window.location.reload(); }} className="w-full py-5 bg-emerald-600 text-white font-black rounded-2xl shadow-xl hover:bg-emerald-700">Aceptar y Cerrar Sesión</button>
-        </div>
-      </Modal>
     </div>
   );
 };
 
 export default DevDashboard;
+
+
+

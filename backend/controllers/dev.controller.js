@@ -1,13 +1,32 @@
-import pool from '../utils/mysql.helper.js';
+import pool, { ensureDatabaseExists } from '../utils/mysql.helper.js';
 import testingService from '../services/testing.service.js';
 import bcrypt from 'bcryptjs';
 import os from 'os';
+import path from 'path';
+import fs from 'fs-extra';
+import { fileURLToPath } from 'url';
+import { ensureSchema } from '../utils/schema-init.helper.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const BACKEND_ROOT = path.resolve(__dirname, '..');
+const UPLOADS_ROOT = path.resolve(BACKEND_ROOT, 'uploads');
 
 /**
  * DevController - Centraliza las operaciones técnicas solicitadas por el usuario.
  * Estas funciones reemplazan la ejecución manual de archivos en la carpeta /scripts.
  */
 const devController = {
+  ensureDatabase: async (req, res) => {
+    try {
+      await ensureDatabaseExists();
+      await ensureSchema();
+      res.json({ success: true, message: 'Base de datos verificada y esquema sincronizado.' });
+    } catch (error) {
+      console.error('Error in ensureDatabase:', error);
+      res.status(500).json({ error: 'No se pudo verificar o crear la base de datos.' });
+    }
+  },
   
   // Script: reset_db.js
   resetDatabase: async (req, res) => {
@@ -52,8 +71,8 @@ const devController = {
     try {
       // 1. Monitores
       const monitors = [
-        ['Elena Monitora', 'elena_m', 'elena@monitores.com', '123', 'monitor', 1],
-        ['Marcos Monitor', 'marcos_m', 'marcos@monitores.com', '123', 'monitor', 1]
+        ['Elena Monitora', 'elena_m', 'elena@monitores.com', '123', 'monitor_academico', 1],
+        ['Marcos Monitor', 'marcos_m', 'marcos@monitores.com', '123', 'monitor_academico', 1]
       ];
 
       for (const m of monitors) {
@@ -64,7 +83,7 @@ const devController = {
       }
 
       // Obtener IDs de monitores creados
-      const [monitorRows] = await pool.query('SELECT id, nombre, email FROM users WHERE role = "monitor"');
+      const [monitorRows] = await pool.query('SELECT id, nombre, email FROM users WHERE role = "monitor_academico"');
 
       // 2. Módulos
       const modules = [
@@ -205,6 +224,11 @@ const devController = {
       const cmdParts = (command || '').trim().split(' ').filter(p => p);
       if (cmdParts.length === 0) return res.status(400).json({ error: 'Comando vacío' });
       const mainCmd = cmdParts[0].toLowerCase();
+      if (mainCmd === 'ensure_db') {
+        await ensureDatabaseExists();
+        await ensureSchema();
+        return res.json({ result: 'Base de datos verificada y esquema sincronizado.' });
+      }
       
       const fs = await import('fs');
       const path = await import('path');
@@ -252,27 +276,28 @@ const devController = {
       if (mainCmd === 'tree') {
         const targetPath = cmdParts[1] ? path.resolve(activeCwd, cmdParts[1]) : activeCwd;
         if (!fs.existsSync(targetPath)) return res.json({ result: `tree: ${cmdParts[1] || ''}: No existe el directorio` });
+
         const buildTree = (dir, prefix = '') => {
-            let result = '';
-            try {
-                const files = fs.readdirSync(dir).filter(f => !['node_modules', '.git', '.env'].includes(f));
-                files.forEach((file, index) => {
-                    const isLast = index === files.length - 1;
-                    const filePath = path.join(dir, file);
-                    result += `${prefix}${isLast ? '└── ' : '├── '}${file}\n`;
-                    if (fs.statSync(filePath).isDirectory()) {
-                        result += buildTree(filePath, prefix + (isLast ? '    ' : '│   '));
-                    }
-                });
-            } catch (e) {
-                result += `${prefix}└── [Permiso denegado]\n`;
-            }
-            return result;
+          let result = '';
+          try {
+            const files = fs.readdirSync(dir).filter(f => !['node_modules', '.git', '.env'].includes(f));
+            files.forEach((file, index) => {
+              const isLast = index === files.length - 1;
+              const filePath = path.join(dir, file);
+              result += `${prefix}${isLast ? '+-- ' : '+-- '}${file}\n`;
+              if (fs.statSync(filePath).isDirectory()) {
+                result += buildTree(filePath, prefix + (isLast ? '    ' : '|   '));
+              }
+            });
+          } catch (e) {
+            result += `${prefix}+-- [Permiso denegado]\n`;
+          }
+          return result;
         };
+
         const treeStr = `${path.basename(targetPath)}\n${buildTree(targetPath)}`;
         return res.json({ result: treeStr });
       }
-
       if (mainCmd === 'pwd' || mainCmd === 'cwd') {
         return res.json({ result: activeCwd });
       }
@@ -304,7 +329,7 @@ const devController = {
       
       // If we are at the beginning, suggest commands
       if (parts.length === 0) {
-        const commands = ['help', 'clear', 'ping', 'diagnostics', 'populate', 'fix_users', 'wipe_db', 'ls', 'tree', 'pwd', 'sysinfo', 'cd'];
+        const commands = ['help', 'clear', 'ping', 'diagnostics', 'populate', 'fix_users', 'wipe_db', 'ls', 'tree', 'pwd', 'sysinfo', 'cd', 'ensure_db', 'exit', 'backup', 'restore'];
         return res.json(commands.filter(c => c.startsWith(lastPart.toLowerCase())));
       }
 
@@ -467,7 +492,7 @@ const devController = {
       if (action === 'role') {
         const [targetId, newRole] = args;
         if (!targetId || !newRole) return res.status(400).json({ error: 'ID y rol requeridos.' });
-        const validRoles = ['student', 'monitor', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'];
+        const validRoles = ['student', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'];
         if (!validRoles.includes(newRole)) return res.status(400).json({ error: `Rol inválido. Válidos: ${validRoles.join(', ')}` });
         await pool.query('UPDATE users SET role = ? WHERE id = ?', [newRole, Number(targetId)]);
         await pool.query(
@@ -480,12 +505,17 @@ const devController = {
       if (action === 'add') {
         const [nombre, email, role, password] = args;
         if (!nombre || !email || !role || !password) return res.status(400).json({ error: 'nombre, email, rol y contraseña requeridos.' });
+        const validRoles = ['student', 'monitor_academico', 'monitor_administrativo', 'admin', 'dev'];
+        const normalizedRole = String(role || '').toLowerCase();
+        if (!validRoles.includes(normalizedRole)) {
+          return res.status(400).json({ error: `Rol invalido. Validos: ${validRoles.join(', ')}` });
+        }
         const bcrypt = await import('bcryptjs');
         const hashed = await bcrypt.hash(password, 10);
         const username = email.split('@')[0] + '_' + Date.now();
         const [result] = await pool.query(
           'INSERT INTO users (nombre, username, email, password, role, is_active, createdAt) VALUES (?, ?, ?, ?, ?, 1, NOW())',
-          [nombre, username, email, hashed, role]
+          [nombre, username, email, hashed, normalizedRole]
         );
         await pool.query(
           'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
@@ -592,41 +622,49 @@ const devController = {
     try {
       const userId = req.user?.id;
       const [[caller]] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-      if (!caller?.is_principal) return res.status(403).json({ error: 'Operación denegada.' });
+      if (!caller?.is_principal) return res.status(403).json({ error: 'Operacion denegada.' });
 
-      // Build JSON Backup
-      const [tables] = await pool.query("SHOW TABLES");
+      const [tables] = await pool.query('SHOW TABLES');
       const dbDump = {};
       for (const row of tables) {
         const tableName = Object.values(row)[0];
         const [tableData] = await pool.query(`SELECT * FROM \`${tableName}\``);
         dbDump[tableName] = tableData;
       }
-      const dumpStr = JSON.stringify(dbDump, null, 2);
 
       const AdmZip = (await import('adm-zip')).default;
-      const fs = await import('fs');
-      const path = await import('path');
-      
       const zip = new AdmZip();
-      zip.addFile('db_backup.json', Buffer.from(dumpStr, 'utf-8'));
-      
-      const staticDirs = ['uploads'];
-      for (const dir of staticDirs) {
-        const fullPath = path.resolve(process.cwd(), dir);
-        if (fs.existsSync(fullPath)) {
-          zip.addLocalFolder(fullPath, dir);
-        }
+      zip.addFile('db_backup.json', Buffer.from(JSON.stringify(dbDump, null, 2), 'utf-8'));
+      zip.addFile(
+        'backup_manifest.json',
+        Buffer.from(
+          JSON.stringify(
+            {
+              generated_at: new Date().toISOString(),
+              generated_by: caller.nombre,
+              tables: Object.keys(dbDump),
+              uploads_included: fs.existsSync(UPLOADS_ROOT)
+            },
+            null,
+            2
+          ),
+          'utf-8'
+        )
+      );
+
+      if (fs.existsSync(UPLOADS_ROOT)) {
+        zip.addLocalFolder(UPLOADS_ROOT, 'uploads');
       }
 
       await pool.query(
         'INSERT INTO activity_logs (user_id, action, entity_type, metadata, created_at) VALUES (?, ?, ?, ?, NOW())',
-        [userId, 'ROOT_BACKUP_GENERATE', 'system', JSON.stringify({ caller: caller.nombre })]
+        [userId, 'ROOT_BACKUP_GENERATE', 'system', JSON.stringify({ caller: caller.nombre, tables: Object.keys(dbDump).length })]
       );
 
       const zipBuffer = zip.toBuffer();
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename=root_backup_${Date.now()}.zip`);
+      res.setHeader('Content-Disposition', `attachment; filename=monitores_backup_${stamp}.zip`);
       res.setHeader('Content-Length', zipBuffer.length);
       return res.send(zipBuffer);
     } catch (error) {
@@ -639,58 +677,126 @@ const devController = {
     try {
       const userId = req.user?.id;
       const [[caller]] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-      if (!caller?.is_principal) return res.status(403).json({ error: 'Operación denegada.' });
+      if (!caller?.is_principal) return res.status(403).json({ error: 'Operacion denegada.' });
 
       if (!req.file || !req.file.buffer) {
         return res.status(400).json({ error: 'Falta el archivo ZIP.' });
       }
 
       const AdmZip = (await import('adm-zip')).default;
-      const fs = await import('fs-extra');
-      const path = await import('path');
-
       const zip = new AdmZip(req.file.buffer);
       const dbEntry = zip.getEntry('db_backup.json');
-      if (!dbEntry) return res.status(400).json({ error: 'ZIP inválido. No se encontró db_backup.json.' });
+      if (!dbEntry) return res.status(400).json({ error: 'ZIP invalido. No se encontro db_backup.json.' });
 
       const rawJson = dbEntry.getData().toString('utf-8');
       const dbDump = JSON.parse(rawJson);
+      if (!dbDump || typeof dbDump !== 'object' || Array.isArray(dbDump)) {
+        return res.status(400).json({ error: 'db_backup.json no tiene un formato valido.' });
+      }
 
       const connection = await pool.getConnection();
+      const restoredTables = [];
       try {
         await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+        const [existingTableRows] = await connection.query('SHOW TABLES');
+        const existingTables = new Set(existingTableRows.map((row) => String(Object.values(row)[0])));
+
         for (const [tableName, rows] of Object.entries(dbDump)) {
-          await connection.query(`TRUNCATE TABLE \`${tableName}\``);
-          if (rows && rows.length > 0) {
-            // Bulk insert handling
-            const chunkSize = 500;
-            for (let i = 0; i < rows.length; i += chunkSize) {
-              const chunk = rows.slice(i, i + chunkSize);
-              const fields = Object.keys(chunk[0]).map(k => `\`${k}\``).join(', ');
-              const values = chunk.map(r => 
-                `(${Object.values(r).map(v => v === null ? 'NULL' : connection.escape(v)).join(', ')})`
-              ).join(', ');
-              await connection.query(`INSERT INTO \`${tableName}\` (${fields}) VALUES ${values}`);
-            }
+          if (!existingTables.has(tableName)) continue;
+
+          await connection.query(`DELETE FROM \`${tableName}\``);
+          if (!Array.isArray(rows) || rows.length === 0) {
+            restoredTables.push({ table: tableName, rows: 0 });
+            continue;
           }
+
+          const [columnRows] = await connection.query(`SHOW COLUMNS FROM \`${tableName}\``);
+          const allowedColumns = new Set(columnRows.map((col) => col.Field));
+
+          const safeRows = rows
+            .filter((row) => row && typeof row === 'object' && !Array.isArray(row))
+            .map((row) => {
+              const next = {};
+              for (const [key, value] of Object.entries(row)) {
+                if (allowedColumns.has(key)) next[key] = value;
+              }
+              return next;
+            })
+            .filter((row) => Object.keys(row).length > 0);
+
+          if (safeRows.length === 0) {
+            restoredTables.push({ table: tableName, rows: 0 });
+            continue;
+          }
+
+          const chunkSize = 250;
+          for (let i = 0; i < safeRows.length; i += chunkSize) {
+            const chunk = safeRows.slice(i, i + chunkSize);
+            const fields = Object.keys(chunk[0]);
+            const escapedFields = fields.map((key) => `\`${key}\``).join(', ');
+            const rowPlaceholder = `(${fields.map(() => '?').join(', ')})`;
+            const placeholders = chunk.map(() => rowPlaceholder).join(', ');
+            const params = chunk.flatMap((row) => fields.map((field) => row[field]));
+            await connection.query(
+              `INSERT INTO \`${tableName}\` (${escapedFields}) VALUES ${placeholders}`,
+              params
+            );
+          }
+
+          restoredTables.push({ table: tableName, rows: safeRows.length });
         }
-        await connection.query('SET FOREIGN_KEY_CHECKS = 1');
-      } catch (err) {
+      } catch (error) {
+        throw error;
+      } finally {
         await connection.query('SET FOREIGN_KEY_CHECKS = 1');
         connection.release();
-        throw err;
       }
-      connection.release();
 
-      // Extracción estática de archivos al sistema
-      zip.extractAllTo(process.cwd(), true);
+      await fs.ensureDir(UPLOADS_ROOT);
+      await fs.emptyDir(UPLOADS_ROOT);
+
+      let restoredFiles = 0;
+      for (const entry of zip.getEntries()) {
+        const entryName = String(entry.entryName || '').replace(/\\/g, '/');
+        if (!entryName.startsWith('uploads/')) continue;
+
+        const relativePath = entryName.slice('uploads/'.length);
+        if (!relativePath || relativePath.includes('..')) continue;
+
+        const destination = path.resolve(UPLOADS_ROOT, relativePath);
+        const uploadsPrefix = `${UPLOADS_ROOT}${path.sep}`;
+        if (destination !== UPLOADS_ROOT && !destination.startsWith(uploadsPrefix)) continue;
+
+        if (entry.isDirectory) {
+          await fs.ensureDir(destination);
+          continue;
+        }
+
+        await fs.ensureDir(path.dirname(destination));
+        await fs.writeFile(destination, entry.getData());
+        restoredFiles += 1;
+      }
 
       await pool.query(
         'INSERT INTO activity_logs (user_id, action, entity_type, metadata, created_at) VALUES (?, ?, ?, ?, NOW())',
-        [userId, 'ROOT_RESTORE_EXE', 'system', JSON.stringify({ caller: caller.nombre })]
+        [
+          userId,
+          'ROOT_RESTORE_EXE',
+          'system',
+          JSON.stringify({
+            caller: caller.nombre,
+            restoredTables,
+            restoredFiles
+          })
+        ]
       );
 
-      return res.json({ success: true, message: 'Restore destructivo completado con éxito.' });
+      return res.json({
+        success: true,
+        message: 'Restore completado con exito.',
+        restored_tables: restoredTables,
+        restored_files: restoredFiles
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: error.message });
@@ -699,3 +805,6 @@ const devController = {
 };
 
 export default devController;
+
+
+

@@ -204,7 +204,7 @@ const AdminDashboard = () => {
 
   // Forms
   const [formData, setFormData] = useState({
-    nombre: '', username: '', email: '', role: 'monitor', sede: '', cuatrimestre: '', foto: '', password: ''
+    nombre: '', username: '', email: '', role: 'monitor_academico', sede: '', cuatrimestre: '', foto: '', password: ''
   });
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' });
   const [moduleFormData, setModuleFormData] = useState({
@@ -243,9 +243,9 @@ const AdminDashboard = () => {
 
       // Initial loads for counts
       const [allU] = await Promise.all([getAllUsers()]);
-      setMonitors(allU.filter(u => ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(String(u.role || ''))));
+      setMonitors(allU.filter(u => ['monitor_academico', 'monitor_administrativo'].includes(String(u.role || ''))));
       setAdmins(allU.filter(u => u.role === 'admin'));
-      setStudents(allU.filter(u => ['student', 'estudiante'].includes(String(u.role || ''))));
+      setStudents(allU.filter(u => ['student'].includes(String(u.role || ''))));
       setDevs(allU.filter(u => u.role === 'dev'));
 
       setMonitorModules(modules || []);
@@ -314,7 +314,7 @@ const AdminDashboard = () => {
   }, [statusTarget]);
 
   const resetForm = () => {
-    setFormData({ nombre: '', username: '', email: '', role: 'monitor', sede: dbSedes[0] || '', cuatrimestre: dbCuatrimestres[0] || '', foto: '', password: '' });
+    setFormData({ nombre: '', username: '', email: '', role: 'monitor_academico', sede: dbSedes[0] || '', cuatrimestre: dbCuatrimestres[0] || '', foto: '', password: '' });
     setPasswordData({ password: '', confirmPassword: '' });
   };
 
@@ -323,7 +323,7 @@ const AdminDashboard = () => {
     try {
       const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
       const payload = { ...formData, currentUserId: session.id };
-      const isMonitor = ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(formData.role);
+      const isMonitor = ['monitor_academico', 'monitor_administrativo'].includes(formData.role);
       if (isMonitor) await createMonitor(payload);
       else await createUser(payload);
       setIsNewMonitorOpen(false);
@@ -341,7 +341,7 @@ const AdminDashboard = () => {
       nombre: user.nombre || '',
       username: user.username || '',
       email: user.email || '',
-      role: user.role || 'monitor',
+      role: user.role || 'monitor_academico',
       sede: user.sede || '',
       cuatrimestre: user.cuatrimestre || '',
       foto: user.foto || '',
@@ -414,7 +414,7 @@ const AdminDashboard = () => {
 
   const executeDelete = async () => {
     try {
-      if (['monitor', 'monitor_academico', 'monitor_administrativo'].includes(deleteTarget.type)) {
+      if (['monitor_academico', 'monitor_administrativo'].includes(deleteTarget.type)) {
         await deleteMonitor(deleteTarget.user.id);
       } else {
         await deleteUser(deleteTarget.user.id);

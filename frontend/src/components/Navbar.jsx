@@ -50,6 +50,16 @@ const Navbar = () => {
       socket = io('http://localhost:3000');
       socket.emit('join_user', user.id);
       socket.on('new_notification', (data) => {
+        if (data?.event === 'notifications_read_all') {
+          setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+          return;
+        }
+
+        if (data?.event === 'notification_deleted') {
+          setNotifications((prev) => prev.filter((n) => Number(n.id) !== Number(data.notificationId)));
+          return;
+        }
+
         const activeForumId = localStorage.getItem('monitores_active_forum_id');
         const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id;
 
