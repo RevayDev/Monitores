@@ -2,6 +2,7 @@ import usersRepository from '../repositories/mysql/users.repository.js';
 import monitoriasRepository from '../repositories/mysql/monitorias.repository.js';
 import engagementRepository from '../repositories/mysql/engagement.repository.js';
 import { deleteFile } from '../utils/upload.helper.js';
+import bcrypt from 'bcryptjs';
 
 class UsersService {
   normalizeRole(role) {
@@ -34,7 +35,14 @@ class UsersService {
   async login(identifier, role, password) {
     if (!identifier || !password) throw new Error('Credenciales incorrectas');
     const user = await usersRepository.findByEmailOrUsername(identifier);
-    if (!user || user.password !== password) {
+    if (!user) throw new Error('Credenciales incorrectas');
+    
+    // Support both plain text (legacy) and hashed passwords
+    const isMatch = user.password.startsWith('$2') 
+      ? await bcrypt.compare(password, user.password)
+      : user.password === password;
+
+    if (!isMatch) {
       throw new Error('Credenciales incorrectas');
     }
     const incoming = this.normalizeRole(role);
@@ -54,8 +62,10 @@ class UsersService {
 
   async signup(userData) {
     await this.assertUniqueUser({ email: userData.email, username: userData.username });
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
     const user = await usersRepository.create({
       ...userData,
+      password: hashedPassword,
       role: 'estudiante'
     });
     await engagementRepository.createNotification({
@@ -68,8 +78,8 @@ class UsersService {
     return { ...user, baseRole: 'student' };
   }
 
-  async getAllUsers() {
-    return await usersRepository.getAll();
+  async getAllUsers(role = null) {
+    return await usersRepository.getAll(role);
   }
 
   async getUserById(id) {
@@ -101,7 +111,8 @@ class UsersService {
       }
     }
     await this.assertUniqueUser({ email: userData.email, username: userData.username });
-    const created = await usersRepository.create({ ...userData, role: requestedRole });
+    const hashedPassword = await bcrypt.hash(userData.password || '123', 10);
+    const created = await usersRepository.create({ ...userData, password: hashedPassword, role: requestedRole });
     await engagementRepository.createNotification({
       userId: created.id,
       type: 'account_created_by_admin',
@@ -119,18 +130,26 @@ class UsersService {
     const updater = await usersRepository.findById(updaterId);
     if (!updater) throw new Error('Usuario actualizador no encontrado.');
 
-    // If target is dev, only principal dev can modify
+    // If target is dev, only principal dev can modify. 
+    // AND security rule: No dev can edit another dev.
     const targetRole = this.normalizeRole(target.role);
     const updaterRole = this.normalizeRole(updater.role);
-    if (targetRole === 'dev') {
-      if (updaterRole !== 'dev' || !updater.is_principal) {
-        throw new Error('Solo el Developer Principal puede modificar cuentas de desarrolladores.');
+    
+    // Allow self-editing for basic fields, but block sensitive fields
+    const isSelfEditing = String(updaterId) === String(id);
+    const sensitiveFields = ['role', 'is_active', 'is_principal', 'restrictions'];
+    
+    if (isSelfEditing) {
+      const attemptingSensitiveChange = sensitiveFields.some(field => userData[field] !== undefined && userData[field] !== target[field]);
+      if (attemptingSensitiveChange) {
+        throw new Error("No puedes auto-asignarte privilegios o cambiar tu estado de cuenta.");
       }
-    }
-
-    // If target is admin, only principal admin can modify (excluding self)
-    if (targetRole === 'admin' && target.id !== updater.id) {
-      if (!updater.is_principal || updaterRole !== 'admin') {
+    } else {
+      // Logic for editing OTHER users
+      if (targetRole === 'dev' && updaterRole === 'dev') {
+        throw new Error("No puedes editar otro desarrollador");
+      }
+      if (targetRole === 'admin' && !updater.is_principal) {
         throw new Error('Solo el Administrador Principal puede modificar otros administradores.');
       }
     }
@@ -183,6 +202,10 @@ class UsersService {
     const nextEmail = userData.email || target.email;
     const nextUsername = userData.username || target.username;
     await this.assertUniqueUser({ email: nextEmail, username: nextUsername }, id);
+
+    if (userData.password && !userData.password.startsWith('$2')) {
+      userData.password = await bcrypt.hash(userData.password, 10);
+    }
 
     const updated = await usersRepository.update(id, userData);
 

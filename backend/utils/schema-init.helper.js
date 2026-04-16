@@ -227,7 +227,23 @@ const statements = [
   `ALTER TABLE users ADD UNIQUE KEY IF NOT EXISTS uq_users_username (username)`,
   `ALTER TABLE replies ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP`,
   `ALTER TABLE complaints ADD COLUMN IF NOT EXISTS tipo VARCHAR(100)`,
-  `ALTER TABLE complaints ADD COLUMN IF NOT EXISTS reported_id INT`
+  `ALTER TABLE complaints ADD COLUMN IF NOT EXISTS reported_id INT`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS comment TEXT NULL`,
+  `ALTER TABLE attendance ADD COLUMN IF NOT EXISTS rating TINYINT NULL`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS restrictions JSON NULL`,
+  `ALTER TABLE academic_session_attendance ADD COLUMN IF NOT EXISTS comment TEXT NULL`,
+  `CREATE TABLE IF NOT EXISTS forum_reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type ENUM('thread', 'reply') NOT NULL,
+    target_id INT NOT NULL,
+    reporter_id INT NOT NULL,
+    reported_id INT NOT NULL,
+    reason TEXT NOT NULL,
+    status ENUM('pending', 'resolved') DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME NULL,
+    resolved_by INT NULL
+  )`
 ];
 
 export const ensureSchema = async () => {

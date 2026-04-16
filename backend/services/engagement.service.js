@@ -683,6 +683,7 @@ class EngagementService {
       });
     }
 
+    const mentionIds = this.extractMentionIds(content);
     if (mentionIds.length) {
       const mentionedUsers = await engagementRepository.getUsersByIdsInModule(moduleId, mentionIds);
       await Promise.all(
@@ -938,13 +939,31 @@ class EngagementService {
     return engagementRepository.getForumReports(queryFilters);
   }
 
-  async resolveReport(userId, reportId) {
+  async resolveReport(userId, reportId, resolutionNote) {
     const user = await engagementRepository.getUserById(userId);
     if (!['admin', 'dev', 'monitor', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
       throw new Error('No autorizado.');
     }
-    await engagementRepository.resolveForumReport(reportId, userId);
+    await engagementRepository.resolveForumReport(reportId, userId, resolutionNote);
+    
+    // Create activity log for the resolution
+    await engagementRepository.createActivityLog({
+      userId,
+      action: 'FORUM_REPORT_RESOLVED',
+      entityType: 'forum_report',
+      entityId: reportId,
+      metadata: { resolved_by: user?.nombre || 'Admin', resolution_note: resolutionNote || null }
+    });
+
     return { success: true };
+  }
+
+  async getModerationLogs(userId) {
+    const user = await engagementRepository.getUserById(userId);
+    if (!['admin', 'dev', 'monitor', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
+      throw new Error('No autorizado.');
+    }
+    return engagementRepository.getActivityLogs({ action: 'FORUM_REPORT_RESOLVED' });
   }
 
   async updateForumReply(userId, replyId, payload) {

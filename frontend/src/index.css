@@ -203,18 +203,144 @@ textarea.bg-transparent::selection {
 /* Shake Bell Animation */
 @keyframes shake-bell {
   0% { transform: rotate(0); }
-  15% { transform: rotate(15deg); }
-  30% { transform: rotate(-15deg); }
-  45% { transform: rotate(10deg); }
+  10% { transform: rotate(20deg); }
+  20% { transform: rotate(-20deg); }
+  30% { transform: rotate(15deg); }
+  40% { transform: rotate(-15deg); }
+  50% { transform: rotate(10deg); }
   60% { transform: rotate(-10deg); }
-  75% { transform: rotate(5deg); }
-  85% { transform: rotate(-5deg); }
   100% { transform: rotate(0); }
 }
 
 .animate-shake-bell {
   display: inline-block;
-  animation: shake-bell 0.6s cubic-bezier(.36,.07,.19,.97) both;
+  animation: shake-bell 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Pulse Golden Animation for Mentions */
+@keyframes pulse-gold {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 2s infinite;
+}
+
+/* --- Forum UX Enhancements --- */
+.is-author-badge {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.is-me-message {
+  background: linear-gradient(to right, #f0f9ff, #e0f2fe) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+.scroll-bottom-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 40;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.scroll-bottom-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+.unread-bubble {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  border: 2px solid white;
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+  animation: bounce-slow 2s infinite;
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* --- Admin Reports UI --- */
+.report-card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.report-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.05);
+}
+
+.report-resolved {
+  opacity: 0.7;
+  background: #f8fafc;
+  border-left: 4px solid #10b981 !important;
+}
+
+.report-pending {
+  border-left: 4px solid #f59e0b;
+}
+
+.audit-log-item {
+  position: relative;
+  padding-left: 20px;
+}
+
+.audit-log-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.is-me-card {
+  background-color: #eff6ff !important; /* blue-50 */
+  border-color: #bfdbfe !important; /* blue-200 */
+}
+
+.mention-me-tag {
+  background-color: #fef3c7 !important; /* amber-100 */
+  color: #92400e !important; /* amber-800 */
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.2);
+  border: 1px solid #fde68a;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 800;
+  animation: pulse-gold 2s infinite;
 }
 
 /* Slide In Right Animation */

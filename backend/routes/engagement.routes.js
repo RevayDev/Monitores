@@ -56,6 +56,12 @@ router.post('/forum/upload', requireUserContext, forumUpload.single('file'), eng
 router.get('/forums', requireUserContext, engagementController.getForums);
 router.get('/forums/module/:moduleId', requireUserContext, engagementController.getForumsByModule);
 router.get('/forums/module/:moduleId/members', requireUserContext, engagementController.getForumMembers);
+// Reportes
+router.post('/forums/report', requireUserContext, engagementController.reportForum);
+router.get('/forums/reports', requireUserContext, engagementController.getReports);
+router.get('/forums/reports/logs', requireUserContext, engagementController.getModerationLogs);
+router.post('/forums/reports/:id/resolve', requireUserContext, engagementController.resolveReport);
+
 router.post('/forums', requireUserContext, engagementController.createForum);
 router.get('/forums/:id', requireUserContext, engagementController.getForum);
 router.post('/forums/:id/comment', requireUserContext, engagementController.createForumComment);
@@ -71,10 +77,7 @@ router.post('/forums/:id/save', requireUserContext, engagementController.toggleF
 router.delete('/forums/:id', requireUserContext, engagementController.deleteForum);
 router.get('/stats/admin', requireUserContext, engagementController.getAdminStats);
 
-// Reportes
-router.post('/forums/report', requireUserContext, engagementController.reportForum);
-router.get('/forums/reports', requireUserContext, engagementController.getReports);
-router.post('/forums/reports/:id/resolve', requireUserContext, engagementController.resolveReport);
+
 
 // DEV ONLY: Reset functional scan data
 router.post('/dev/reset-scans', requireUserContext, engagementController.resetScans);

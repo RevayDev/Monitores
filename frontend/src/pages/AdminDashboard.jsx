@@ -26,6 +26,7 @@ import {
   adminDeleteModule,
   getForumReports,
   resolveForumReport,
+  getModerationLogs,
   request
 } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
@@ -55,12 +56,17 @@ import {
   Info,
   LogOut as LogOutIcon,
   Lock,
-  GraduationCap,
   Check,
   BarChart3,
   PieChart,
+  GraduationCap,
   UtensilsCrossed,
-  MessageSquare
+  MessageSquare,
+  FileCode,
+  FileJson,
+  FileText as FileTextIcon,
+  Image as ImageIcon,
+  FolderOpen
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
@@ -161,11 +167,17 @@ const AdminDashboard = () => {
   // Toggles
   const [isNewMonitorOpen, setIsNewMonitorOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [memberSubTab, setMemberSubTab] = useState('student');
   const [reports, setReports] = useState([]);
+  const [moderationLogs, setModerationLogs] = useState([]);
   const [resolvingReportId, setResolvingReportId] = useState(null);
+  const [resolveNote, setResolveNote] = useState('');
+  const [resolveTarget, setResolveTarget] = useState(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isEditModuleOpen, setIsEditModuleOpen] = useState(false);
+  const [isConfirmDeleteModuleOpen, setIsConfirmDeleteModuleOpen] = useState(false);
+  const [moduleToDelete, setModuleToDelete] = useState(null);
 
   // UI State
   const [loading, setLoading] = useState(true);
@@ -187,7 +199,7 @@ const AdminDashboard = () => {
     login: false, signup: false, monitorias: false, adminPanel: false, monitorPanel: false, global: false
   });
   const [localRestrictions, setLocalRestrictions] = useState({
-    login: false, search: false, dashboards: false, registrations: false
+    login: false, dashboards: false, modules: false, profile: false
   });
 
   // Forms
@@ -199,11 +211,27 @@ const AdminDashboard = () => {
     modulo: '', monitor: '', monitorId: '', sede: '', cuatrimestre: ''
   });
 
+  const fetchUsersByRole = async (role) => {
+    try {
+      setLoading(true);
+      const users = await getAllUsers(role);
+      if (role === 'student') setStudents(users);
+      else if (role === 'staff') {
+        const [adm, dv] = await Promise.all([getAllUsers('admin'), getAllUsers('dev')]);
+        setAdmins(adm);
+        setDevs(dv);
+      }
+    } catch (error) {
+      showToast('Error al filtrar miembros', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [users, modules, sedesList, progsList, modsList, cuatsList, adminModules, academicMods] = await Promise.all([
-        getAllUsers(),
+      const [modules, sedesList, progsList, modsList, cuatsList, adminModules, academicMods] = await Promise.all([
         getMonitorias(),
         getSedes(),
         getProgramas(),
@@ -213,10 +241,12 @@ const AdminDashboard = () => {
         request('/academic/modules')
       ]);
 
-      setMonitors(users.filter(u => ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(String(u.role || ''))));
-      setAdmins(users.filter(u => u.role === 'admin'));
-      setStudents(users.filter(u => ['student', 'estudiante'].includes(String(u.role || ''))));
-      setDevs(users.filter(u => u.role === 'dev'));
+      // Initial loads for counts
+      const [allU] = await Promise.all([getAllUsers()]);
+      setMonitors(allU.filter(u => ['monitor', 'monitor_academico', 'monitor_administrativo'].includes(String(u.role || ''))));
+      setAdmins(allU.filter(u => u.role === 'admin'));
+      setStudents(allU.filter(u => ['student', 'estudiante'].includes(String(u.role || ''))));
+      setDevs(allU.filter(u => u.role === 'dev'));
 
       setMonitorModules(modules || []);
       setAllAdminModules(adminModules || []);
@@ -239,6 +269,12 @@ const AdminDashboard = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsersByRole(memberSubTab);
+    }
+  }, [memberSubTab, activeTab]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -267,9 +303,9 @@ const AdminDashboard = () => {
         const parsed = typeof statusTarget.restrictions === 'string' ? JSON.parse(statusTarget.restrictions) : (statusTarget.restrictions || {});
         setLocalRestrictions({
           login: parsed.login || false,
-          search: parsed.search || false,
           dashboards: parsed.dashboards || false,
-          registrations: parsed.registrations || false
+          modules: parsed.modules || false,
+          profile: parsed.profile || false
         });
       } catch {
         setLocalRestrictions({ login: false, search: false, dashboards: false, registrations: false });
@@ -316,25 +352,34 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'reports') {
-      loadReports();
+      fetchReportsData();
     }
   }, [activeTab]);
 
-  const loadReports = async () => {
+  const fetchReportsData = async () => {
+    if (!session?.id) return;
     try {
-      const data = await getForumReports();
-      setReports(data || []);
+      const [pending, logs] = await Promise.all([
+        getForumReports(),
+        getModerationLogs()
+      ]);
+      setReports(pending || []);
+      setModerationLogs(logs || []);
     } catch (error) {
-      showToast(error.message || 'Error al cargar reportes', 'error');
+      if (session?.id) {
+        showToast(error.message || 'Error al cargar datos de moderación', 'error');
+      }
     }
   };
 
-  const handleResolveReport = async (reportId) => {
+  const handleResolveReport = async (reportId, note) => {
     setResolvingReportId(reportId);
     try {
-      await resolveForumReport(reportId);
-      showToast('Reporte marcado como resuelto', 'success');
-      loadReports();
+      await resolveForumReport(reportId, note);
+      showToast('Reporte resuelto correctamente', 'success');
+      setResolveTarget(null);
+      setResolveNote('');
+      fetchReportsData();
     } catch (error) {
       showToast(error.message || 'Error al resolver reporte', 'error');
     } finally {
@@ -414,14 +459,19 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteModule = async (id) => {
-    if (!window.confirm('¿Eliminar módulo permanentemente?')) return;
+  const handleDeleteModule = (id) => {
+    setModuleToDelete(id);
+    setIsConfirmDeleteModuleOpen(true);
+  };
+
+  const executeDeleteModule = async () => {
     try {
-      await adminDeleteModule(id);
+      await adminDeleteModule(moduleToDelete);
+      setIsConfirmDeleteModuleOpen(false);
       fetchData();
-      showToast('Modulo eliminado', 'success');
-    } catch {
-      showToast('Error al eliminar', 'error');
+      showToast('Modulo eliminado correctamente', 'success');
+    } catch (error) {
+      showToast('Error al eliminar modulo', 'error');
     }
   };
 
@@ -490,29 +540,32 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6">
-        <header className="bg-orange-600 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl transition-all duration-700">
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-center md:text-left space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-md mb-2">
-                <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(251,146,60,1)]"></span>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-50">Control de Gobierno</span>
+        <header className="bg-orange-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6">
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-orange-500 border border-orange-400">
+                <ShieldCheck size={36} className="text-orange-50" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-none mb-1">
-                Panel Administrativo
-              </h1>
-              <p className="text-orange-100 text-sm font-medium opacity-90 max-w-md">
-                Gestión centralizada de privilegios, estadísticas y auditoría institucional.
-              </p>
+              <div className="space-y-1.5 pt-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-500 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-orange-200 rounded-full"></div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-orange-50">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
+                </div>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none">
+                  Panel Administrativo
+                </h1>
+                <p className="text-orange-100 text-xs font-medium opacity-90 max-w-md leading-snug">
+                  Gestión centralizada de privilegios, estadísticas y auditoría institucional.
+                </p>
+              </div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-black/10 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-inner">
+            <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-orange-700 rounded-2xl">
               {[
-                { id: 'overview', label: 'Resumen', icon: <PieChart size={16} /> },
                 { id: 'users', label: 'Miembros', icon: <Users size={16} /> },
                 { id: 'modules', label: 'Monitorías', icon: <BookOpen size={16} /> },
                 { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
-                { id: 'complaints', label: 'Denuncias', icon: <MessageSquare size={16} /> },
-                { id: 'config', label: 'Sistema', icon: <Settings size={16} /> }
+                { id: 'reports', label: 'Reportes', icon: <MessageSquare size={16} /> }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -542,7 +595,7 @@ const AdminDashboard = () => {
             <section className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                  <Activity className="text-brand-blue" /> Estadísticas Globales
+                  <Activity className="text-orange-600" /> Estadísticas Globales
                 </h3>
                 <div className="flex items-center gap-3">
                   <select
@@ -560,15 +613,15 @@ const AdminDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                     <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Asistencias Totales</p>
-                    <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.total_assistances || 0}</p>
+                    <p className="text-3xl font-black text-orange-600">{globalStats.totals?.total_assistances || 0}</p>
                   </div>
                   <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Rating Promedio</p>
-                    <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.average_rating || 'N/A'}</p>
+                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Reportes de Moderación</p>
+                    <p className="text-3xl font-black text-orange-600">{reports.length || 0}</p>
                   </div>
                   <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                     <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Estudiantes Activos</p>
-                    <p className="text-3xl font-black text-brand-blue">{globalStats.totals?.unique_students || 0}</p>
+                    <p className="text-3xl font-black text-orange-600">{globalStats.totals?.unique_students || 0}</p>
                   </div>
                 </div>
               )}
@@ -582,7 +635,7 @@ const AdminDashboard = () => {
                     {Object.entries(memberStats.totals || {}).slice(0, 3).map(([key, value]) => (
                       <div key={key} className="bg-white rounded-xl border border-gray-100 p-4">
                         <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">{key.replaceAll('_', ' ')}</p>
-                        <p className="text-2xl font-black text-brand-blue">{value ?? 0}</p>
+                        <p className="text-2xl font-black text-orange-600">{value ?? 0}</p>
                       </div>
                     ))}
                   </div>
@@ -665,40 +718,57 @@ const AdminDashboard = () => {
                 <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
                   {activeTab === 'users' ? <><Users className="text-orange-500" /> Directorio Institucional</> : 
                    activeTab === 'modules' ? <><BookOpen className="text-orange-500" /> Módulos Académicos</> :
-                   activeTab === 'reports' ? <><AlertTriangle className="text-orange-500" /> Centro de Reportes</> :
-                   activeTab === 'config' ? <><Settings className="text-orange-500" /> Sistema</> : null}
+                   activeTab === 'reports' ? <><AlertTriangle className="text-orange-500" /> Centro de Reportes</> : null}
                 </h3>
               </div>
 
-              {activeTab !== 'config' && (
-                <button
-                  onClick={() => {
-                    resetForm();
-                    const roleMap = { users: 'student', modules: 'monitor_academico' };
-                    setFormData(prev => ({ ...prev, role: roleMap[activeTab] || 'student' }));
-                    setIsNewMonitorOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-8 py-3.5 bg-brand-blue text-white rounded-2xl font-black text-xs shadow-lg hover:bg-brand-dark-blue hover:shadow-xl active:scale-95 transition-all text-nowrap"
-                >
-                  <PlusCircle size={16} /> Registrar Miembro
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  resetForm();
+                  const roleMap = { users: 'student', modules: 'monitor_academico' };
+                  setFormData(prev => ({ ...prev, role: roleMap[activeTab] || 'student' }));
+                  setIsNewMonitorOpen(true);
+                }}
+                className="flex items-center gap-2 px-8 py-3.5 bg-brand-blue text-white rounded-2xl font-black text-xs shadow-lg hover:bg-brand-dark-blue hover:shadow-xl active:scale-95 transition-all text-nowrap"
+              >
+                <PlusCircle size={16} /> Registrar Miembro
+              </button>
             </div>
 
-            {activeTab !== 'config' && (
-              <div className="px-8 py-5 bg-white border-b border-gray-50 flex items-center gap-4">
-                <div className="relative flex-1 group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-brand-blue transition-colors" size={18} />
-                  <input
-                    type="text"
-                    placeholder="Buscar en esta sección por nombre, correo, usuario o sede..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-brand-blue/5 focus:bg-white focus:border-brand-blue/20 transition-all placeholder:text-gray-400 shadow-inner"
-                  />
-                </div>
+            {activeTab === 'users' && (
+              <div className="px-8 py-3 bg-white border-b border-gray-100 flex items-center gap-2">
+                {[
+                  { id: 'student', label: 'Estudiantes' },
+                  { id: 'monitor', label: 'Monitores' },
+                  { id: 'staff', label: 'Staff (Admin/Dev)' }
+                ].map(sub => (
+                  <button
+                    key={sub.id}
+                    onClick={() => setMemberSubTab(sub.id)}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                      memberSubTab === sub.id 
+                        ? 'bg-orange-600 text-white shadow-lg' 
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
               </div>
             )}
+
+            <div className="px-8 py-5 bg-white border-b border-gray-50 flex items-center gap-4">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-brand-blue transition-colors" size={18} />
+                <input
+                  type="text"
+                  placeholder="Buscar en esta sección por nombre, correo, usuario o sede..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-brand-blue/5 focus:bg-white focus:border-brand-blue/20 transition-all placeholder:text-gray-400 shadow-inner"
+                />
+              </div>
+            </div>
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -707,19 +777,7 @@ const AdminDashboard = () => {
                 transition={{ duration: 0.2 }}
                 className="overflow-x-auto"
               >
-                {activeTab === 'config' ? (
-                  <div className="p-10 space-y-10">
-                    <div className="flex items-center gap-4 bg-brand-blue/5 p-6 rounded-[24px] border border-brand-blue/10">
-                      <Info className="text-brand-blue shrink-0" size={24} />
-                      <p className="text-sm font-bold text-brand-blue leading-relaxed">Configuración global del sistema. Cambia el estado de mantenimiento de los módulos principales aquí.</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {Object.entries(maintenance).map(([key, val]) => (
-                        <MaintToggle key={key} id={key} title={key.charAt(0).toUpperCase() + key.slice(1)} subtitle="Estado de Servicio" icon={Settings} active={val} onToggle={handleToggleMaintenance} />
-                      ))}
-                    </div>
-                  </div>
-                ) : activeTab === 'modules' ? (
+                {activeTab === 'modules' ? (
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
@@ -730,17 +788,21 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {allAdminModules.filter(mod => {
+                      {allAdminModules.sort((a, b) => {
+                        const aOrph = !(a.monitorId && monitors.some(m => m.id === a.monitorId));
+                        const bOrph = !(b.monitorId && monitors.some(m => m.id === b.monitorId));
+                        return aOrph - bOrph;
+                      }).filter(mod => {
                         const search = searchTerm.toLowerCase();
                         return mod.modulo?.toLowerCase().includes(search) || mod.monitor?.toLowerCase().includes(search) || mod.sede?.toLowerCase().includes(search);
                       }).map(mod => {
                         const monitorExists = mod.monitorId && monitors.some(m => m.id === mod.monitorId);
                         return (
-                          <tr key={mod.id} className="hover:bg-gray-50 transition-all group border-b border-gray-50">
+                          <tr key={mod.id} className={`hover:bg-gray-50 transition-all group border-b border-gray-50 ${!monitorExists ? 'opacity-40 grayscale bg-gray-100/50 cursor-not-allowed' : ''}`}>
                             <td className="px-8 py-6">
                               <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors flex items-center gap-2">
                                 {mod.modulo}
-                                {!monitorExists && <span className="text-[8px] bg-red-100 text-red-600 px-2 py-0.5 rounded uppercase font-black">Huérfano</span>}
+                                {!monitorExists && <span className="text-[7px] bg-red-100 text-red-600 px-1 py-0.5 rounded uppercase font-black">Módulo Huérfano</span>}
                               </p>
                               <p className="text-[9px] text-gray-400 font-black">REF: #{mod.id}</p>
                             </td>
@@ -754,7 +816,7 @@ const AdminDashboard = () => {
                                 ) : (
                                   <>
                                     <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-400"><AlertTriangle size={16} /></div>
-                                    <div><p className="text-xs font-black text-gray-500">Tutor no disponible</p><p className="text-[8px] text-gray-400 font-black uppercase italic">Requiere reasignación</p></div>
+                                    <div><p className="text-xs font-black text-gray-500">----</p><p className="text-[8px] text-gray-400 font-black uppercase italic">Requiere reasignación</p></div>
                                   </>
                                 )}
                               </div>
@@ -777,50 +839,159 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 ) : activeTab === 'reports' ? (
-                  <div className="bg-white overflow-hidden">
-                    <div className="p-8 border-b border-gray-100 bg-amber-50/30 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xl font-black text-amber-900 tracking-tight">Reportes de Moderación</h3>
-                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-1">Revisión de contenido reportado por la comunidad</p>
+                  <div className="p-8 space-y-8 animate-slide-up">
+                    {/* Header Summary */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-orange-50 border border-orange-100 p-6 rounded-3xl">
+                        <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Pendientes de Revisión</p>
+                        <p className="text-3xl font-black text-orange-900">{reports.length}</p>
                       </div>
-                      <button onClick={loadReports} className="p-3 bg-white text-amber-600 rounded-2xl border border-amber-100 shadow-sm hover:shadow-md transition-all active:scale-90">
-                        <Clock size={20} />
-                      </button>
+                      <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl">
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Acciones en Historial</p>
+                        <p className="text-3xl font-black text-emerald-900">{moderationLogs.length}</p>
+                      </div>
                     </div>
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="text-[10px] uppercase font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
-                          <th className="px-8 py-6">Autor Reportado</th>
-                          <th className="px-8 py-6">Evidencia / Motivo</th>
-                          <th className="px-8 py-6 text-right">Moderación</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Active Reports Column */}
+                      <div className="space-y-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                            <AlertTriangle className="text-orange-500" size={18} /> Alertas de Comunidad
+                          </h4>
+                          <button onClick={fetchReportsData} className="p-2 text-gray-400 hover:text-orange-600 transition-colors">
+                            <Clock size={18} />
+                          </button>
+                        </div>
+
                         {reports.length === 0 ? (
-                          <tr><td colSpan="3" className="px-8 py-20 text-center italic text-gray-400 font-bold">Sin reportes pendientes.</td></tr>
+                          <div className="bg-gray-50 border border-dashed border-gray-200 rounded-3xl py-12 text-center">
+                            <Check className="mx-auto text-emerald-500 mb-3" size={32} />
+                            <p className="text-xs font-bold text-gray-400">Todo en orden. No hay reportes pendientes.</p>
+                          </div>
                         ) : (
-                          reports.map(rep => (
-                            <tr key={rep.id} className="hover:bg-gray-50 transition-all">
-                              <td className="px-8 py-6">
-                                <div className="flex items-center gap-4">
-                                  <UserAvatar user={{ nombre: rep.reported_name }} size="sm" />
-                                  <div><p className="font-extrabold text-gray-900">{rep.reported_name}</p></div>
+                          <div className="space-y-4">
+                            {reports.map(rep => (
+                              <div key={rep.id} className="bg-white p-6 rounded-3xl shadow-sm border-l-4 border-orange-400 border border-gray-100">
+                                {/* Report header */}
+                                <div className="flex justify-between items-start gap-4 mb-4">
+                                  <div className="space-y-1">
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded tracking-tighter">
+                                      {rep.type === 'thread' ? 'HILO REPORTADO' : 'MENSAJE REPORTADO'}
+                                    </span>
+                                    <h5 className="text-sm font-black text-gray-900 line-clamp-1">{rep.chat_topic || 'Sin tema'}</h5>
+                                    <p className="text-[9px] font-bold text-gray-400">{new Date(rep.created_at).toLocaleString()}</p>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                    {rep.modulo_id && rep.chat_id && (
+                                      <a
+                                        href={`/forum/${rep.modulo_id}?forumId=${rep.chat_id}`}
+                                        target="_blank" rel="noreferrer"
+                                        className="p-2 rounded-xl border border-gray-200 text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5 transition-all"
+                                        title="Ir al hilo en el foro"
+                                      >
+                                        <MessageSquare size={14} />
+                                      </a>
+                                    )}
+                                    <button
+                                      disabled={resolvingReportId === rep.id}
+                                      onClick={() => { setResolveTarget(rep); setResolveNote(''); }}
+                                      className="px-4 py-2 bg-orange-500 text-white text-[9px] font-black uppercase rounded-xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 active:scale-95 disabled:opacity-50"
+                                    >
+                                      {resolvingReportId === rep.id ? '...' : 'Resolver'}
+                                    </button>
+                                  </div>
                                 </div>
-                              </td>
-                              <td className="px-8 py-6"><p className="text-sm font-bold text-gray-700">"{rep.reason}"</p></td>
-                              <td className="px-8 py-6 text-right">
-                                <button
-                                  onClick={() => handleResolveReport(rep.id)}
-                                  className="px-6 py-2.5 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-2xl"
-                                >
-                                  Marcar Resuelto
-                                </button>
-                              </td>
-                            </tr>
-                          ))
+
+                                {/* Snippet */}
+                                <div className="bg-gray-50 p-3 rounded-2xl mb-4 border border-gray-100">
+                                  <p className="text-xs text-gray-600 italic leading-relaxed line-clamp-3">"{rep.content_snippet}"</p>
+                                </div>
+
+                                {/* Accused vs Reporter */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="flex items-center gap-2 bg-red-50/60 p-3 rounded-2xl border border-red-100">
+                                    <div className="shrink-0">
+                                      {rep.reported_photo ? (
+                                        <img src={rep.reported_photo} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-red-200" />
+                                      ) : (
+                                        <div className="w-8 h-8 rounded-full bg-red-200 flex items-center justify-center text-red-700 font-black text-[11px]">
+                                          {String(rep.reported_name || 'U').charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">Acusado</p>
+                                      <p className="text-[10px] font-black text-gray-900 truncate">{rep.reported_name}</p>
+                                      <p className="text-[8px] font-bold text-gray-400 uppercase">{rep.reported_role}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 bg-blue-50/60 p-3 rounded-2xl border border-blue-100">
+                                    <div className="shrink-0">
+                                      {rep.reporter_photo ? (
+                                        <img src={rep.reporter_photo} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-blue-200" />
+                                      ) : (
+                                        <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-black text-[11px]">
+                                          {String(rep.reporter_name || 'U').charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Denunciante</p>
+                                      <p className="text-[10px] font-black text-gray-900 truncate">{rep.reporter_name}</p>
+                                      <p className="text-[8px] font-bold text-orange-600 uppercase font-black">{rep.reason}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                      </tbody>
-                    </table>
+                      </div>
+
+                      {/* Resolution Logs Column */}
+                      <div className="space-y-6">
+                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2 mb-4">
+                          <ShieldCheck className="text-emerald-500" size={18} /> Log de Auditoría
+                        </h4>
+
+                        <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                          <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+                            {moderationLogs.length === 0 ? (
+                              <div className="p-12 text-center text-gray-400 italic text-[10px] font-bold tracking-widest">
+                                HISTORIAL VACÍO
+                              </div>
+                            ) : (
+                              moderationLogs.map(log => {
+                                const meta = typeof log.metadata === 'string' ? JSON.parse(log.metadata || '{}') : (log.metadata || {});
+                                return (
+                                  <div key={log.id} className="p-5 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-start justify-between gap-4">
+                                      <div className="space-y-1 min-w-0">
+                                        <p className="text-[10px] font-black text-gray-900 uppercase">
+                                          Reporte #{log.entity_id} · Resuelto
+                                        </p>
+                                        <p className="text-[9px] font-bold text-gray-400">
+                                          Moderador: <span className="text-emerald-600 font-black">{meta.resolved_by || log.user_name || 'Desconocido'}</span>
+                                        </p>
+                                        {meta.resolution_note && (
+                                          <p className="text-[9px] text-gray-500 italic truncate" title={meta.resolution_note}>
+                                            💬 {meta.resolution_note}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <time className="text-[8px] font-black text-gray-400 uppercase whitespace-nowrap pt-1 shrink-0">
+                                        {new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </time>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <table className="w-full text-left border-collapse">
@@ -833,7 +1004,7 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {[...devs, ...admins, ...monitors, ...students].filter(u => {
+                      {(memberSubTab === 'student' ? students : memberSubTab === 'monitor' ? monitors : [...admins, ...devs]).filter(u => {
                         const search = searchTerm.toLowerCase();
                         return u.nombre?.toLowerCase().includes(search) || u.email?.toLowerCase().includes(search) || u.username?.toLowerCase().includes(search);
                       }).map(user => {
@@ -843,7 +1014,17 @@ const AdminDashboard = () => {
                             <td className="px-8 py-6">
                               <div className="flex items-center gap-4">
                                 <UserAvatar user={user} size="md" />
-                                <div><p className="font-extrabold text-gray-900">{user.nombre}</p><p className="text-[10px] text-gray-400 font-bold uppercase italic">ID: {user.id}</p></div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-extrabold text-gray-900">{user.nombre}</p>
+                                    {session.id === user.id ? (
+                                      <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-[8px] font-black uppercase rounded">Tu perfil</span>
+                                    ) : user.role === 'dev' ? (
+                                      <span className="px-1.5 py-0.5 bg-violet-100 text-violet-600 text-[8px] font-black uppercase rounded">Protegido</span>
+                                    ) : null}
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase italic">ID: {user.id}</p>
+                                </div>
                               </div>
                             </td>
                             <td className="px-8 py-6"><span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-black uppercase tracking-wider italic">@{user.username}</span></td>
@@ -856,7 +1037,14 @@ const AdminDashboard = () => {
                             </td>
                             <td className="px-8 py-6 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                {session.id !== user.id && (
+                                {session.id === user.id ? (
+                                  <span className="px-3 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-black uppercase rounded-xl border border-orange-200 shadow-sm">Tu Perfil Actual</span>
+                                ) : user.role === 'dev' ? (
+                                  <>
+                                    <button onClick={() => openUserStatsModal(user)} title="Ver Estadísticas" className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-brand-blue bg-white shadow-sm mr-2 hover:shadow"><BarChart3 size={16} /></button>
+                                    <span className="px-3 py-1.5 bg-violet-100 text-violet-600 text-[10px] font-black uppercase rounded-xl border border-violet-200 shadow-sm">Desarrollador Protegido</span>
+                                  </>
+                                ) : (
                                   <>
                                     <button onClick={() => openUserStatsModal(user)} className="p-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-brand-blue"><BarChart3 size={16} /></button>
                                     <button onClick={() => handleEditUser(user)} className="p-2.5 text-gray-400 hover:text-brand-blue rounded-xl"><Edit3 size={18} /></button>
@@ -879,6 +1067,60 @@ const AdminDashboard = () => {
       </div>
 
       {/* Modals placed outside main container for clarity and to avoid nesting errors */}
+
+      {/* Resolve Report Modal */}
+      <Modal isOpen={!!resolveTarget} onClose={() => { setResolveTarget(null); setResolveNote(''); }} title="Resolver Reporte">
+        {resolveTarget && (
+          <div className="space-y-5 py-2">
+            <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl space-y-2">
+              <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest">{resolveTarget.type === 'thread' ? 'Hilo' : 'Mensaje'} reportado</p>
+              <p className="text-sm font-black text-gray-900">{resolveTarget.chat_topic || 'Sin tema'}</p>
+              {resolveTarget.content_snippet && (
+                <p className="text-xs text-gray-500 italic line-clamp-2">"{resolveTarget.content_snippet}"</p>
+              )}
+              <div className="flex gap-3 pt-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-red-200 flex items-center justify-center text-red-700 font-black text-[9px]">
+                    {String(resolveTarget.reported_name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-[9px] text-red-600 font-black">Acusado: {resolveTarget.reported_name}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-black text-[9px]">
+                    {String(resolveTarget.reporter_name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-[9px] text-blue-600 font-black">Denunciante: {resolveTarget.reporter_name}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block tracking-widest">Motivo de Resolución *</label>
+              <textarea
+                value={resolveNote}
+                onChange={e => setResolveNote(e.target.value)}
+                placeholder="Describe la acción tomada y el motivo de la resolución..."
+                className="w-full h-28 bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all resize-none"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setResolveTarget(null); setResolveNote(''); }}
+                className="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-2xl hover:bg-gray-200 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!resolveNote.trim() || resolvingReportId === resolveTarget.id}
+                onClick={() => handleResolveReport(resolveTarget.id, resolveNote)}
+                className="flex-1 py-4 bg-orange-500 text-white font-black rounded-2xl shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resolvingReportId === resolveTarget.id ? 'Resolviendo...' : 'Confirmar Resolución'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal isOpen={isNewMonitorOpen} onClose={() => { setIsNewMonitorOpen(false); resetForm(); }} title="Registrar en Sistema Central">
         <form onSubmit={handleCreate} className="space-y-5 py-2">
           <InputField label="Cargo Institucional" type="select" value={formData.role}
@@ -894,21 +1136,108 @@ const AdminDashboard = () => {
 
       <Modal isOpen={isEditUserOpen} onClose={() => setIsEditUserOpen(false)} title="Modificar Entidad">
         <form onSubmit={confirmUpdateUser} className="space-y-5 py-2">
-          <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
-          <InputField label="Correo" icon={<Mail />} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-          <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-2xl shadow-xl">Actualizar Registro</button>
+          {session.id === selectedUser?.id ? (
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] font-bold text-amber-700 leading-relaxed flex items-start gap-2">
+              <AlertTriangle className="shrink-0 mt-0.5" size={14} />
+              No puedes editar tu propio perfil desde el panel administrativo. Por favor usa la sección Mi Perfil.
+            </div>
+          ) : (
+            <>
+              {(session.role === 'dev' && selectedUser?.role === 'dev') && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-[11px] font-bold text-red-700 leading-relaxed flex items-start gap-2">
+                  <Lock className="shrink-0 mt-0.5" size={14} />
+                  No tienes autorización para editar otros perfiles de desarrollador.
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
+                <InputField label="Usuario" icon={<UserCheck />} value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
+              </div>
+              <InputField label="Correo Institucional" icon={<Mail />} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+              <div className="grid grid-cols-2 gap-4">
+                <InputField label="Cargo" type="select" options={[{ value: 'student', label: 'Estudiante' }, { value: 'monitor_academico', label: 'Monitor' }, { value: 'admin', label: 'Admin' }, { value: 'dev', label: 'Developer' }]} value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} />
+                <InputField label="Sede" type="select" options={dbSedes.map(s => ({ value: s, label: s }))} value={formData.sede} onChange={e => setFormData({ ...formData, sede: e.target.value })} />
+              </div>
+              <InputField label="Ciclo" type="select" options={dbCuatrimestres.map(c => ({ value: c, label: c }))} value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })} />
+              <InputField label="Restablecer Contraseña" icon={<Lock />} type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="Dejar vacío para mantener actual" />
+              
+              <button 
+                type="submit" 
+                disabled={session.role === 'dev' && selectedUser?.role === 'dev'}
+                className={`w-full py-5 bg-orange-600 text-white font-black rounded-2xl shadow-xl transition-all ${session.role === 'dev' && selectedUser?.role === 'dev' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-700 active:scale-95'}`}
+              >
+                Actualizar Registro Permanente
+              </button>
+            </>
+          )}
         </form>
       </Modal>
 
       <Modal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} title="Seguridad Institucional">
-        <div className="space-y-8 text-center py-6">
-          <p className="text-xl font-black">{statusTarget?.nombre}</p>
-          <button onClick={async () => {
-            try {
-              await updateUser(statusTarget.id, { is_active: !localRestrictions.login ? 1 : 0, currentUserId: session.id });
-              fetchData(); setIsStatusModalOpen(false); showToast('Sincronizado', 'success');
-            } catch { showToast('Error', 'error'); }
-          }} className="w-full py-5 bg-brand-blue text-white font-black rounded-3xl shadow-xl">Guardar Cambios</button>
+        <div className="space-y-6 py-4">
+          <div className="bg-amber-50 p-5 rounded-3xl border border-amber-100 flex items-center gap-4">
+            <UserAvatar user={statusTarget} size="md" />
+            <div>
+              <p className="text-sm font-black text-gray-900">{statusTarget?.nombre}</p>
+              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest italic">{statusTarget?.role}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Restricciones de Operación</p>
+            
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                { id: 'login', label: 'Bloquear Inicio de Sesión', icon: Lock, color: 'text-red-600', bg: 'bg-red-50' },
+                { id: 'dashboards', label: 'Restringir Paneles (Admin/Mon)', icon: Activity, color: 'text-orange-600', bg: 'bg-orange-50' },
+                { id: 'modules', label: 'Bloquear Gestión de Módulos', icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { id: 'profile', label: 'Bloquear Edición de Perfil', icon: ShieldCheck, color: 'text-violet-600', bg: 'bg-violet-50' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setLocalRestrictions(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                  className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${localRestrictions[item.id] ? `border-${item.color.split('-')[1]}-200 ${item.bg}` : 'border-gray-50 bg-gray-50/50 hover:border-gray-100'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon size={18} className={localRestrictions[item.id] ? item.color : 'text-gray-400'} />
+                    <span className={`text-xs font-black ${localRestrictions[item.id] ? 'text-gray-900' : 'text-gray-500'}`}>{item.label}</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${localRestrictions[item.id] ? `bg-${item.color.split('-')[1]}-600 border-transparent` : 'border-gray-200'}`}>
+                    {localRestrictions[item.id] && <Check size={12} className="text-white" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col gap-3">
+            <button 
+              onClick={async () => {
+                try {
+                  const payload = { 
+                    is_active: localRestrictions.login ? 0 : 1, 
+                    restrictions: JSON.stringify(localRestrictions),
+                    currentUserId: session.id 
+                  };
+                  await updateUser(statusTarget.id, payload);
+                  fetchData(); 
+                  setIsStatusModalOpen(false); 
+                  showToast('Seguridad actualizada', 'success');
+                } catch (err) { 
+                  showToast(err.message || 'Error al guardar', 'error'); 
+                }
+              }} 
+              className="w-full py-5 bg-brand-blue text-white font-black rounded-[24px] shadow-2xl hover:bg-brand-dark-blue active:scale-95 transition-all"
+            >
+              Aplicar Restricciones
+            </button>
+            <button
+              onClick={() => setIsStatusModalOpen(false)}
+              className="w-full py-4 text-gray-400 font-black text-xs uppercase"
+            >
+              Descartar
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -1106,6 +1435,23 @@ const AdminDashboard = () => {
           </div>
           <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-[24px] shadow-2xl hover:bg-brand-dark-blue">Ejecutar Cambios Institucionales</button>
         </form>
+      </Modal>
+      <Modal isOpen={isConfirmDeleteModuleOpen} onClose={() => setIsConfirmDeleteModuleOpen(false)} title="Confirmar Eliminación de Módulo">
+        <div className="space-y-4 py-2">
+          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3">
+            <div className="p-2 bg-red-100 text-red-600 rounded-xl shrink-0 mt-0.5"><Lock size={18} /></div>
+            <div className="space-y-1">
+              <p className="text-sm font-black text-red-900">¿Estás absolutamente seguro?</p>
+              <p className="text-[11px] font-bold text-red-700 leading-relaxed">
+                Esta acción eliminará permanentemente el módulo y desvinculará a los estudiantes. No se puede deshacer.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setIsConfirmDeleteModuleOpen(false)} className="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-2xl hover:bg-gray-200 transition-all">Cancelar</button>
+            <button onClick={executeDeleteModule} className="flex-1 py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg shadow-red-200 hover:bg-red-700 transition-all">Eliminar</button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

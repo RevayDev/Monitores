@@ -429,7 +429,17 @@ const resolveReport = async (req, res) => {
     if (!Number.isInteger(reportId) || reportId <= 0) {
       return res.status(400).json({ error: 'ID de reporte invalido.' });
     }
-    const data = await engagementService.resolveReport(req.userContext.userId, reportId);
+    const { resolution_note } = req.body || {};
+    const data = await engagementService.resolveReport(req.userContext.userId, reportId, resolution_note);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getModerationLogs = async (req, res) => {
+  try {
+    const data = await engagementService.getModerationLogs(req.userContext.userId);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -477,6 +487,7 @@ export default {
   reportForum,
   getReports,
   resolveReport,
+  getModerationLogs,
   resetScans: async (req, res) => {
     try {
       await engagementService.resetAllScans(req.userContext.userId);

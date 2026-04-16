@@ -1,8 +1,14 @@
 import pool from '../../utils/mysql.helper.js';
 
 class UsersRepositoryMySQL {
-  async getAll() {
-    const [rows] = await pool.query('SELECT * FROM users');
+  async getAll(roleFilter = null) {
+    let sql = 'SELECT * FROM users';
+    const params = [];
+    if (roleFilter) {
+      sql += ' WHERE role = ?';
+      params.push(roleFilter);
+    }
+    const [rows] = await pool.query(sql, params);
     return rows;
   }
 

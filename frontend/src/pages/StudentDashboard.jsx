@@ -105,20 +105,28 @@ const StudentDashboard = () => {
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header Section */}
-        <header className="bg-brand-blue rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-6">
-              <div className="bg-white/20 p-4 rounded-3xl backdrop-blur-md">
-                <BookOpen size={48} className="text-white" />
+        {/* Header Section */}
+        <div className="bg-blue-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6">
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-blue-500 border border-blue-400 text-blue-50">
+                <BookOpen size={36} />
               </div>
-              <div>
-                <h1 className="text-3xl md:text-5xl font-black tracking-tight">Mi Espacio Académico</h1>
-                <p className="text-blue-100 font-medium mt-1">Gestión de Aprendizaje • {session?.nombre}</p>
+              <div className="space-y-1.5 pt-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-500 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-blue-200 rounded-full"></div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-50">Bienvenido(a), {session?.nombre || 'Estudiante'}</span>
+                </div>
+                <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none">
+                  Mi Espacio Académico
+                </h1>
+                <p className="text-blue-100 text-xs font-medium opacity-90 max-w-md leading-snug">
+                  Gestión de Aprendizaje y Foro Académico.
+                </p>
               </div>
             </div>
           </div>
-        </header>
+        </div>
 
         {/* Main Content Card */}
         <section className="bg-white rounded-[2rem] shadow-xl border border-blue-100 overflow-hidden min-h-[600px] flex flex-col">
@@ -207,6 +215,9 @@ const StudentDashboard = () => {
                       </div>
                     </div>
                   ))}
+                  {history.length === 0 && (
+                    <EmptyState icon={<History />} title="Sin Historial" desc="Aún no tienes historial de participación." />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

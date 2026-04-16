@@ -99,7 +99,10 @@ export const logout = () => {
 };
 
 // --- Users & Staff ---
-export const getAllUsers = () => request('/users');
+export const getAllUsers = (role = null) => {
+  const query = role ? `?role=${role}` : '';
+  return request(`/users${query}`);
+};
 export const getUserById = (id) => request(`/users/${id}`);
 export const getMeUserStats = () => request('/users/me/stats');
 export const getUserStatsById = (id) => request(`/users/${id}/stats`);
@@ -294,7 +297,8 @@ export const getForumReports = (params = {}) => {
   const query = new URLSearchParams(params).toString();
   return request(`/forums/reports${query ? '?' + query : ''}`);
 };
-export const resolveForumReport = (id) => request(`/forums/reports/${id}/resolve`, { method: 'POST', body: JSON.stringify({}) });
+export const resolveForumReport = (id, resolution_note) => request(`/forums/reports/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolution_note }) });
+export const getModerationLogs = () => request('/forums/reports/logs');
 
 // --- Administrative Module Management ---
 export const adminGetModules = () => request('/admin/modules-management');
@@ -372,7 +376,54 @@ export const resetScans = () => request('/dev/reset-scans', {
 
 // --- Dev Utilities (Scripts) ---
 export const dbReset = () => request('/dev/db-reset', { method: 'POST', body: JSON.stringify({}) });
+export const dbNuke = () => request('/dev/db-nuke', { method: 'POST', body: JSON.stringify({}) });
 export const dbPopulate = () => request('/dev/db-populate', { method: 'POST', body: JSON.stringify({}) });
+export const dbPopulateVolume = () => request('/dev/db-populate-volume', { method: 'POST', body: JSON.stringify({}) });
 export const fixUsernames = () => request('/dev/fix-usernames', { method: 'POST', body: JSON.stringify({}) });
 export const getDiagnostics = () => request('/dev/diagnostics');
 export const executeTerminalCommand = (command, cwd) => request('/dev/terminal', { method: 'POST', body: JSON.stringify({ command, cwd }) });
+
+// ROOT Terminal
+export const rootEnable = (password) => request('/dev/root/enable', { method: 'POST', body: JSON.stringify({ password }) });
+export const rootMemberAction = (action, args) => request('/dev/root/member', { method: 'POST', body: JSON.stringify({ action, args }) });
+export const rootFileAction = (action, filePath, cwd = '', content = '') => request('/dev/root/file', { method: 'POST', body: JSON.stringify({ action, filePath, cwd, content }) });
+export const getRootLogs = (page = 0, limit = 100) => request(`/dev/root/logs?page=${page}&limit=${limit}`);
+
+export const rootSystemBackup = async () => {
+  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const response = await fetch(`${API_URL}/dev/root/backup`, {
+    headers: {
+      'x-user-id': String(sessionUser?.id || ''),
+      'x-user-role': String(sessionUser?.baseRole === 'dev' ? 'dev' : (sessionUser?.role || sessionUser?.baseRole || '')).toLowerCase()
+    }
+  });
+  if (!response.ok) throw new Error('Falló el backup.');
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup_monitores_${Date.now()}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+export const rootSystemRestore = async (file) => {
+  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const formData = new FormData();
+  formData.append('backup', file);
+  
+  const response = await fetch(`${API_URL}/dev/root/restore`, {
+    method: 'POST',
+    headers: {
+      'x-user-id': String(sessionUser?.id || ''),
+      'x-user-role': String(sessionUser?.baseRole === 'dev' ? 'dev' : (sessionUser?.role || sessionUser?.baseRole || '')).toLowerCase()
+    },
+    body: formData
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Restore failed');
+  }
+  return response.json();
+};

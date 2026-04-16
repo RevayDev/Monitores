@@ -90,7 +90,7 @@ const Home = () => {
                   onClick={() => navigate('/signup')}
                   className="px-6 py-3 sm:px-8 sm:py-4 bg-white text-brand-blue font-black rounded-2xl shadow-xl hover:bg-gray-100 hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all text-sm sm:text-base text-center"
                 >
-                  Crear Mi Cuenta 🎓
+                  Crear Mi Cuenta
                 </button>
                 <button
                   onClick={() => {
@@ -103,7 +103,7 @@ const Home = () => {
                   }}
                   className="px-6 py-3 sm:px-8 sm:py-4 bg-transparent border-2 border-white/30 text-white font-black rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-sm sm:text-base text-center"
                 >
-                  Ver Monitorías 📋
+                  Ver Monitorías
                 </button>
               </div>
             </div>

@@ -15,7 +15,7 @@ import { ToastContext } from '../context/ToastContext';
 import {
   Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2,
   MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle,
-  Search, UserCheck, Clock3, X, AlertOctagon
+  Search, UserCheck, Clock3, X, AlertOctagon, Activity, GraduationCap, ShieldCheck
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
@@ -64,7 +64,7 @@ const MonitorDashboard = () => {
   });
   const [filterModulo, setFilterModulo] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [topTab, setTopTab] = useState('');
+  const [topTab, setTopTab] = useState('stats');
   const [selectedAnalyticsModuleId, setSelectedAnalyticsModuleId] = useState(null);
   const [academicStats, setAcademicStats] = useState(null);
   const [sessionCards, setSessionCards] = useState([]);
@@ -99,7 +99,11 @@ const MonitorDashboard = () => {
   const monitorId = session.id; // Use real session ID now
 
   useEffect(() => {
-    if (isDiningMonitor) setTopTab('stats');
+    if (isDiningMonitor) {
+      setTopTab('stats_dining');
+    } else {
+      setTopTab('stats');
+    }
   }, [isDiningMonitor]);
 
   const stopCamera = () => {
@@ -281,7 +285,11 @@ const MonitorDashboard = () => {
         setAcademicStats(statsData || null);
         setSessionCards(sessionRows || []);
       } catch (error) {
-        showToast(error.message || 'No se pudieron cargar estadisticas academicas.', 'error');
+        // Suppress error toasts for Dev/Admin users who might not have assigned modules
+        const isStaff = session?.role === 'dev' || session?.role === 'admin' || session?.is_principal;
+        if (!isStaff) {
+          showToast(error.message || 'No se pudieron cargar estadisticas academicas.', 'error');
+        }
       }
     };
     loadAcademic();
@@ -294,7 +302,10 @@ const MonitorDashboard = () => {
         const data = await getDiningStats();
         setDiningStats(data || null);
       } catch (error) {
-        showToast(error.message || 'No se pudieron cargar estadisticas de comedor.', 'error');
+        const isStaff = session?.role === 'dev' || session?.role === 'admin' || session?.is_principal;
+        if (!isStaff) {
+          showToast(error.message || 'No se pudieron cargar estadisticas de comedor.', 'error');
+        }
       }
     };
     loadDining();
@@ -574,45 +585,99 @@ const MonitorDashboard = () => {
     return (
       <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-700 rounded-[32px] p-5 md:p-7 text-white relative overflow-hidden shadow-[0_20px_50px_rgba(13,148,136,0.3)] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-500">
-            {/* Background Accents */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-[60px]"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-[30px]"></div>
-            
-            <div className="relative z-10 text-center md:text-left space-y-1">
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 bg-white/10 rounded-full border border-white/10 backdrop-blur-md mb-1">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,1)]"></span>
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-50">Sesión Administrativa</span>
-              </div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tighter leading-none mb-1">
-                Panel Administrativo
-              </h1>
-              <p className="text-teal-50 text-xs font-medium opacity-90 max-w-sm">
-                Control de comedor y gestión de asistencias QR.
-              </p>
-            </div>
+          <div className="bg-teal-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6 shadow-xl shadow-teal-600/10">
+            <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-teal-500 border border-teal-400 relative group overflow-hidden shadow-inner">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <ShieldCheck size={44} className="text-teal-50 drop-shadow-md" />
 
-            <div className="relative z-10 flex flex-wrap justify-center gap-1.5 p-1 bg-black/10 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-inner">
-              {[
-                { id: 'stats', label: 'Estadísticas' },
-                { id: 'scanner', label: 'Escáner QR' },
-                { id: 'students', label: 'Atendidos' },
-                { id: 'history', label: 'Historial' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setTopTab(tab.id)}
-                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
-                    topTab === tab.id 
-                      ? 'bg-white text-teal-700 shadow-md' 
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-teal-500 rounded-full">
+                    <div className="w-1.5 h-1.5 bg-teal-200 rounded-full"></div>
+                    <span className="text-teal-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido(a), {session?.nombre || 'Administrador'}</span>
+                  </div>
+                  <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none mb-1">
+                    Panel Administrativo
+                  </h1>
+                  <p className="text-teal-100 text-xs font-medium opacity-90 max-w-lg leading-snug">
+                    Resumen de actividad diaria, escaneo de tokens y control de asistencia en comedor.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-teal-700 rounded-2xl">
+                {[
+                  { id: 'stats_dining', label: 'Estadísticas', icon: <Activity size={16} /> },
+                  { id: 'scanner', label: 'Escáner QR', icon: <PlusCircle size={16} /> },
+                  { id: 'students', label: 'Atendidos', icon: <Users size={16} /> },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setTopTab(tab.id)}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${topTab === (tab.id === 'stats_dining' ? 'stats_dining' : tab.id) || (!topTab && tab.id === 'stats_dining')
+                      ? 'bg-white text-teal-900 shadow-xl'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                      }`}
+                  >
+                    {tab.icon}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+
+          {(topTab === 'stats_dining' || !topTab) && (
+            <div className="animate-fade-in space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Atendidos Hoy</p>
+                  <p className="text-4xl font-black text-gray-900">{diningStats?.scans_today || 0}</p>
+                </div>
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Total Histórico</p>
+                  <p className="text-4xl font-black text-gray-900">{diningStats?.scans_total || 0}</p>
+                </div>
+                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Éxito Escaneo</p>
+                  <p className="text-4xl font-black text-emerald-600">
+                    {diningStats?.scans_total > 0
+                      ? Math.round(((diningStats?.scans_total - (diningStats?.scans_invalid || 0)) / diningStats?.scans_total) * 100)
+                      : 100}%
+                  </p>
+                </div>
+              </div>
+
+              <section className="bg-white rounded-3xl border border-gray-100 p-6 space-y-4">
+                <h2 className="text-lg font-black text-gray-900">Actividad de Usuarios</h2>
+                <div className="space-y-3">
+                  {(diningStats?.top_scanners || []).length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">No hay datos de actividad disponibles.</p>
+                  ) : (
+                    (diningStats?.top_scanners || []).map((scanner, i) => (
+                      <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 font-black">
+                            {scanner.student_name?.[0] || 'S'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{scanner.student_name}</p>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Token Atendido</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-teal-600">{scanner.count} servicios</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
 
           {topTab === 'scanner' && (
             <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-6 relative overflow-hidden">
@@ -635,8 +700,8 @@ const MonitorDashboard = () => {
                       exit={{ opacity: 0, scale: 0.8, y: 20 }}
                       transition={{ type: 'spring', damping: 25, stiffness: 400 }}
                       className={`absolute top-10 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-xs rounded-3xl border-4 p-5 flex flex-col items-center gap-3 text-center shadow-[0_30px_70px_rgba(0,0,0,0.5)] backdrop-blur-3xl ring-4 ${scanResult.status === 'VALID'
-                          ? 'border-emerald-400 bg-emerald-50/95 text-emerald-900 ring-emerald-400/20 shadow-emerald-500/30'
-                          : 'border-red-400 bg-red-50/95 text-red-900 ring-red-400/20 shadow-red-500/30'
+                        ? 'border-emerald-400 bg-emerald-50/95 text-emerald-900 ring-emerald-400/20 shadow-emerald-500/30'
+                        : 'border-red-400 bg-red-50/95 text-red-900 ring-red-400/20 shadow-red-500/30'
                         }`}
                     >
                       <button
@@ -784,41 +849,7 @@ const MonitorDashboard = () => {
             </section>
           )}
 
-          {topTab === 'history' && (
-            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
-              <h2 className="text-lg font-black text-gray-900">Historial de recoleccion</h2>
-              <div className="space-y-2 max-h-96 overflow-auto">
-                {diningRows.map((row) => (
-                  <div key={row.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-                    <p className="font-bold text-gray-900">{row.student_name}</p>
-                    <p className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</p>
-                    <p className="text-xs text-gray-600 mt-1">Resultado: {String(row.result || '').toUpperCase()}</p>
-                  </div>
-                ))}
-                {!diningRows.length && <p className="text-sm text-gray-500">Sin historial.</p>}
-              </div>
-            </section>
-          )}
 
-          {topTab === 'stats' && (
-            <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
-              <h2 className="text-lg font-black text-gray-900">Estadisticas de comedor</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total atendidos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_students_served || 0}</p></div>
-                <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total consumos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_served || 0}</p></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-gray-100 p-4">
-                  <p className="text-xs uppercase font-black text-gray-500 mb-2">Frecuencia por estudiante</p>
-                  {(diningStats?.history_by_student || []).slice(0, 10).map((row) => <p key={row.student_id} className="text-sm text-gray-700">{row.student_name}: <span className="font-black">{row.meals_count}</span></p>)}
-                </div>
-                <div className="rounded-2xl border border-gray-100 p-4">
-                  <p className="text-xs uppercase font-black text-gray-500 mb-2">Rechazos</p>
-                  {(diningStats?.rejected_attempts || []).map((r) => <p key={r.result} className="text-sm text-gray-700">{r.result}: <span className="font-black">{r.total}</span></p>)}
-                </div>
-              </div>
-            </section>
-          )}
         </div>
       </div>
     );
@@ -827,155 +858,51 @@ const MonitorDashboard = () => {
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold">
-          ← Volver
-        </button>
-        {/* Redesigned Header Academic Monitor (Compact) */}
-        <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-700 rounded-[32px] p-4 md:p-6 text-white relative overflow-hidden shadow-[0_20px_40px_rgba(16,185,129,0.2)] flex flex-col items-center justify-between gap-6 transition-all duration-700">
-          {/* Enhanced Background Accents */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-[80px] animate-pulse"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-900/40 rounded-full translate-y-1/2 -translate-x-1/2 blur-[50px]"></div>
-          
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6 relative z-10 w-full">
+        {/* Redesigned Header Academic Monitor (Match Admin Premium) */}
+        <header className="bg-emerald-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6 shadow-xl shadow-emerald-600/10">
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black overflow-hidden shadow-xl bg-emerald-700/40 backdrop-blur-xl ring-2 ring-white/20 transition-transform duration-500 hover:rotate-3">
-                  <Users size={36} className="text-emerald-50" />
-                </div>
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-emerald-500 border border-emerald-400 relative group overflow-hidden shadow-inner">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <GraduationCap size={44} className="text-emerald-50 drop-shadow-md" />
               </div>
 
-              <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/10 rounded-full border border-white/10 backdrop-blur-md shadow-inner">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,1)]"></div>
-                  <span className="text-emerald-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido, {session?.nombre || 'Monitor'}</span>
+              <div className="space-y-1.5 pt-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-500 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-emerald-200 rounded-full"></div>
+                  <span className="text-emerald-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-black tracking-tighter leading-none mb-1 drop-shadow-sm">
+                <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none mb-1">
                   Panel Monitor Académico
                 </h1>
-                <p className="text-emerald-50 text-xs font-medium opacity-90 max-w-lg leading-snug">
-                  Gestión integral de monitorías y seguimiento de asistencias.
+                <p className="text-emerald-100 text-xs font-medium opacity-90 max-w-lg leading-snug">
+                  Gestión integral de monitorías, seguimiento de asistencias y control académico.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col items-center md:items-end gap-3">
-              <div className="flex p-1 bg-black/10 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-inner overflow-auto max-w-full">
-                {[
-                  { id: '', label: 'Alumnos', icon: <Users size={12} /> },
-                  { id: 'stats', label: 'Estadísticas', icon: <AlertCircle size={12} /> },
-                  { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={12} /> },
-                  { id: 'history', label: 'Asistencia', icon: <ClipboardList size={12} /> }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setTopTab(tab.id)}
-                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all duration-300 active:scale-95 whitespace-nowrap ${
-                      topTab === tab.id 
-                        ? 'bg-white text-emerald-900 shadow-md scale-[1.02]' 
-                        : 'text-white/60 hover:text-white hover:bg-white/10'
+            <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-emerald-700 rounded-2xl">
+              {[
+                { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
+                { id: '', label: 'Alumnos', icon: <Users size={16} /> },
+                { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={16} /> },
+                { id: 'history', label: 'Asistencia', icon: <ClipboardList size={16} /> }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setTopTab(tab.id)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${topTab === tab.id
+                    ? 'bg-white text-emerald-900 shadow-xl'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
                     }`}
-                  >
-                    {tab.icon} {tab.label}
-                  </button>
-                ))}
-              </div>
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-
-        {!isDiningMonitor && (topTab === 'stats' || topTab === 'history') && (
-          <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
-            <div className="flex flex-wrap items-center gap-2 justify-between">
-              <h2 className="text-lg font-black text-gray-900">{topTab === 'stats' ? 'Estadisticas por modulo' : 'Historial de sesiones'}</h2>
-              <select
-                value={selectedAnalyticsModuleId || ''}
-                onChange={(e) => setSelectedAnalyticsModuleId(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-sm"
-              >
-                {(monitorModules || []).map((m) => (
-                  <option key={m.id} value={m.id}>{m.modulo}</option>
-                ))}
-              </select>
-            </div>
-
-            {topTab === 'stats' ? (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">% Promedio</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.avg_rating || 0}</p></div>
-                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Presentes</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.present_count || 0}</p></div>
-                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Ausentes</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.absent_count || 0}</p></div>
-                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Excusas</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.excuse_count || 0}</p></div>
-                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Horas monitor</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.total_monitor_hours || 0}</p></div>
-                  <div className="rounded-xl border border-gray-100 p-3 bg-gray-50"><p className="text-[10px] font-black uppercase text-gray-500">Sesiones</p><p className="text-lg font-black text-brand-blue">{academicStats?.totals?.total_sessions || 0}</p></div>
-                </div>
-                <div className="max-h-64 overflow-auto border border-gray-100 rounded-2xl">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr><th className="px-3 py-2 text-left">Estudiante</th><th className="px-3 py-2 text-left">% Asistencia</th><th className="px-3 py-2 text-left">Presentes</th><th className="px-3 py-2 text-left">Ausentes</th><th className="px-3 py-2 text-left">Excusas</th></tr>
-                    </thead>
-                    <tbody>
-                      {(academicStats?.students || []).map((st) => (
-                        <tr key={st.student_key} className="border-t border-gray-100">
-                          <td className="px-3 py-2">{st.student_name}</td>
-                          <td className="px-3 py-2">{st.attendance_percent}%</td>
-                          <td className="px-3 py-2">{st.present_count}</td>
-                          <td className="px-3 py-2">{st.absent_count}</td>
-                          <td className="px-3 py-2">{st.excuse_count}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {sessionDayCards.map((card) => (
-                  <button key={card.day} onClick={() => openSessionDetail(card.session_ids[0])} className="text-left rounded-2xl border border-gray-100 p-4 bg-gray-50 hover:border-brand-blue">
-                    <p className="font-black text-gray-900">Fecha: {new Date(`${card.day}T00:00:00`).toLocaleDateString('es-CO')}</p>
-                    <p className="text-xs text-gray-500 mt-1">Total asistentes: {card.total_attendees}</p>
-                    <p className="text-xs text-gray-500">Sesiones del dia: {card.session_ids.length}</p>
-                  </button>
-                ))}
-                {!sessionDayCards.length && <p className="text-sm text-gray-500">Sin sesiones registradas.</p>}
-              </div>
-            )}
-          </section>
-        )}
-
-        {isDiningMonitor && (
-          <section className="bg-white rounded-3xl border border-gray-100 p-5 space-y-4">
-            <h2 className="text-lg font-black text-gray-900">{topTab === 'stats' ? 'Estadisticas de comedor' : 'Historial por estudiante'}</h2>
-            {topTab === 'stats' ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total atendidos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_students_served || 0}</p></div>
-                  <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50"><p className="text-xs uppercase font-black text-gray-500">Total consumos</p><p className="text-2xl font-black text-brand-blue">{diningStats?.totals?.total_served || 0}</p></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs uppercase font-black text-gray-500 mb-2">Intentos rechazados</p>
-                    {(diningStats?.rejected_attempts || []).map((r) => <p key={r.result} className="text-sm text-gray-700">{r.result}: <span className="font-black">{r.total}</span></p>)}
-                  </div>
-                  <div className="rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs uppercase font-black text-gray-500 mb-2">Estudiantes inactivos</p>
-                    <div className="max-h-28 overflow-auto">{(diningStats?.inactive_students || []).map((s) => <p key={s.student_id} className="text-sm text-gray-700">{s.student_name}</p>)}</div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(diningStats?.history_by_student || []).map((row) => (
-                  <button key={row.student_id} onClick={() => openDiningStudentDetail(row.student_id)} className="text-left rounded-2xl border border-gray-100 p-4 bg-gray-50">
-                    <p className="font-black text-gray-900">{row.student_name}</p>
-                    <p className="text-xs text-gray-500">Consumos: {row.meals_count}</p>
-                    <p className="text-xs text-gray-500">Ultimo: {row.last_meal_at ? new Date(row.last_meal_at).toLocaleString() : '-'}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+        </header>
 
         {!isDiningMonitor && (topTab === 'manage' || !topTab) && (
           <>
@@ -1069,7 +996,7 @@ const MonitorDashboard = () => {
                 <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
                   <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
                     <h3 className="text-xl font-black text-gray-900">
-                      {topTab === 'reports' ? 'Centro de Moderacion' : 'Estudiantes Registrados'}
+                      {topTab === 'reports' ? 'Centro de Moderación' : 'Estudiantes Registrados'}
                     </h3>
                     {topTab === 'reports' ? (
                       <div className="flex items-center gap-2">
@@ -1129,7 +1056,7 @@ const MonitorDashboard = () => {
                         {topTab === 'reports' ? (
                           reports.length === 0 ? (
                             <tr>
-                              <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">Sin reportes pendientes</td>
+                              <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">No hay reportes disponibles</td>
                             </tr>
                           ) : (
                             reports.map(rep => (
@@ -1197,7 +1124,7 @@ const MonitorDashboard = () => {
                                   <td colSpan="4" className="px-6 py-20 text-center">
                                     <div className="flex flex-col items-center gap-4">
                                       <AlertCircle size={48} className="text-gray-200" />
-                                      <p className="text-gray-400 font-bold">No hay estudiantes encontrados</p>
+                                      <p className="text-gray-400 font-bold">No hay estudiantes disponibles</p>
                                     </div>
                                   </td>
                                 </tr>
@@ -1245,9 +1172,13 @@ const MonitorDashboard = () => {
                 </div>
               </div>
             </div>
-
-            <RoleStatsPanel />
           </>
+        )}
+
+        {!isDiningMonitor && topTab === 'stats' && (
+          <div className="animate-fade-in pt-4">
+            <RoleStatsPanel />
+          </div>
         )}
       </div>
 
@@ -1310,31 +1241,35 @@ const MonitorDashboard = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de sesion">
+      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de Sesión">
         {sessionDetail ? (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">{sessionDetail.modulo} · {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
             <div className="max-h-80 overflow-auto space-y-2">
-              {(sessionDetail.attendance || []).map((a) => (
-                <div key={a.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-                  <p className="font-bold text-gray-900">{a.student_name || `ID ${a.student_id}`}</p>
-                  <p className="text-xs text-gray-500">{a.status}</p>
-                  {a.status === 'EXCUSA' && (
-                    <p className="text-xs text-gray-600">Excusa: {a.excuse_reason} - {a.excuse_description}</p>
-                  )}
-                  {a.status !== 'EXCUSA' && (
-                    <button onClick={() => setExcuseTarget(a)} className="mt-2 px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[11px] font-black">
-                      Agregar excusa
-                    </button>
-                  )}
-                </div>
-              ))}
+              {(!sessionDetail.attendance || sessionDetail.attendance.length === 0) ? (
+                <p className="text-sm text-gray-400 text-center py-4 italic">No hay datos disponibles para esta sesión.</p>
+              ) : (
+                sessionDetail.attendance.map((a) => (
+                  <div key={a.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+                    <p className="font-bold text-gray-900">{a.student_name || `ID ${a.student_id}`}</p>
+                    <p className="text-xs text-gray-500">{a.status}</p>
+                    {a.status === 'EXCUSA' && (
+                      <p className="text-xs text-gray-600">Excusa: {a.excuse_reason} - {a.excuse_description}</p>
+                    )}
+                    {a.status !== 'EXCUSA' && (
+                      <button onClick={() => setExcuseTarget(a)} className="mt-2 px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[11px] font-black">
+                        Agregar excusa
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         ) : null}
       </Modal>
 
-      <Modal isOpen={!!excuseTarget} onClose={() => setExcuseTarget(null)} title="Agregar excusa">
+      <Modal isOpen={!!excuseTarget} onClose={() => setExcuseTarget(null)} title="Agregar Excusa">
         <div className="space-y-3">
           <input
             value={excuseReason}
@@ -1346,7 +1281,7 @@ const MonitorDashboard = () => {
             value={excuseDescription}
             onChange={(e) => setExcuseDescription(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[90px]"
-            placeholder="Descripcion"
+            placeholder="Descripción"
           />
           <div className="flex justify-end gap-2">
             <button onClick={() => setExcuseTarget(null)} className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold">Cancelar</button>
@@ -1355,16 +1290,19 @@ const MonitorDashboard = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={!!diningStudentDetail} onClose={() => setDiningStudentDetail(null)} title="Historial de comedor">
+      <Modal isOpen={!!diningStudentDetail} onClose={() => setDiningStudentDetail(null)} title="Historial de Comedor">
         <div className="space-y-2 max-h-80 overflow-auto">
-          {(diningStudentDetail || []).map((row) => (
-            <div key={row.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-              <p className="font-bold text-gray-900">{row.student_name}</p>
-              <p className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</p>
-              <p className="text-xs text-gray-500">Registrado por: {row.scanner_name || '-'}</p>
-            </div>
-          ))}
-          {!diningStudentDetail?.length && <p className="text-sm text-gray-500">Sin historial.</p>}
+          {(!diningStudentDetail || diningStudentDetail.length === 0) ? (
+            <p className="text-sm text-gray-400 text-center py-8 italic">No hay datos disponibles en el historial.</p>
+          ) : (
+            diningStudentDetail.map((row) => (
+              <div key={row.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+                <p className="font-bold text-gray-900">{row.student_name}</p>
+                <p className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-500">Registrado por: {row.scanner_name || '-'}</p>
+              </div>
+            ))
+          )}
         </div>
       </Modal>
 

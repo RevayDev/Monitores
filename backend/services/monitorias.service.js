@@ -56,7 +56,7 @@ class MonitoriasService {
     // Check if monitor is assigned
     const hasNoMonitor = !currentModule.monitorId || currentModule.monitorId === 0 || !currentModule.monitor;
     if (hasNoMonitor) {
-      throw new Error('No puedes registrarte en este módulo aún: falta asignar un monitor responsable.');
+      throw new Error("Monitoría sin monitor");
     }
 
     const registrations = await monitoriasRepository.getAllRegistrations();

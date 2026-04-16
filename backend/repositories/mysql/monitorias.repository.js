@@ -4,7 +4,8 @@ class MonitoriasRepositoryMySQL {
   // Modules
   async getAll(filters = {}) {
     let query = `
-      SELECT m.*, u.role AS monitorRole, u.foto AS monitorFoto, u.createdAt AS monitorCreatedAt
+      SELECT m.*, u.role AS monitorRole, u.foto AS monitorFoto, u.createdAt AS monitorCreatedAt,
+             (m.monitorId IS NULL OR u.id IS NULL) as isOrphan
       FROM modules m
       LEFT JOIN users u ON m.monitorId = u.id
     `;
@@ -15,8 +16,11 @@ class MonitoriasRepositoryMySQL {
       params.push(filters.monitorId);
     }
 
+    // Sort: Non-orphans first, then newest
+    query += ' ORDER BY isOrphan ASC, m.createdAt DESC';
+
     const [rows] = await pool.query(query, params);
-    return rows;
+    return rows.map(r => ({ ...r, isOrphan: !!r.isOrphan }));
   }
 
   async findById(id) {
@@ -57,6 +61,14 @@ class MonitoriasRepositoryMySQL {
   async delete(id) {
     // Delete associated registrations safely before deleting the module to prevent constraints and orphans
     await pool.query('DELETE FROM registrations WHERE monitorId = ?', [id]);
+    // Also clean up engagement related data if they exist (attendance, scan logs)
+    await pool.query('DELETE FROM attendance WHERE module_id = ?', [id]);
+    await pool.query('DELETE FROM qr_scan_logs WHERE module_id = ?', [id]);
+    // Forum threads are handled in forum repository usually, but for a clean wipe we ensure no orphans here
+    // Note: forum_threads might have messages, those should be wiped too if strictly enforced by FK
+    await pool.query('DELETE FROM forum_messages WHERE module_id = ?', [id]);
+    await pool.query('DELETE FROM forum_threads WHERE module_id = ?', [id]);
+    
     const [result] = await pool.query('DELETE FROM modules WHERE id = ?', [id]);
     return result.affectedRows > 0;
   }

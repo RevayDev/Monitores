@@ -47,23 +47,27 @@ const Navbar = () => {
     // Socket connection for notifications (Restored)
     let socket;
     if (user?.id) {
-       socket = io('http://localhost:3000');
-       socket.emit('join_user', user.id);
-       socket.on('new_notification', (data) => {
-         const activeForumId = localStorage.getItem('monitores_active_forum_id');
-         const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id;
-         
-          // Only show toast if NOT looking at that specific forum thread
-          if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {
-            showToast(data.message || { title: data.title, body: data.body }, 'notification');
-          }
-          
-          loadNotifications();
-          if (data.metadata?.priority === 'high' || data.priority === 'high') {
-            setBellAnimating(true);
-            setTimeout(() => setBellAnimating(false), 800);
-          }
-       });
+      socket = io('http://localhost:3000');
+      socket.emit('join_user', user.id);
+      socket.on('new_notification', (data) => {
+        const activeForumId = localStorage.getItem('monitores_active_forum_id');
+        const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id;
+
+        // Only show toast if NOT looking at that specific forum thread
+        if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {
+          showToast(data.message || { title: data.title, body: data.body }, 'notification');
+        }
+
+        // Prepend new notification to state immediately for real-time bubble update
+        setNotifications(prev => {
+          if (prev.find(n => n.id === data.id)) return prev;
+          return [data, ...prev];
+        });
+
+        // Trigger visceral shake animation for ALL incoming notifications
+        setBellAnimating(true);
+        setTimeout(() => setBellAnimating(false), 600);
+      });
     }
 
     // Re-fetch user when profile is updated from another page
@@ -99,13 +103,15 @@ const Navbar = () => {
 
   useEffect(() => {
     const onClickOutside = (event) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      // Profile uses onBlur + timeout, but for notifications we want a strictly
+      // bounded area check so it only closes when clicking truly outside.
+      if (notificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
         setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
+  }, [notificationsOpen]);
 
   async function fetchUser() {
     const data = await getCurrentUser();
@@ -206,7 +212,10 @@ const Navbar = () => {
         )}
       </button>
       {notificationsOpen && (
-        <div className="absolute right-0 mt-2 w-80 max-h-[400px] overflow-auto bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100]">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 mt-2 w-80 max-h-[400px] overflow-auto bg-white rounded-2xl shadow-2xl border border-gray-100 z-[100] animate-slide-up"
+        >
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Notificaciones</span>
           </div>
@@ -231,7 +240,7 @@ const Navbar = () => {
                     <p className="text-xs text-gray-500 mt-0.5 leading-snug">{n.message}</p>
                     <p className="text-[8px] text-gray-400 mt-1 font-bold uppercase">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </button>
-                  <button onClick={() => handleDeleteNotification(n.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -446,7 +455,7 @@ const Navbar = () => {
 
                 {/* Mobile Dashboards Container */}
                 <div className="flex flex-col gap-2 pt-2 pb-1">
-              {(user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
+                  {(user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/monitor-dashboard'); }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-600 text-white text-sm font-black rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 uppercase tracking-widest"

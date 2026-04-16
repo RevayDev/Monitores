@@ -30,37 +30,36 @@ const Toaster = ({ message, type = 'info', onClose, duration = 5000 }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 50, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      initial={{ opacity: 0, x: 50, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 20, scale: 0.95 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`fixed bottom-6 right-6 z-[200] flex items-start gap-4 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl min-w-[320px] max-w-md ${colors[type] || colors.info}`}
+      className={`fixed top-20 right-3 z-[9999] flex items-start gap-4 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl min-w-[320px] max-w-md ${colors[type] || colors.info}`}
     >
       <div className="mt-0.5 shrink-0">
         {icons[type] || icons.info}
       </div>
-      
+
       <div className="flex-grow space-y-1">
         <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">{title}</h4>
         <p className="text-[13px] font-bold text-gray-500 leading-snug">{body}</p>
       </div>
 
-      <button 
-        onClick={onClose} 
+      <button
+        onClick={onClose}
         className="shrink-0 p-1 text-gray-300 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-all active:scale-90"
       >
         <X size={16} />
       </button>
 
-      <motion.div 
+      <motion.div
         initial={{ width: "100%" }}
         animate={{ width: "0%" }}
         transition={{ duration: duration / 1000, ease: "linear" }}
-        className={`absolute bottom-0 left-0 h-1 rounded-full ${
-          type === 'success' ? 'bg-emerald-400' : 
-          type === 'error' ? 'bg-red-400' : 
-          type === 'notification' ? 'bg-violet-400' : 'bg-brand-blue'
-        }`}
+        className={`absolute bottom-0 left-0 h-1 rounded-full ${type === 'success' ? 'bg-emerald-400' :
+          type === 'error' ? 'bg-red-400' :
+            type === 'notification' ? 'bg-violet-400' : 'bg-brand-blue'
+          }`}
       />
     </motion.div>
   );

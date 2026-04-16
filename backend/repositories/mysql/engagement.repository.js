@@ -20,6 +20,9 @@ class EngagementRepositoryMySQL {
     const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
     if (isModerator) return true;
 
+    const email = userEmail || user?.email || '';
+
+    // Standard enrollment check
     const [rows] = await pool.query(
       `
       SELECT 1
@@ -30,9 +33,23 @@ class EngagementRepositoryMySQL {
       WHERE m.id = ? AND (m.monitorId = ? OR r.id IS NOT NULL)
       LIMIT 1
       `,
-      [userEmail || user?.email || '', moduleId, userId]
+      [email, moduleId, userId]
     );
-    return rows.length > 0;
+    if (rows.length > 0) return true;
+
+    // Check if mentioned in this module (Special for high roles or deep links)
+    // We check if there's any notification of type 'mencion_foro' or 'actividad_foro_monitor' for this user in this module
+    const [mentionRows] = await pool.query(
+      `
+      SELECT 1 FROM notifications 
+      WHERE user_id = ? 
+        AND (link LIKE ? OR link LIKE ?)
+      LIMIT 1
+      `,
+      [userId, `/modules/${moduleId}/%`, `%moduleId:${moduleId}%`]
+    );
+    
+    return mentionRows.length > 0;
   }
 
   async getCurrentQrByUser(userId) {
@@ -1112,12 +1129,24 @@ class EngagementRepositoryMySQL {
   async getForumReports(filters = {}) {
     let query = `
       SELECT r.*, 
-             u1.nombre AS reporter_name, 
+             u1.nombre AS reporter_name,
+             u1.foto   AS reporter_photo,
+             u1.role   AS reporter_role,
              u2.nombre AS reported_name,
+             u2.foto   AS reported_photo,
+             u2.role AS reported_role,
              CASE 
                WHEN r.type = 'thread' THEN f.title
                WHEN r.type = 'reply' THEN rp.content
              END AS content_snippet,
+             CASE 
+               WHEN r.type = 'thread' THEN f.title
+               WHEN r.type = 'reply' THEN f2.title
+             END AS chat_topic,
+             CASE 
+               WHEN r.type = 'thread' THEN f.id
+               WHEN r.type = 'reply' THEN f2.id
+             END AS chat_id,
              CASE 
                WHEN r.type = 'thread' THEN f.modulo_id
                WHEN r.type = 'reply' THEN f2.modulo_id
@@ -1128,11 +1157,15 @@ class EngagementRepositoryMySQL {
       LEFT JOIN forums f ON r.type = 'thread' AND f.id = r.target_id
       LEFT JOIN replies rp ON r.type = 'reply' AND rp.id = r.target_id
       LEFT JOIN forums f2 ON r.type = 'reply' AND f2.id = rp.forum_id
-      WHERE 1=1
+      WHERE r.status = 'pending'
     `;
     const params = [];
     if (filters.monitorId) {
-      query += ` AND (f.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?) OR f2.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?))`;
+      query += ` AND (
+        (r.type = 'thread' AND f.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?)) 
+        OR 
+        (r.type = 'reply' AND f2.modulo_id IN (SELECT id FROM modules WHERE monitorId = ?))
+      )`;
       params.push(filters.monitorId, filters.monitorId);
     }
     query += ' ORDER BY r.created_at DESC';
@@ -1140,11 +1173,28 @@ class EngagementRepositoryMySQL {
     return rows;
   }
 
-  async resolveForumReport(reportId, resolvedBy) {
+  async resolveForumReport(reportId, resolvedBy, resolutionNote) {
     await pool.query(
-      'UPDATE forum_reports SET status = "resolved", resolved_at = NOW(), resolved_by = ? WHERE id = ?',
-      [resolvedBy, reportId]
+      'UPDATE forum_reports SET status = "resolved", resolved_at = NOW(), resolved_by = ?, resolution_note = ? WHERE id = ?',
+      [resolvedBy, resolutionNote || null, reportId]
     );
+  }
+
+  async getActivityLogs(filters = {}) {
+    let query = `
+      SELECT al.*, u.nombre as user_name, u.role as user_role 
+      FROM activity_logs al
+      LEFT JOIN users u ON u.id = al.user_id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (filters.action) {
+      query += ' AND al.action = ?';
+      params.push(filters.action);
+    }
+    query += ' ORDER BY al.created_at DESC LIMIT 50';
+    const [rows] = await pool.query(query, params);
+    return rows;
   }
 }
 
