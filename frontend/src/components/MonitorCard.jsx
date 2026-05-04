@@ -16,24 +16,22 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
   };
 
   return (
-    <div 
+    <div
       onClick={handleAction}
-      className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full relative group ${
-        hasNoMonitor
-        ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
-        : isRegistered
-          ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5 shadow-amber-100 shadow-lg'
-          : isFull
-            ? 'bg-red-50 border-red-200'
-            : 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
-      }`}>
-      <div className={`${
-          hasNoMonitor
+      className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full relative group ${hasNoMonitor
+          ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
+          : isRegistered
+            ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5 shadow-amber-100 shadow-lg'
+            : isFull
+              ? 'bg-red-50 border-red-200'
+              : 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
+        }`}>
+      <div className={`${hasNoMonitor
           ? 'bg-gray-500'
           : isRegistered
             ? 'bg-amber-500'
             : isFull
-              ? 'bg-red-600'
+              ? 'bg-brand-blue group-hover:bg-brand-dark-blue'
               : 'bg-brand-blue group-hover:bg-brand-dark-blue'
         } px-5 py-4 flex justify-between items-center text-white transition-colors duration-300`}>
         <div className="flex items-center gap-3">
@@ -120,8 +118,7 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
           <button
             onClick={handleAction}
             disabled={(isFull && !isRegistered) || hasNoMonitor}
-            className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${
-                hasNoMonitor
+            className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${hasNoMonitor
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
                 : isRegistered
                   ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'

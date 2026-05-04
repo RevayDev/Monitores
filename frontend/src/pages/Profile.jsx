@@ -372,22 +372,24 @@ const Profile = () => {
               Usa los botones <Camera size={11} className="inline text-brand-blue" /> y <Trash2 size={11} className="inline text-red-500" /> para gestionar tu foto · Máx. 2MB
             </p>
           </div>
+
+          <div className="bg-white p-2 rounded-2xl border border-gray-100 inline-flex gap-2 selector-profile">
+            <button
+              onClick={() => setActiveTab('info')}
+              className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'info' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Informacion del usuario
+            </button>
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'stats' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Estadisticas e historial
+            </button>
+          </div>
         </header>
 
-        <div className="bg-white p-2 rounded-2xl border border-gray-100 inline-flex gap-2">
-          <button
-            onClick={() => setActiveTab('info')}
-            className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'info' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
-          >
-            Informacion del usuario
-          </button>
-          <button
-            onClick={() => setActiveTab('stats')}
-            className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'stats' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
-          >
-            Estadisticas e historial
-          </button>
-        </div>
+
 
         {activeTab === 'stats' && (
           <>
@@ -450,9 +452,9 @@ const Profile = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
-                      <select 
+                      <select
                         className={`w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none text-gray-900 font-bold transition-all ${(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') ? 'opacity-50 cursor-not-allowed' : 'focus:border-brand-blue/30'}`}
-                        value={formData.sede} 
+                        value={formData.sede}
                         onChange={e => setFormData({ ...formData, sede: e.target.value })}
                         disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
                       >
@@ -461,9 +463,9 @@ const Profile = () => {
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
-                      <select 
+                      <select
                         className={`w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none text-gray-900 font-bold transition-all ${(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') ? 'opacity-50 cursor-not-allowed' : 'focus:border-brand-blue/30'}`}
-                        value={formData.cuatrimestre} 
+                        value={formData.cuatrimestre}
                         onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
                         disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
                       >
@@ -473,7 +475,7 @@ const Profile = () => {
                   </div>
 
                   {(user?.is_principal || user?.role === 'admin' || user?.role === 'dev') && (
-                    <button 
+                    <button
                       onClick={handleUpdateInfo}
                       className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all text-sm flex items-center justify-center gap-2 mt-4"
                     >
