@@ -897,30 +897,29 @@ const MonitorDashboard = () => {
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-        {/* Redesigned Header Academic Monitor (Match Admin Premium) */}
-        <header className="bg-emerald-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6 shadow-xl shadow-emerald-600/10">
+        {/* Header Monitor Académico */}
+        <header className="bg-emerald-500 rounded-2xl p-6 md:p-8 text-white">
           <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-emerald-500 border border-emerald-400 relative group overflow-hidden shadow-inner">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <GraduationCap size={44} className="text-emerald-50 drop-shadow-md" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center bg-emerald-600 shadow-sm">
+                <GraduationCap size={44} className="text-emerald-100" />
               </div>
 
               <div className="space-y-1.5 pt-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-500 rounded-full">
-                  <div className="w-1.5 h-1.5 bg-emerald-200 rounded-full"></div>
-                  <span className="text-emerald-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse"></div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none mb-1">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none">
                   Panel Monitor Académico
                 </h1>
-                <p className="text-emerald-100 text-xs font-medium opacity-90 max-w-lg leading-snug">
+                <p className="text-emerald-100 text-sm font-medium opacity-90 max-w-lg leading-relaxed">
                   Gestión integral de monitorías, seguimiento de asistencias y control académico.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 p-1 bg-emerald-700 rounded-2xl overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-1.5 p-1 bg-emerald-600 rounded-xl overflow-x-auto">
               {[
                 { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
                 { id: '', label: 'Alumnos', icon: <Users size={16} /> },
@@ -930,9 +929,9 @@ const MonitorDashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setTopTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap shrink-0 ${topTab === tab.id
-                    ? 'bg-white text-emerald-900 shadow-xl'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all active:scale-95 whitespace-nowrap ${topTab === tab.id
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-emerald-100 hover:text-white hover:bg-emerald-500'
                     }`}
                 >
                   {tab.icon}
@@ -949,22 +948,22 @@ const MonitorDashboard = () => {
               {/* Managed Modules */}
               <div className="lg:col-span-1 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <h2 className="text-xl font-bold text-brand-blue flex items-center gap-2">
-                    <BookOpen size={24} /> Mis Monitorías
+                  <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    <BookOpen size={24} className="text-emerald-600" /> Mis Monitorías
                   </h2>
                   <button
                     onClick={() => setIsCreateModuleOpen(true)}
-                    className="px-4 py-2 bg-emerald-100 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200"
+                    className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-[11px] font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-emerald-500 hover:text-white transition-all border border-emerald-200"
                   >
                     <PlusCircle size={14} /> Nueva Monitoría
                   </button>
                 </div>
                 <div className="space-y-4">
                   {monitorModules.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-3 shadow-sm">
-                      <BookOpen className="mx-auto text-gray-300" size={36} />
-                      <p className="text-sm font-black text-gray-700">No tienes módulos registrados.</p>
-                      <p className="text-xs text-gray-400 font-bold">Crea una monitoría o pide al admin que te asigne una.</p>
+                    <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3">
+                      <BookOpen className="mx-auto text-slate-300" size={36} />
+                      <p className="text-sm font-semibold text-slate-700">No tienes módulos registrados.</p>
+                      <p className="text-xs text-slate-500 font-medium">Crea una monitoría o pide al admin que te asigne una.</p>
                     </div>
                   ) : (
                     monitorModules.map(mod => (
