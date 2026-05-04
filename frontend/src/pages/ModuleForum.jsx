@@ -1051,10 +1051,10 @@ const ModuleForum = () => {
               <>
                 <div className={`rounded-2xl border transition-all duration-500 overflow-hidden relative p-4 space-y-2 ${
                   isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
-                  isMeMentioned(detail.content, currentUser?.id) ? 'bg-amber-50 border-amber-200 animate-pulse-gold' : 
+                  isMeMentioned(detail.content, currentUser?.id) ? 'bg-blue-50 border-blue-200 animate-pulse-blue' : 
                   (Number(detail.user_id) === Number(currentUser?.id) ? 'is-me-card' : 'bg-gray-50 border-gray-100')
                 }`}>                   {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10 shadow-sm">Origen del reporte</div>}
-                   {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm">Te mencionaron</div>}
+                   {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10 shadow-sm">Te mencionaron</div>}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <UserAvatar photo={detail.author_photo} name={detail.author_name} userId={detail.user_id} userRole={detail.author_role} monitorId={moduleMonitorId} size="w-9 h-9" />
@@ -1146,8 +1146,8 @@ const ModuleForum = () => {
                       result.push(
                         <div key={reply.id} id={`reply-${reply.id}`} className={`rounded-2xl border transition-all duration-500 p-4 relative ${
                           highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
-                          isNewlyMentioned ? 'bg-amber-50 border-amber-200 animate-pulse-gold' : 
-                          (isMentioned ? 'bg-amber-50/50 border-amber-100' : 
+                          isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' : 
+                           (isMentioned ? 'bg-blue-50/50 border-blue-100' : 
                           (isMeSender ? 'is-me-card' : 'bg-white border-gray-100'))
                         }`}>
                           <div className="flex justify-between items-start mb-2 text-xs">

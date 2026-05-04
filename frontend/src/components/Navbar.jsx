@@ -214,7 +214,7 @@ const Navbar = () => {
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black grid place-items-center">
+          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-blue-500 text-white text-[10px] font-black grid place-items-center">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -233,14 +233,14 @@ const Navbar = () => {
               const typeNormalized = String(n.type || '').toLowerCase();
               const isMention = ['forum_mention', 'mencion_foro'].includes(typeNormalized);
               return (
-                <div key={n.id} className={`px-4 py-3 flex items-start gap-2 transition-all hover:bg-gray-50 group ${isRecent ? (isMention ? 'bg-emerald-50 border-l-4 border-l-emerald-400' : 'bg-amber-50 border-l-4 border-l-amber-400') : ''}`}>
+                <div key={n.id} className={`px-4 py-3 flex items-start gap-2 transition-all hover:bg-gray-50 group ${isRecent ? (isMention ? 'bg-emerald-50 border-l-4 border-l-emerald-400' : 'bg-blue-50 border-l-4 border-l-blue-400') : ''}`}>
                   <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
                     <div className="flex items-center gap-2">
-                      <p className={`text-[10px] font-black uppercase tracking-tighter ${isRecent ? (isMention ? 'text-emerald-700' : 'text-amber-700') : 'text-gray-900'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-tighter ${isRecent ? (isMention ? 'text-emerald-700' : 'text-blue-700') : 'text-gray-900'}`}>
                         {getNotificationTypeLabel(n.type)}
                       </p>
                       {isRecent && (
-                        <span className={`${isMention ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'} text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter animate-pulse`}>
+                        <span className={`${isMention ? 'bg-emerald-200 text-emerald-800' : 'bg-blue-200 text-blue-800'} text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter animate-pulse`}>
                           Nuevo
                         </span>
                       )}
@@ -248,7 +248,7 @@ const Navbar = () => {
                     <p className="text-xs text-gray-500 mt-0.5 leading-snug">{n.message}</p>
                     <p className="text-[8px] text-gray-400 mt-1 font-bold uppercase">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-1.5 rounded-lg text-gray-300 hover:text-slate-500 hover:bg-slate-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -306,12 +306,12 @@ const Navbar = () => {
               )}
 
               {!isGuest && (user.role === 'admin' || user.baseRole === 'admin') && (
-                <button
-                  onClick={() => navigate('/admin-dashboard')}
-                  className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-amber-700 active:scale-95 transition-all shadow-md shadow-amber-600/20"
-                >
-                  <ShieldCheck size={13} /> Panel Admin
-                </button>
+                  <button
+                    onClick={() => navigate('/admin-dashboard')}
+                    className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-600/20"
+                  >
+                    <ShieldCheck size={13} /> Panel Admin
+                  </button>
               )}
 
               {!isGuest && (user.role === 'dev' || user.baseRole === 'dev') && (
@@ -375,7 +375,7 @@ const Navbar = () => {
                       <div className="h-px bg-gray-50 my-2 mx-3"></div>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all"
                       >
                         <LogOut size={18} /> Cerrar Seccion
                       </button>
@@ -475,7 +475,7 @@ const Navbar = () => {
                   {(user.role === 'admin' || user.baseRole === 'admin') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/admin-dashboard'); }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-amber-600 text-white text-sm font-black rounded-xl hover:bg-amber-700 transition-all shadow-md shadow-amber-600/20 uppercase tracking-widest"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 text-white text-sm font-black rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-600/20 uppercase tracking-widest"
                     >
                       <ShieldCheck size={18} /> Panel Admin
                     </button>
@@ -494,9 +494,9 @@ const Navbar = () => {
                 <div className="h-px bg-gray-100 my-2"></div>
                 <button
                   onClick={() => { handleLogout(); setIsOpen(false); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-all"
-                >
-                  <LogOut size={18} /> Cerrar SesiÃ³n
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all"
+                  >
+                    <LogOut size={18} /> Cerrar SesiÃ³n
                 </button>
               </>
             )}

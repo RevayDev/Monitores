@@ -13,7 +13,7 @@ import Modal from '../components/Modal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ToastContext } from '../context/ToastContext';
 import {
-  Users, BookOpen, Trash2, Edit3, Link, ClipboardList, UserCircle2,
+  Users, BookOpen, Trash2, Edit3, ClipboardList, UserCircle2,
   MessageSquare, AlertCircle, MessageCircle, Video, PlusCircle,
   Search, UserCheck, Clock3, X, AlertOctagon, Activity, GraduationCap, ShieldCheck
 } from 'lucide-react';
@@ -454,9 +454,7 @@ const MonitorDashboard = () => {
     showToast("Estamos trabajando en esta función", "info");
   };
 
-  const handleCopySurvey = (mod) => {
-    navigate(`/survey/${session.id}?modulo=${encodeURIComponent(mod.modulo)}`);
-  };
+
 
   const exportStudentsCsv = () => {
     const rows = students.map((s) => [s.studentName, s.studentEmail, s.modulo, s.registeredAt]);
@@ -743,7 +741,7 @@ const MonitorDashboard = () => {
                       transition={{ type: 'spring', damping: 25, stiffness: 400 }}
                       className={`absolute top-10 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-xs rounded-3xl border-4 p-5 flex flex-col items-center gap-3 text-center shadow-[0_30px_70px_rgba(0,0,0,0.5)] backdrop-blur-3xl ring-4 ${scanResult.status === 'VALID'
                         ? 'border-emerald-400 bg-emerald-50/95 text-emerald-900 ring-emerald-400/20 shadow-emerald-500/30'
-                        : 'border-red-400 bg-red-50/95 text-red-900 ring-red-400/20 shadow-red-500/30'
+                        : 'border-slate-400 bg-slate-50/95 text-slate-900 ring-red-400/20 shadow-red-500/30'
                         }`}
                     >
                       <button
@@ -753,7 +751,7 @@ const MonitorDashboard = () => {
                         <X size={18} />
                       </button>
 
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl ${scanResult.status === 'VALID' ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl ${scanResult.status === 'VALID' ? 'bg-emerald-500' : 'bg-slate-500'}`}>
                         {scanResult.status === 'VALID' ? <UserCheck size={32} className="text-white" /> : <AlertCircle size={32} className="text-white" />}
                       </div>
 
@@ -768,7 +766,7 @@ const MonitorDashboard = () => {
                           </div>
                         )}
                         {scanResult.status === 'ALREADY_CLAIMED' && (
-                          <div className="mt-2 text-[10px] font-black uppercase text-red-600 tracking-widest animate-pulse">
+                          <div className="mt-2 text-[10px] font-black uppercase text-slate-600 tracking-widest animate-pulse">
                             DUPLICADO
                           </div>
                         )}
@@ -844,7 +842,7 @@ const MonitorDashboard = () => {
                 <div className="text-center pt-2">
                   {cameraStatus === 'loading' && <p className="text-teal-600 font-black animate-pulse text-[10px] uppercase tracking-widest">Iniciando Lente...</p>}
                   {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> Escáner Listo</p>}
-                  {cameraStatus === 'error' && <p className="text-red-500 font-black text-[10px] uppercase tracking-widest">Error: {cameraError}</p>}
+                  {cameraStatus === 'error' && <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Error: {cameraError}</p>}
                 </div>
               </div>
 
@@ -945,7 +943,7 @@ const MonitorDashboard = () => {
           </div>
         </header>
 
-        {!isDiningMonitor && (topTab === 'manage' || !topTab) && (
+        {!isDiningMonitor && (topTab === 'manage' || !topTab || topTab === 'reports') && (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Managed Modules */}
@@ -995,13 +993,12 @@ const MonitorDashboard = () => {
                             </div>
                           </div>
                           {/* Action buttons */}
-                          <div className="pt-2 border-t border-gray-100 grid grid-cols-6 gap-1.5">
+                          <div className="pt-2 border-t border-gray-100 grid grid-cols-5 gap-1.5">
                             <button onClick={() => setFilterModulo(mod.modulo)} title="Ver alumnos" className={`p-2 rounded-xl transition-all flex items-center justify-center ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-100'}`}><Users size={14} /></button>
-                            <button onClick={() => openFeedbackModal(mod)} title="Comentarios" className="p-2 bg-amber-50 text-amber-500 rounded-xl hover:bg-amber-100 transition-all flex items-center justify-center border border-amber-100"><MessageSquare size={14} /></button>
+                            <button onClick={() => openFeedbackModal(mod)} title="Comentarios" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><MessageSquare size={14} /></button>
                             <button onClick={() => handleCopyTemplate(mod)} title="Asistencia" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><ClipboardList size={14} /></button>
-                            <button onClick={() => handleCopySurvey(mod)} title="Encuesta" className="p-2 bg-violet-50 text-violet-500 rounded-xl hover:bg-violet-100 transition-all flex items-center justify-center border border-violet-100"><Link size={14} /></button>
                             <button onClick={() => handleOpenEdit(mod)} title="Editar" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-brand-blue transition-all flex items-center justify-center border border-gray-100"><Edit3 size={14} /></button>
-                            <button onClick={() => handleDeleteModule(mod)} title="Eliminar" className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-600 transition-all flex items-center justify-center border border-red-100"><Trash2 size={14} /></button>
+                            <button onClick={() => handleDeleteModule(mod)} title="Eliminar" className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center border border-slate-100"><Trash2 size={14} /></button>
                           </div>
                         </div>
                       </div>
@@ -1119,7 +1116,7 @@ const MonitorDashboard = () => {
                                       <td className="px-6 py-4">
                                         <button
                                           onClick={() => navigate('/modules/' + (rep.modulo_id || 0) + '/forum?forumId=' + (rep.chat_id || rep.target_id) + '&reportType=' + rep.type + '&targetId=' + rep.target_id)}
-                                          className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase border border-amber-100 hover:bg-amber-100 transition-all"
+                                          className="px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-black rounded-lg uppercase border border-blue-100 hover:bg-blue-100 transition-all"
                                         >
                                           {rep.type === 'thread' ? 'Ver Pregunta' : 'Ver Respuesta'}
                                         </button>
@@ -1222,7 +1219,7 @@ const MonitorDashboard = () => {
                                 <td className="px-6 py-4 text-right">
                                   <button
                                     onClick={() => handleOpenDelete(st)}
-                                    className="p-2 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                                    className="p-2 text-slate-200 hover:text-slate-500 hover:bg-slate-50 rounded-xl transition-all active:scale-90"
                                   >
                                     <Trash2 size={20} />
                                   </button>
@@ -1297,11 +1294,11 @@ const MonitorDashboard = () => {
         title="Dar de baja estudiante"
       >
         <div className="space-y-6">
-          <div className="flex items-center gap-4 bg-red-50 p-4 rounded-2xl">
-            <UserCircle2 size={40} className="text-red-500" />
+          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
+            <UserCircle2 size={40} className="text-slate-500" />
             <div className="flex-grow">
-              <p className="font-black text-red-900">{selectedStudent?.studentName}</p>
-              <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">
+              <p className="font-black text-slate-900">{selectedStudent?.studentName}</p>
+              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
                 {selectedStudent?.modulos?.length > 1 ? 'Selecciona el módulo para dar de baja' : `Retirar de: ${selectedStudent?.modulo}`}
               </p>
             </div>
@@ -1315,12 +1312,12 @@ const MonitorDashboard = () => {
                   type="button"
                   onClick={() => setDeleteTargetId(selectedStudent.regIds[idx])}
                   className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between text-xs font-bold ${deleteTargetId === selectedStudent.regIds[idx]
-                    ? 'border-red-600 bg-red-50 text-red-900'
+                    ? 'border-slate-600 bg-slate-50 text-slate-900'
                     : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
                     }`}
                 >
                   <span>{mod}</span>
-                  {deleteTargetId === selectedStudent.regIds[idx] && <UserCheck size={14} className="text-red-600" />}
+                  {deleteTargetId === selectedStudent.regIds[idx] && <UserCheck size={14} className="text-slate-600" />}
                 </button>
               ))}
             </div>
@@ -1355,7 +1352,7 @@ const MonitorDashboard = () => {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-black text-amber-500">{row.rating ? '★'.repeat(Math.max(1, Math.min(5, Number(row.rating)))) : '-'}</p>
+                        <p className="text-xs font-black text-blue-500">{row.rating ? '★'.repeat(Math.max(1, Math.min(5, Number(row.rating)))) : '-'}</p>
                         <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest">{row.is_public ? 'Público' : 'Privado'}</p>
                       </div>
                     </div>
@@ -1382,7 +1379,7 @@ const MonitorDashboard = () => {
           <div className="flex flex-col gap-3 pt-4">
             <button
               onClick={confirmDelete}
-              className="w-full py-4 bg-red-600 text-white font-extrabold rounded-2xl shadow-xl hover:bg-red-700 active:scale-95 transition-all"
+              className="w-full py-4 bg-slate-600 text-white font-extrabold rounded-2xl shadow-xl hover:bg-slate-700 active:scale-95 transition-all"
             >
               Confirmar Baja
             </button>
@@ -1406,7 +1403,7 @@ const MonitorDashboard = () => {
                       <p className="text-xs text-gray-600">Excusa: {a.excuse_reason} - {a.excuse_description}</p>
                     )}
                     {a.status !== 'EXCUSA' && (
-                      <button onClick={() => setExcuseTarget(a)} className="mt-2 px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[11px] font-black">
+                      <button onClick={() => setExcuseTarget(a)} className="mt-2 px-2 py-1 rounded-lg bg-blue-100 text-blue-700 text-[11px] font-black">
                         Agregar excusa
                       </button>
                     )}
@@ -1650,20 +1647,20 @@ const MonitorDashboard = () => {
         title="¿Confirmar Eliminación?"
       >
         <div className="space-y-8 text-center py-4">
-          <div className="bg-red-50 p-6 rounded-2xl inline-block text-red-600 animate-pulse">
+          <div className="bg-slate-50 p-6 rounded-2xl inline-block text-slate-600 animate-pulse">
             <AlertCircle size={64} />
           </div>
           <div className="space-y-3 px-4">
             <p className="text-2xl font-black text-gray-900 leading-tight">
               Estás a punto de borrar la monitoría de: <br />
-              <span className="text-red-600 italic">"{moduleToDelete?.modulo}"</span>
+              <span className="text-slate-600 italic">"{moduleToDelete?.modulo}"</span>
             </p>
             <p className="text-gray-500 font-medium">Esta acción eliminará todos los registros asociados permanentemente y no se puede deshacer.</p>
           </div>
           <div className="flex flex-col gap-3">
             <button
               onClick={executeDeleteModule}
-              className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 active:scale-95 transition-all text-sm uppercase tracking-widest"
+              className="w-full py-4 bg-slate-600 text-white font-black rounded-2xl shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm uppercase tracking-widest"
             >
               Sí, eliminar definitivamente
             </button>
