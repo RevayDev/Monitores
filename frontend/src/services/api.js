@@ -1,13 +1,20 @@
-const API_URL = 'http://localhost:3000/api';
+﻿const API_URL = 'http://localhost:3000/api';
 
 // Persistence for the current user (session) still uses localStorage for convenience,
 // but the data itself comes from the backend.
 const CURRENT_USER_KEY = 'monitores_current_role';
 const NOTIFICATIONS_KEY = 'monitores_notifications';
+const safeParse = (raw, fallback) => {
+  try {
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 const pushNotification = (item) => {
   try {
-    const current = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) || '[]');
+    const current = safeParse(localStorage.getItem(NOTIFICATIONS_KEY), []);
     const next = [{ id: `${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString(), read: false, ...item }, ...current].slice(0, 80);
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(next));
     window.dispatchEvent(new Event('notifications-updated'));
@@ -18,7 +25,7 @@ const pushNotification = (item) => {
 
 // Helper for fetch
 export const request = async (endpoint, options = {}) => {
-  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const sessionUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
@@ -47,8 +54,8 @@ export const request = async (endpoint, options = {}) => {
 
 // --- Auth & Roles ---
 export const getCurrentUser = () => {
-  const user = localStorage.getItem(CURRENT_USER_KEY);
-  return Promise.resolve(user ? JSON.parse(user) : { role: 'student' });
+  const user = safeParse(localStorage.getItem(CURRENT_USER_KEY), null);
+  return Promise.resolve(user || { role: 'student' });
 };
 
 export const switchRole = async (role, data = {}) => {
@@ -108,7 +115,7 @@ export const getMeUserStats = () => request('/users/me/stats');
 export const getUserStatsById = (id) => request(`/users/${id}/stats`);
 
 export const createUser = (userData) => {
-  const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const currentUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   return request('/users', {
     method: 'POST',
     body: JSON.stringify({ ...userData, currentUserId: currentUser.id })
@@ -116,7 +123,7 @@ export const createUser = (userData) => {
 };
 
 export const updateUser = (userId, updatedData) => {
-  const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const currentUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   return request(`/users/${userId}`, {
     method: 'PUT',
     body: JSON.stringify({ ...updatedData, currentUserId: currentUser.id })
@@ -124,7 +131,7 @@ export const updateUser = (userId, updatedData) => {
 };
 
 export const deleteUser = (userId) => {
-  const currentUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const currentUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   return request(`/users/${userId}`, {
     method: 'DELETE',
     body: JSON.stringify({ currentUserId: currentUser.id })
@@ -338,7 +345,7 @@ export const getAdminOverview = () => request('/admin/overview');
 export const getAdminUserFullStats = (userId) => request(`/admin/users/${userId}/stats`);
 
 export const uploadForumFile = async (file) => {
-  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const sessionUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   const formData = new FormData();
   formData.append('file', file);
   const response = await fetch(`${API_URL}/forum/upload`, {
@@ -391,14 +398,14 @@ export const rootFileAction = (action, filePath, cwd = '', content = '') => requ
 export const getRootLogs = (page = 0, limit = 100) => request(`/dev/root/logs?page=${page}&limit=${limit}`);
 
 export const rootSystemBackup = async () => {
-  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const sessionUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   const response = await fetch(`${API_URL}/dev/root/backup`, {
     headers: {
       'x-user-id': String(sessionUser?.id || ''),
       'x-user-role': String(sessionUser?.baseRole === 'dev' ? 'dev' : (sessionUser?.role || sessionUser?.baseRole || '')).toLowerCase()
     }
   });
-  if (!response.ok) throw new Error('Falló el backup.');
+  if (!response.ok) throw new Error('FallÃ³ el backup.');
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -410,7 +417,7 @@ export const rootSystemBackup = async () => {
 };
 
 export const rootSystemRestore = async (file) => {
-  const sessionUser = JSON.parse(localStorage.getItem(CURRENT_USER_KEY) || '{}');
+  const sessionUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
   const formData = new FormData();
   formData.append('backup', file);
   
@@ -428,3 +435,5 @@ export const rootSystemRestore = async (file) => {
   }
   return response.json();
 };
+
+

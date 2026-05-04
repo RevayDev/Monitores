@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import {
   getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias,
   getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria,
@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
-import RoleStatsPanel from '../components/RoleStatsPanel';
 
 const MonitorDashboard = () => {
   const navigate = useNavigate();
@@ -92,8 +91,11 @@ const MonitorDashboard = () => {
   const canvasRef = useRef(null);
   const [reports, setReports] = useState([]);
   const [resolvingReportId, setResolvingReportId] = useState(null);
+  const [reportsPage, setReportsPage] = useState(1);
+  const REPORTS_PER_PAGE = 5;
 
-  const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+  const safeParse = (raw, fallback = {}) => { try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } };
+  const session = safeParse(localStorage.getItem('monitores_current_role'), {});
   const isDiningMonitor = ['monitor_administrativo'].includes(String(session?.role || '').toLowerCase()) || ['monitor_administrativo'].includes(String(session?.baseRole || '').toLowerCase());
 
   const monitorId = session.id; // Use real session ID now
@@ -240,11 +242,11 @@ const MonitorDashboard = () => {
     const checkMaintenance = async () => {
       const config = await getMaintenanceConfig();
       const restrictions = typeof session?.restrictions === 'string'
-        ? JSON.parse(session.restrictions)
+        ? safeParse(session.restrictions, {})
         : (session?.restrictions || {});
 
       if ((config?.monitorPanel || restrictions.dashboards) && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
-        showToast(restrictions.dashboards ? 'Tu acceso a este panel ha sido restringido.' : 'El panel del monitor está restringido por mantenimiento.', 'error');
+        showToast(restrictions.dashboards ? 'Tu acceso a este panel ha sido restringido.' : 'El panel del monitor estÃ¡ restringido por mantenimiento.', 'error');
         navigate('/');
         return;
       }
@@ -276,7 +278,11 @@ const MonitorDashboard = () => {
 
   useEffect(() => {
     const loadAcademic = async () => {
-      if (!selectedAnalyticsModuleId || isDiningMonitor) return;
+      if (isDiningMonitor || !selectedAnalyticsModuleId || !(monitorModules || []).length) {
+        setAcademicStats(null);
+        setSessionCards([]);
+        return;
+      }
       try {
         const [statsData, sessionRows] = await Promise.all([
           getAcademicModuleStats(selectedAnalyticsModuleId),
@@ -321,6 +327,7 @@ const MonitorDashboard = () => {
     try {
       const data = await getForumReports();
       setReports(data || []);
+      setReportsPage(1);
     } catch (error) {
       showToast(error.message || 'Error al cargar reportes', 'error');
     }
@@ -389,7 +396,7 @@ const MonitorDashboard = () => {
     await updateMonitoriaInfo(selectedModule.id, { ...submitData, horario });
     setIsEditModuleOpen(false);
     fetchData();
-    showToast('¡Información del módulo actualizada!', 'success');
+    showToast('Â¡InformaciÃ³n del mÃ³dulo actualizada!', 'success');
     window.dispatchEvent(new Event('data-updated'));
   };
 
@@ -401,7 +408,7 @@ const MonitorDashboard = () => {
   const executeDeleteModule = async () => {
     if (!moduleToDelete) return;
     await deleteModule(moduleToDelete.id);
-    showToast('Monitoría eliminada correctamente', 'success');
+    showToast('MonitorÃ­a eliminada correctamente', 'success');
     setIsConfirmDeleteModuleOpen(false);
     setModuleToDelete(null);
     fetchData();
@@ -409,7 +416,7 @@ const MonitorDashboard = () => {
   };
 
   const handlePrint = () => {
-    showToast("Estamos trabajando en esta función", "info");
+    showToast("Estamos trabajando en esta funciÃ³n", "info");
   };
 
   const handleCopySurvey = (mod) => {
@@ -520,7 +527,7 @@ const MonitorDashboard = () => {
   const handleCreateModule = async (e) => {
     e.preventDefault();
     if (createFormData.dias.length === 0) {
-      showToast("Por favor selecciona al menos un día", "error");
+      showToast("Por favor selecciona al menos un dÃ­a", "error");
       return;
     }
     const horario = `${createFormData.dias.join(', ')} ${createFormData.horaInicio} - ${createFormData.horaFin}`;
@@ -548,15 +555,15 @@ const MonitorDashboard = () => {
       teams: ''
     });
     fetchData();
-    showToast('¡Nueva monitoría creada!', 'success');
+    showToast('Â¡Nueva monitorÃ­a creada!', 'success');
     window.dispatchEvent(new Event('data-updated'));
   };
 
-  const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const diasSemana = ["Lunes", "Martes", "MiÃ©rcoles", "Jueves", "Viernes", "SÃ¡bado"];
 
   const DayPicker = ({ selected, onChange }) => (
     <div className="space-y-2">
-      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Días de la Monitoría</label>
+      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">DÃ­as de la MonitorÃ­a</label>
       <div className="flex flex-wrap gap-2">
         {diasSemana.map(dia => (
           <button
@@ -610,8 +617,8 @@ const MonitorDashboard = () => {
 
               <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-teal-700 rounded-2xl">
                 {[
-                  { id: 'stats_dining', label: 'Estadísticas', icon: <Activity size={16} /> },
-                  { id: 'scanner', label: 'Escáner QR', icon: <PlusCircle size={16} /> },
+                  { id: 'stats_dining', label: 'EstadÃ­sticas', icon: <Activity size={16} /> },
+                  { id: 'scanner', label: 'EscÃ¡ner QR', icon: <PlusCircle size={16} /> },
                   { id: 'students', label: 'Atendidos', icon: <Users size={16} /> },
                 ].map(tab => (
                   <button
@@ -638,11 +645,11 @@ const MonitorDashboard = () => {
                   <p className="text-4xl font-black text-gray-900">{diningStats?.scans_today || 0}</p>
                 </div>
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Total Histórico</p>
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Total HistÃ³rico</p>
                   <p className="text-4xl font-black text-gray-900">{diningStats?.scans_total || 0}</p>
                 </div>
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Éxito Escaneo</p>
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Ã‰xito Escaneo</p>
                   <p className="text-4xl font-black text-emerald-600">
                     {diningStats?.scans_total > 0
                       ? Math.round(((diningStats?.scans_total - (diningStats?.scans_invalid || 0)) / diningStats?.scans_total) * 100)
@@ -691,7 +698,7 @@ const MonitorDashboard = () => {
               </div>
 
               <div className="rounded-[40px] border border-slate-100 p-6 bg-slate-50 shadow-inner space-y-4 relative">
-                {/* Flotante de Resultado QR - Absoluto sobre la cámara */}
+                {/* Flotante de Resultado QR - Absoluto sobre la cÃ¡mara */}
                 <AnimatePresence>
                   {scanResult && (
                     <motion.div
@@ -753,7 +760,7 @@ const MonitorDashboard = () => {
                         startCamera(selectedCameraId);
                         setTimeout(() => {
                           const res = captureFrameAndScan();
-                          if (!res) showToast('No se detectó QR. Intenta enfocar mejor.', 'info');
+                          if (!res) showToast('No se detectÃ³ QR. Intenta enfocar mejor.', 'info');
                         }, 800);
                       }}
                       className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black shadow-lg shadow-teal-500/20 hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2"
@@ -792,7 +799,7 @@ const MonitorDashboard = () => {
                         <Video size={48} />
                       </div>
                       <div className="space-y-2">
-                        <p className="text-lg font-black text-white">Cámara Inactiva</p>
+                        <p className="text-lg font-black text-white">CÃ¡mara Inactiva</p>
                         <p className="text-[10px] text-teal-400 font-bold max-w-[200px] leading-relaxed uppercase tracking-widest">Inicia el escaneo manual o inserta el token abajo.</p>
                       </div>
                     </div>
@@ -801,13 +808,13 @@ const MonitorDashboard = () => {
 
                 <div className="text-center pt-2">
                   {cameraStatus === 'loading' && <p className="text-teal-600 font-black animate-pulse text-[10px] uppercase tracking-widest">Iniciando Lente...</p>}
-                  {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> Escáner Listo</p>}
+                  {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> EscÃ¡ner Listo</p>}
                   {cameraStatus === 'error' && <p className="text-red-500 font-black text-[10px] uppercase tracking-widest">Error: {cameraError}</p>}
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-3 max-w-xl mx-auto">
-                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border-2 border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-sm font-bold focus:border-teal-500 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="O escribe el token aquí..." />
+                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border-2 border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-sm font-bold focus:border-teal-500 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="O escribe el token aquÃ­..." />
                 <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-8 py-4 rounded-2xl bg-teal-600 text-white text-sm font-black shadow-xl shadow-teal-500/30 hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50">
                   {isValidatingScan ? '...' : 'Validar'}
                 </button>
@@ -873,17 +880,17 @@ const MonitorDashboard = () => {
                   <span className="text-emerald-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none mb-1">
-                  Panel Monitor Académico
+                  Panel Monitor AcadÃ©mico
                 </h1>
                 <p className="text-emerald-100 text-xs font-medium opacity-90 max-w-lg leading-snug">
-                  Gestión integral de monitorías, seguimiento de asistencias y control académico.
+                  GestiÃ³n integral de monitorÃ­as, seguimiento de asistencias y control acadÃ©mico.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-emerald-700 rounded-2xl">
               {[
-                { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
+                { id: 'stats', label: 'EstadÃ­sticas', icon: <Activity size={16} /> },
                 { id: '', label: 'Alumnos', icon: <Users size={16} /> },
                 { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={16} /> },
                 { id: 'history', label: 'Asistencia', icon: <ClipboardList size={16} /> }
@@ -911,13 +918,13 @@ const MonitorDashboard = () => {
               <div className="lg:col-span-1 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <h2 className="text-xl font-bold text-brand-blue flex items-center gap-2">
-                    <BookOpen size={24} /> Mis Monitorías
+                    <BookOpen size={24} /> Mis MonitorÃ­as
                   </h2>
                   <button
                     onClick={() => setIsCreateModuleOpen(true)}
                     className="px-4 py-2 bg-emerald-100 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200"
                   >
-                    <PlusCircle size={14} /> Nueva Monitoría
+                    <PlusCircle size={14} /> Nueva MonitorÃ­a
                   </button>
                 </div>
                 <div className="space-y-4">
@@ -936,7 +943,7 @@ const MonitorDashboard = () => {
                           <button
                             onClick={() => handleDeleteModule(mod)}
                             className="text-gray-400 hover:text-red-500 transition-all p-2 hover:bg-red-50 rounded-lg active:scale-90"
-                            title="Eliminar Monitoría"
+                            title="Eliminar MonitorÃ­a"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -996,7 +1003,7 @@ const MonitorDashboard = () => {
                 <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
                   <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
                     <h3 className="text-xl font-black text-gray-900">
-                      {topTab === 'reports' ? 'Centro de Moderación' : 'Estudiantes Registrados'}
+                      {topTab === 'reports' ? 'Centro de ModeraciÃ³n' : 'Estudiantes Registrados'}
                     </h3>
                     {topTab === 'reports' ? (
                       <div className="flex items-center gap-2">
@@ -1045,7 +1052,7 @@ const MonitorDashboard = () => {
                           ) : (
                             <>
                               <th className="px-6 py-4">Estudiante</th>
-                              <th className="px-6 py-4">Módulo</th>
+                              <th className="px-6 py-4">MÃ³dulo</th>
                               <th className="px-6 py-4">Fecha Reg.</th>
                               <th className="px-6 py-4 text-right">Acciones</th>
                             </>
@@ -1059,7 +1066,7 @@ const MonitorDashboard = () => {
                               <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">No hay reportes disponibles</td>
                             </tr>
                           ) : (
-                            reports.map(rep => (
+                            reports.slice((reportsPage - 1) * REPORTS_PER_PAGE, reportsPage * REPORTS_PER_PAGE).map(rep => (
                               <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-2">
@@ -1194,7 +1201,7 @@ const MonitorDashboard = () => {
             <div className="flex-grow">
               <p className="font-black text-red-900">{selectedStudent?.studentName}</p>
               <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">
-                {selectedStudent?.modulos?.length > 1 ? 'Selecciona el módulo para dar de baja' : `Retirar de: ${selectedStudent?.modulo}`}
+                {selectedStudent?.modulos?.length > 1 ? 'Selecciona el mÃ³dulo para dar de baja' : `Retirar de: ${selectedStudent?.modulo}`}
               </p>
             </div>
           </div>
@@ -1225,7 +1232,7 @@ const MonitorDashboard = () => {
             <textarea
               value={deleteComment}
               onChange={(e) => setDeleteComment(e.target.value)}
-              placeholder="Ej. El estudiante no asistió a las sesiones..."
+              placeholder="Ej. El estudiante no asistiÃ³ a las sesiones..."
               className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-gray-900 font-bold"
             />
           </div>
@@ -1241,13 +1248,13 @@ const MonitorDashboard = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de Sesión">
+      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de SesiÃ³n">
         {sessionDetail ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">{sessionDetail.modulo} · {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
+            <p className="text-sm text-gray-600">{sessionDetail.modulo} Â· {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
             <div className="max-h-80 overflow-auto space-y-2">
               {(!sessionDetail.attendance || sessionDetail.attendance.length === 0) ? (
-                <p className="text-sm text-gray-400 text-center py-4 italic">No hay datos disponibles para esta sesión.</p>
+                <p className="text-sm text-gray-400 text-center py-4 italic">No hay datos disponibles para esta sesiÃ³n.</p>
               ) : (
                 sessionDetail.attendance.map((a) => (
                   <div key={a.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
@@ -1281,7 +1288,7 @@ const MonitorDashboard = () => {
             value={excuseDescription}
             onChange={(e) => setExcuseDescription(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[90px]"
-            placeholder="Descripción"
+            placeholder="DescripciÃ³n"
           />
           <div className="flex justify-end gap-2">
             <button onClick={() => setExcuseTarget(null)} className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold">Cancelar</button>
@@ -1306,11 +1313,11 @@ const MonitorDashboard = () => {
         </div>
       </Modal>
 
-      {/* Modal Editar Módulo */}
+      {/* Modal Editar MÃ³dulo */}
       <Modal
         isOpen={isEditModuleOpen}
         onClose={() => setIsEditModuleOpen(false)}
-        title="Editar Información de Monitoría"
+        title="Editar InformaciÃ³n de MonitorÃ­a"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -1366,11 +1373,11 @@ const MonitorDashboard = () => {
 
           <InputField
             type="textarea"
-            label="Descripción del Módulo"
+            label="DescripciÃ³n del MÃ³dulo"
             required={false}
             value={editFormData.descripcion}
             onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
-            placeholder="Describe los temas que tratas en esta monitoría..."
+            placeholder="Describe los temas que tratas en esta monitorÃ­a..."
           />
 
           <div className="grid grid-cols-2 gap-4">
@@ -1401,19 +1408,19 @@ const MonitorDashboard = () => {
           </button>
         </div>
       </Modal>
-      {/* Modal Crear Módulo */}
+      {/* Modal Crear MÃ³dulo */}
       <Modal
         isOpen={isCreateModuleOpen}
         onClose={() => setIsCreateModuleOpen(false)}
-        title="Crear Nueva Monitoría"
+        title="Crear Nueva MonitorÃ­a"
       >
         <form onSubmit={handleCreateModule} className="space-y-4 py-2 text-left">
           <div className="grid grid-cols-2 gap-4">
             <InputField
-              label="Nombre del Módulo"
+              label="Nombre del MÃ³dulo"
               value={createFormData.modulo}
               onChange={(e) => setCreateFormData({ ...createFormData, modulo: e.target.value })}
-              placeholder="Ej. Cálculo I"
+              placeholder="Ej. CÃ¡lculo I"
             />
             <InputField
               type="select"
@@ -1424,12 +1431,12 @@ const MonitorDashboard = () => {
             />
           </div>
 
-          {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'Híbrido') && (
+          {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'HÃ­brido') && (
             <InputField
-              label="Salón"
+              label="SalÃ³n"
               value={createFormData.salon}
               onChange={(e) => setCreateFormData({ ...createFormData, salon: e.target.value })}
-              placeholder="Ej. Salón 204 Bloque B"
+              placeholder="Ej. SalÃ³n 204 Bloque B"
             />
           )}
 
@@ -1478,27 +1485,27 @@ const MonitorDashboard = () => {
 
           <InputField
             type="textarea"
-            label="Descripción"
+            label="DescripciÃ³n"
             required={false}
             value={createFormData.descripcion}
             onChange={(e) => setCreateFormData({ ...createFormData, descripcion: e.target.value })}
-            placeholder="¿Qué temas enseñarás?"
+            placeholder="Â¿QuÃ© temas enseÃ±arÃ¡s?"
           />
 
           <button
             type="submit"
             className="w-full py-4 bg-emerald-600 text-white font-extrabold rounded-2xl shadow-xl hover:bg-emerald-700 active:scale-95 transition-all text-sm uppercase tracking-widest"
           >
-            Publicar Monitoría
+            Publicar MonitorÃ­a
           </button>
         </form>
       </Modal>
 
-      {/* Modal: Confirmar Eliminación de Monitoría */}
+      {/* Modal: Confirmar EliminaciÃ³n de MonitorÃ­a */}
       <Modal
         isOpen={isConfirmDeleteModuleOpen}
         onClose={() => setIsConfirmDeleteModuleOpen(false)}
-        title="¿Confirmar Eliminación?"
+        title="Â¿Confirmar EliminaciÃ³n?"
       >
         <div className="space-y-8 text-center py-4">
           <div className="bg-red-50 p-6 rounded-2xl inline-block text-red-600 animate-pulse">
@@ -1506,17 +1513,17 @@ const MonitorDashboard = () => {
           </div>
           <div className="space-y-3 px-4">
             <p className="text-2xl font-black text-gray-900 leading-tight">
-              Estás a punto de borrar la monitoría de: <br />
+              EstÃ¡s a punto de borrar la monitorÃ­a de: <br />
               <span className="text-red-600 italic">"{moduleToDelete?.modulo}"</span>
             </p>
-            <p className="text-gray-500 font-medium">Esta acción eliminará todos los registros asociados permanentemente y no se puede deshacer.</p>
+            <p className="text-gray-500 font-medium">Esta acciÃ³n eliminarÃ¡ todos los registros asociados permanentemente y no se puede deshacer.</p>
           </div>
           <div className="flex flex-col gap-3">
             <button
               onClick={executeDeleteModule}
               className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 active:scale-95 transition-all text-sm uppercase tracking-widest"
             >
-              Sí, eliminar definitivamente
+              SÃ­, eliminar definitivamente
             </button>
             <button
               onClick={() => setIsConfirmDeleteModuleOpen(false)}
@@ -1532,3 +1539,7 @@ const MonitorDashboard = () => {
 };
 
 export default MonitorDashboard;
+
+
+
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -123,6 +123,14 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [notificationsOpen]);
 
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const onScrollClose = () => setNotificationsOpen(false);
+    window.addEventListener('scroll', onScrollClose, true);
+    return () => window.removeEventListener('scroll', onScrollClose, true);
+  }, [notificationsOpen]);
+
+
   async function fetchUser() {
     const data = await getCurrentUser();
     setUser(data);
@@ -156,6 +164,15 @@ const Navbar = () => {
     }
   };
 
+  const resolveNotificationLink = (item) => {
+    if (item?.link) return item.link;
+    const metadata = item?.metadata || {};
+    const forumId = metadata.forumId || metadata.forum_id;
+    const moduleId = metadata.moduleId || metadata.module_id;
+    if (forumId && moduleId) return '/modules/' + moduleId + '/forum?forumId=' + forumId;
+    if (moduleId) return '/modules/' + moduleId + '/forum';
+    return null;
+  };
   const handleDeleteNotification = async (id) => {
     try {
       await apiDeleteNotification(id);
@@ -166,8 +183,8 @@ const Navbar = () => {
   };
 
   const handleNotificationClick = async (item) => {
-    setNotificationsOpen(false);
-    if (item?.link) navigate(item.link);
+    const targetLink = resolveNotificationLink(item);
+    if (targetLink) navigate(targetLink);
   };
 
   const isNewlyCreated = (dateString) => {
@@ -199,8 +216,8 @@ const Navbar = () => {
     ],
     student: [
       { name: 'Inicio', path: '/' },
-      { name: 'Monitorías', path: '/monitorias' },
-      { name: 'Mis Monitorías', path: '/mis-monitorias' },
+      { name: 'MonitorÃ­as', path: '/monitorias' },
+      { name: 'Mis MonitorÃ­as', path: '/mis-monitorias' },
     ]
   };
 
@@ -368,7 +385,7 @@ const Navbar = () => {
                       <button
                         onClick={() => {
                           setProfileOpen(false);
-                          showToast("Estamos trabajando en esta función", "info");
+                          showToast("Estamos trabajando en esta funciÃ³n", "info");
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
                       >
@@ -379,7 +396,7 @@ const Navbar = () => {
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
                       >
-                        <LogOut size={18} /> Cerrar Sesión
+                        <LogOut size={18} /> Cerrar SesiÃ³n
                       </button>
                     </div>
                   )}
@@ -432,7 +449,7 @@ const Navbar = () => {
                   onClick={() => { setIsOpen(false); navigate('/login'); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-white text-brand-blue text-sm font-black rounded-xl border-2 border-brand-blue/20 hover:bg-brand-blue/5 active:scale-95 transition-all"
                 >
-                  <LogIn size={18} /> Iniciar Sesión
+                  <LogIn size={18} /> Iniciar SesiÃ³n
                 </button>
               </div>
             ) : (
@@ -457,7 +474,7 @@ const Navbar = () => {
                   <User size={18} /> Mi Perfil
                 </button>
                 <button
-                  onClick={() => { setIsOpen(false); showToast("Estamos trabajando en esta función", "info"); }}
+                  onClick={() => { setIsOpen(false); showToast("Estamos trabajando en esta funciÃ³n", "info"); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-xl transition-all"
                 >
                   <HelpCircle size={18} /> Ayuda
@@ -498,7 +515,7 @@ const Navbar = () => {
                   onClick={() => { handleLogout(); setIsOpen(false); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-all"
                 >
-                  <LogOut size={18} /> Cerrar Sesión
+                  <LogOut size={18} /> Cerrar SesiÃ³n
                 </button>
               </>
             )}
@@ -510,3 +527,5 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
+

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { getCurrentUser, getGlobalStats, getUserStats } from '../services/api';
+import { Activity } from 'lucide-react';
 
 const GLOBAL_ROLES = new Set(['admin', 'dev', 'monitor_academico', 'monitor_administrativo']);
 
@@ -97,9 +98,10 @@ const RoleStatsPanel = () => {
       const userRole = String(current?.role || 'student').toLowerCase();
       setRole(userRole);
 
-      const requests = [getUserStats(current.id)];
+      const requests = [];
+      if (current?.id) requests.push(getUserStats(current.id));
       if (GLOBAL_ROLES.has(userRole)) requests.push(getGlobalStats());
-      const [userData, globalData] = await Promise.all(requests);
+      const [userData, globalData] = await Promise.all(requests.length ? requests : [Promise.resolve(null)]);
       setUserStats(userData || null);
       setGlobalStats(globalData || null);
     } catch (err) {
@@ -148,14 +150,14 @@ const RoleStatsPanel = () => {
                       <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{globalStats?.totals?.total_assistances || 0}</p>
                     </div>
                     <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50 group hover:border-gray-200 transition-all">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Estudiantes Únicos Atendidos</p>
+                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Estudiantes Ãšnicos Atendidos</p>
                       <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{globalStats?.totals?.unique_students || 0}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="rounded-3xl border border-gray-100 p-6">
-                      <p className="text-[10px] uppercase font-black text-gray-500 mb-4 tracking-widest">Registros por Fecha (Últimos días)</p>
+                      <p className="text-[10px] uppercase font-black text-gray-500 mb-4 tracking-widest">Registros por Fecha (Ãšltimos dÃ­as)</p>
                       <DateBars items={globalStats?.assistances_by_date || []} color={getRoleColor(role)} />
                     </div>
                     <div className="rounded-3xl border border-gray-100 p-6">
@@ -171,7 +173,7 @@ const RoleStatsPanel = () => {
                   <h3 className="text-sm font-black uppercase text-gray-500 tracking-wider">Tu Actividad - Estudiante</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Monitorías que has asistido</p>
+                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">MonitorÃ­as que has asistido</p>
                       <p className="text-3xl font-black text-blue-600">{userStats?.totals?.monitorias_attended || 0}</p>
                     </div>
                     <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
@@ -184,11 +186,11 @@ const RoleStatsPanel = () => {
                     <div className="max-h-56 overflow-auto space-y-2 pr-1">
                       {(userStats?.attendance_history || []).map((row) => (
                         <div key={row.id} className="text-xs rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 flex items-center justify-between gap-2 hover:bg-white hover:shadow-sm transition-all cursor-default">
-                          <span className="font-bold text-gray-700">{row.module_name || `Módulo #${row.module_id || '-'}`}</span>
+                          <span className="font-bold text-gray-700">{row.module_name || `MÃ³dulo #${row.module_id || '-'}`}</span>
                           <span className="text-[10px] font-black uppercase text-gray-400">{row.date}</span>
                         </div>
                       ))}
-                      {!userStats?.attendance_history?.length && <p className="text-sm text-gray-400 italic text-center py-4">No tienes asistencias registradas aún.</p>}
+                      {!userStats?.attendance_history?.length && <p className="text-sm text-gray-400 italic text-center py-4">No tienes asistencias registradas aÃºn.</p>}
                     </div>
                   </div>
                 </div>
@@ -203,7 +205,7 @@ const RoleStatsPanel = () => {
                       <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{userStats?.totals?.total_students_attended || 0}</p>
                     </div>
                     <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Sesiones de Monitoría Realizadas</p>
+                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Sesiones de MonitorÃ­a Realizadas</p>
                       <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{userStats?.totals?.sessions_count || 0}</p>
                     </div>
                   </div>
@@ -218,3 +220,4 @@ const RoleStatsPanel = () => {
 };
 
 export default RoleStatsPanel;
+
