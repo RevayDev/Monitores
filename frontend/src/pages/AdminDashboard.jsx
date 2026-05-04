@@ -76,21 +76,21 @@ import { getRoleColors } from '../utils/roleHelpers';
 import { getPageItems, getPageNumbers, parseLogMetadata } from '../utils/adminDashboardHelpers';
 
 const MaintToggle = ({ id, title, subtitle, icon: Icon, active, onToggle }) => (
-  <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
-    <div className="flex items-center gap-5">
-      <div className={`p-4 rounded-2xl ${active ? 'bg-slate-50 text-slate-500' : 'bg-gray-50 text-gray-400'} transition-colors`}>
-        <Icon size={24} />
+  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+    <div className="flex items-center gap-4">
+      <div className={`p-3 rounded-xl ${active ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-400'} transition-colors`}>
+        <Icon size={20} />
       </div>
       <div>
-        <h4 className="text-lg font-black text-gray-900 tracking-tight">{title}</h4>
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{subtitle}</p>
+        <h4 className="text-base font-semibold text-slate-900">{title}</h4>
+        <p className="text-[11px] font-medium text-slate-500 mt-0.5">{subtitle}</p>
       </div>
     </div>
     <button
       onClick={() => onToggle(id)}
-      className={`relative w-14 h-8 rounded-full transition-all duration-300 ${active ? 'bg-slate-500' : 'bg-gray-200'}`}
+      className={`relative w-12 h-7 rounded-full transition-all duration-300 ${active ? 'bg-orange-500' : 'bg-slate-200'}`}
     >
-      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 ${active ? 'left-7' : 'left-1'}`} />
+      <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${active ? 'left-6' : 'left-1'}`} />
     </button>
   </div>
 );
@@ -100,32 +100,32 @@ const num = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const StatMetricCard = ({ icon: Icon, label, value, color = 'text-brand-blue' }) => (
-  <div className="bg-gray-100/50 p-4 rounded-2xl border border-gray-200">
-    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mb-1 flex items-center gap-1.5">
-      <Icon size={12} /> {label}
+const StatMetricCard = ({ icon: Icon, label, value, color = 'text-orange-600' }) => (
+  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+    <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+      <Icon size={14} className={color} /> {label}
     </p>
-    <p className={`text-lg font-bold ${color} break-all`}>{value}</p>
+    <p className={`text-xl font-semibold ${color} break-all`}>{value}</p>
   </div>
 );
 
-const HorizontalBars = ({ rows = [], max = 1, color = 'bg-brand-blue' }) => (
-  <div className="space-y-2">
+const HorizontalBars = ({ rows = [], max = 1, color = 'bg-orange-500' }) => (
+  <div className="space-y-3">
     {rows.map((row) => (
       <div key={row.label}>
-        <div className="flex items-center justify-between text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+        <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 mb-1.5">
           <span>{row.label}</span>
-          <span>{row.value}</span>
+          <span className="font-semibold">{row.value}</span>
         </div>
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, Math.round((num(row.value) / Math.max(1, max)) * 100))}%` }} />
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className={`h-full ${color} rounded-full`} style={{ width: `${Math.min(100, Math.round((num(row.value) / Math.max(1, max)) * 100))}%` }} />
         </div>
       </div>
     ))}
   </div>
 );
 
-const Donut = ({ percent = 0, size = 120, color = '#2563EB', track = '#E5E7EB', centerLabel = '0%' }) => {
+const Donut = ({ percent = 0, size = 120, color = '#f97316', track = '#e2e8f0', centerLabel = '0%' }) => {
   const safe = Math.max(0, Math.min(100, num(percent)));
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -135,8 +135,8 @@ const Donut = ({ percent = 0, size = 120, color = '#2563EB', track = '#E5E7EB', 
           background: `conic-gradient(${color} ${safe}%, ${track} ${safe}% 100%)`
         }}
       />
-      <div className="absolute inset-[14%] rounded-full bg-white border border-gray-100 flex items-center justify-center">
-        <span className="text-xs font-black text-gray-700">{centerLabel}</span>
+      <div className="absolute inset-[14%] rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm">
+        <span className="text-sm font-semibold text-slate-700">{centerLabel}</span>
       </div>
     </div>
   );
@@ -563,27 +563,27 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6">
-        <header className="bg-blue-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6">
+        <header className="bg-orange-500 rounded-2xl p-6 md:p-8 text-white">
           <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-blue-600 border border-blue-500">
-                <ShieldCheck size={36} className="text-blue-50" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center bg-orange-600 shadow-sm">
+                <ShieldCheck size={36} className="text-orange-100" />
               </div>
               <div className="space-y-1.5 pt-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-600 rounded-full">
-                  <div className="w-1.5 h-1.5 bg-blue-200 rounded-full"></div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-50">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-600 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-orange-300 rounded-full animate-pulse"></div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-100">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none">
                   Panel Administrativo
                 </h1>
-                <p className="text-blue-100 text-xs font-medium opacity-90 max-w-md leading-snug">
-                  Gestión centralizada de privilegios, Estadísticas y auditoría institucional.
+                <p className="text-orange-100 text-sm font-medium opacity-90 max-w-md leading-relaxed">
+                  Gestión centralizada de privilegios, estadísticas y auditoría institucional.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-blue-700 rounded-2xl">
+            <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-orange-600 rounded-xl">
               {[
                 { id: 'users', label: 'Miembros', icon: <Users size={16} /> },
                 { id: 'modules', label: 'Monitorías', icon: <BookOpen size={16} /> },
@@ -593,9 +593,9 @@ const AdminDashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${activeTab === tab.id
-                    ? 'bg-white text-blue-700 shadow-xl'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-semibold uppercase tracking-wide transition-all active:scale-95 ${activeTab === tab.id
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-orange-100 hover:text-white hover:bg-orange-500'
                     }`}
                 >
                   {tab.icon}
@@ -617,8 +617,8 @@ const AdminDashboard = () => {
 
             <section className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                  <Activity className="text-blue-600" /> Estadísticas Globales
+                <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                  <Activity className="text-orange-600" /> Estadísticas Globales
                 </h3>
                 <div className="flex items-center gap-3">
                   <select
@@ -632,33 +632,39 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {globalStats && (
+                {globalStats && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Asistencias Totales</p>
-                    <p className="text-3xl font-black text-blue-600">{globalStats.totals?.total_assistances || 0}</p>
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                      <Users size={14} className="text-orange-500" /> Asistencias Totales
+                    </p>
+                    <p className="text-2xl font-semibold text-orange-600">{globalStats.totals?.total_assistances || 0}</p>
                   </div>
-                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Reportes de Moderación</p>
-                    <p className="text-3xl font-black text-blue-600">{reports.length || 0}</p>
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                      <MessageSquare size={14} className="text-orange-500" /> Reportes de Moderación
+                    </p>
+                    <p className="text-2xl font-semibold text-orange-600">{reports.length || 0}</p>
                   </div>
-                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-1">Estudiantes Activos</p>
-                    <p className="text-3xl font-black text-blue-600">{globalStats.totals?.unique_students || 0}</p>
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                      <UserCheck size={14} className="text-orange-500" /> Estudiantes Activos
+                    </p>
+                    <p className="text-2xl font-semibold text-orange-600">{globalStats.totals?.unique_students || 0}</p>
                   </div>
                 </div>
               )}
 
               {memberStats && (
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 space-y-4">
-                  <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest flex items-center gap-1.5">
-                    <BarChart3 size={12} /> Vista por usuario seleccionado
+                  <p className="text-[11px] font-medium text-slate-500 mb-3 flex items-center gap-1.5">
+                    <BarChart3 size={14} className="text-orange-600" /> Vista por usuario seleccionado
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {Object.entries(memberStats.totals || {}).slice(0, 3).map(([key, value]) => (
-                      <div key={key} className="bg-white rounded-xl border border-gray-100 p-4">
-                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">{key.replaceAll('_', ' ')}</p>
-                        <p className="text-2xl font-black text-blue-600">{value ?? 0}</p>
+                      <div key={key} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                        <p className="text-[11px] font-medium text-slate-500">{key.replaceAll('_', ' ')}</p>
+                        <p className="text-2xl font-semibold text-orange-600">{value ?? 0}</p>
                       </div>
                     ))}
                   </div>
@@ -735,14 +741,14 @@ const AdminDashboard = () => {
         )}
 
         {activeTab !== 'stats' && (
-          <div className="bg-white rounded-[32px] shadow-2xl border border-gray-100 overflow-hidden">
-            <div className="bg-gray-50/50 p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 p-6 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                  {activeTab === 'users' ? <><Users className="text-blue-600" /> Directorio Institucional</> :
-                    activeTab === 'modules' ? <><BookOpen className="text-blue-600" /> Módulos Académicos</> :
-                      activeTab === 'reports' ? <><AlertTriangle className="text-blue-600" /> Centro de Reportes</> :
-                        activeTab === 'log' ? <><FileText className="text-blue-600" /> Log General</> : null}
+                <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                  {activeTab === 'users' ? <><Users className="text-orange-600" /> Directorio Institucional</> :
+                    activeTab === 'modules' ? <><BookOpen className="text-orange-600" /> Módulos Académicos</> :
+                      activeTab === 'reports' ? <><AlertTriangle className="text-orange-600" /> Centro de Reportes</> :
+                        activeTab === 'log' ? <><FileText className="text-orange-600" /> Log General</> : null}
                 </h3>
               </div>
 
@@ -753,14 +759,14 @@ const AdminDashboard = () => {
                   setFormData(prev => ({ ...prev, role: roleMap[activeTab] || 'student' }));
                   setIsNewMonitorOpen(true);
                 }}
-                className="flex items-center gap-2 px-8 py-3.5 bg-brand-blue text-white rounded-2xl font-black text-xs shadow-lg hover:bg-brand-dark-blue hover:shadow-xl active:scale-95 transition-all text-nowrap"
+                className="flex items-center gap-2 px-8 py-3.5 bg-orange-500 text-white rounded-xl font-semibold text-xs shadow-sm hover:bg-orange-600 active:scale-95 transition-all text-nowrap"
               >
                 <PlusCircle size={16} /> Registrar Miembro
               </button>}
             </div>
 
-            {activeTab === 'users' && (
-              <div className="px-8 py-3 bg-white border-b border-gray-100 flex items-center gap-2">
+              {activeTab === 'users' && (
+              <div className="px-8 py-3 bg-white border-b border-slate-200 flex items-center gap-2">
                 {[
                   { id: 'student', label: 'Estudiantes' },
                   { id: 'monitor', label: 'Monitores' },
@@ -769,9 +775,9 @@ const AdminDashboard = () => {
                   <button
                     key={sub.id}
                     onClick={() => setMemberSubTab(sub.id)}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${memberSubTab === sub.id
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    className={`px-5 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${memberSubTab === sub.id
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                       }`}
                   >
                     {sub.label}
@@ -780,8 +786,8 @@ const AdminDashboard = () => {
               </div>
             )}
             
-            {activeTab === 'reports' && (
-              <div className="px-8 py-3 bg-white border-b border-gray-100 flex items-center gap-2">
+              {activeTab === 'reports' && (
+              <div className="px-8 py-3 bg-white border-b border-slate-200 flex items-center gap-2">
                 {[
                   { id: 'pending', label: 'Registros Pendientes' },
                   { id: 'history', label: 'Historial de Soluciones' }
@@ -789,9 +795,9 @@ const AdminDashboard = () => {
                   <button
                     key={sub.id}
                     onClick={() => setReportSubTab(sub.id)}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportSubTab === sub.id
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    className={`px-5 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${reportSubTab === sub.id
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                       }`}
                   >
                     {sub.label}
@@ -800,15 +806,15 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            <div className="px-8 py-5 bg-white border-b border-gray-50 flex items-center gap-4">
-              <div className="relative flex-1 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-brand-blue transition-colors" size={18} />
+            <div className="px-8 py-4 bg-white border-b border-slate-100 flex items-center gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors" size={18} />
                 <input
                   type="text"
                   placeholder="Buscar en esta sección por nombre, correo, usuario o sede..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-brand-blue/5 focus:bg-white focus:border-brand-blue/20 transition-all placeholder:text-gray-400 shadow-inner"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -823,14 +829,14 @@ const AdminDashboard = () => {
                 {activeTab === 'modules' ? (
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="text-[10px] uppercase tracking-widest font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
-                        <th className="px-8 py-6">Módulo Académico</th>
-                        <th className="px-8 py-6">Responsable (Monitor)</th>
-                        <th className="px-8 py-6">Sede / Ciclo</th>
-                        <th className="px-8 py-6 text-right">Gestión</th>
+                      <tr className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 border-b border-slate-100 bg-slate-50">
+                        <th className="px-8 py-4">Módulo Académico</th>
+                        <th className="px-8 py-4">Responsable (Monitor)</th>
+                        <th className="px-8 py-4">Sede / Ciclo</th>
+                        <th className="px-8 py-4 text-right">Gestión</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-slate-100">
                       {allAdminModules.sort((a, b) => {
                         const aOrph = !(a.monitorId && monitors.some(m => m.id === a.monitorId));
                         const bOrph = !(b.monitorId && monitors.some(m => m.id === b.monitorId));
@@ -841,15 +847,15 @@ const AdminDashboard = () => {
                       }).map(mod => {
                         const monitorExists = mod.monitorId && monitors.some(m => m.id === mod.monitorId);
                         return (
-                          <tr key={mod.id} className={`hover:bg-gray-50 transition-all group border-b border-gray-50 ${!monitorExists ? 'opacity-40 grayscale bg-gray-100/50 cursor-not-allowed' : ''}`}>
-                            <td className="px-8 py-6">
-                              <p className="font-extrabold text-gray-900 group-hover:text-brand-blue transition-colors flex items-center gap-2">
+                          <tr key={mod.id} className={`hover:bg-slate-50 transition-all ${!monitorExists ? 'opacity-60 bg-slate-50/50' : ''}`}>
+                            <td className="px-8 py-4">
+                              <p className="font-semibold text-slate-900 flex items-center gap-2">
                                 {renderSearchHighlight(mod.modulo)}
-                                {!monitorExists && <span className="text-[7px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded uppercase font-black">Módulo Huérfano</span>}
+                                {!monitorExists && <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-semibold">Huérfano</span>}
                               </p>
-                              <p className="text-[9px] text-gray-400 font-black">REF: #{mod.id}</p>
+                              <p className="text-[10px] text-slate-400 font-semibold">REF: #{mod.id}</p>
                             </td>
-                            <td className="px-8 py-6">
+                            <td className="px-8 py-4">
                               <div className="flex items-center gap-3">
                                 {monitorExists ? (
                                   <>
