@@ -235,6 +235,10 @@ export const submitAttendance = (data) => request('/attendance', {
   body: JSON.stringify(data)
 });
 
+export const getMyModuleFeedback = (moduleId) => request(`/feedback/modules/${moduleId}/me`);
+export const upsertMyModuleFeedback = (moduleId, payload) => request(`/feedback/modules/${moduleId}`, { method: 'POST', body: JSON.stringify(payload) });
+export const getModuleFeedbackForMonitor = (moduleId) => request(`/feedback/modules/${moduleId}`);
+
 export const getModuleAttendanceSheet = (moduleId) => request(`/modules/${moduleId}/attendance-sheet`);
 export const saveModuleAttendanceSheet = (moduleId, rows) => request(`/modules/${moduleId}/attendance-sheet`, {
   method: 'POST',
@@ -405,7 +409,7 @@ export const rootSystemBackup = async () => {
       'x-user-role': String(sessionUser?.baseRole === 'dev' ? 'dev' : (sessionUser?.role || sessionUser?.baseRole || '')).toLowerCase()
     }
   });
-  if (!response.ok) throw new Error('FallÃ³ el backup.');
+  if (!response.ok) throw new Error('Falló el backup.');
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -435,5 +439,6 @@ export const rootSystemRestore = async (file) => {
   }
   return response.json();
 };
+
 
 

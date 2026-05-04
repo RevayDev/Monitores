@@ -27,6 +27,7 @@ import {
   createForumReport
 } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
+import { splitHighlightedText } from '../utils/forumSearchHelpers';
 
 const getVisualRole = (userId, userRole, monitorId, members = []) => {
   const roleStr = String(userRole || '').toLowerCase();
@@ -402,6 +403,10 @@ const ModuleForum = () => {
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const isReadOnlyParam = useMemo(() => queryParams.get('readOnly') === 'true', [queryParams]);
   const forumIdParam = useMemo(() => queryParams.get('forumId'), [queryParams]);
+  const reportTypeParam = useMemo(() => queryParams.get('reportType'), [queryParams]);
+  const reportTargetIdParam = useMemo(() => Number(queryParams.get('targetId') || 0), [queryParams]);
+  const isReportThreadTarget = reportTypeParam === 'thread' && reportTargetIdParam > 0;
+  const isReportReplyTarget = reportTypeParam === 'reply' && reportTargetIdParam > 0;
 
   const isReadOnly = useMemo(() => {
     return isReadOnlyParam || (detail && detail.is_active_member === false);
@@ -570,6 +575,16 @@ const ModuleForum = () => {
     );
   }, [threads, searchTerm]);
 
+  const renderSearchHighlight = (value) => (
+    <>
+      {splitHighlightedText(value, searchTerm).map((part, index) => (
+        part.match
+          ? <mark key={index} className="rounded bg-yellow-200 px-0.5 text-gray-950">{part.text}</mark>
+          : <React.Fragment key={index}>{part.text}</React.Fragment>
+      ))}
+    </>
+  );
+
   const loadDetail = async (threadId, { silent = false } = {}) => {
     if (!threadId) return setDetail(null);
     try {
@@ -622,17 +637,13 @@ const ModuleForum = () => {
   }, [selectedId]);
 
   useEffect(() => {
-    if (detail && forumIdParam && !highlightedReplyId) {
-      const replyId = Number(forumIdParam);
-      if (replyId) {
-        setHighlightedReplyId(replyId);
-        setTimeout(() => {
-          const el = document.getElementById(`reply-${replyId}`);
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 1000);
-      }
-    }
-  }, [detail, forumIdParam]);
+    if (!detail || !isReportReplyTarget || highlightedReplyId === reportTargetIdParam) return;
+    setHighlightedReplyId(reportTargetIdParam);
+    setTimeout(() => {
+      const el = document.getElementById(`reply-${reportTargetIdParam}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 400);
+  }, [detail, isReportReplyTarget, reportTargetIdParam, highlightedReplyId]);
   
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -1021,8 +1032,8 @@ const ModuleForum = () => {
                 {filteredThreads.map((thread) => (
                   <div key={thread.id} className={`w-full text-left rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
                     <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
-                      <p className="text-sm text-gray-900 line-clamp-1">{thread.title}</p>
-                      <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{thread.content}</p>
+                      <p className="text-sm text-gray-900 line-clamp-1">{renderSearchHighlight(thread.title)}</p>
+                      <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{renderSearchHighlight(thread.content)}</p>
                       <p className="text-[11px] text-gray-400 mt-2">{thread.responses_count || 0} respuestas</p>
                     </button>
                     <div className="mt-2 flex items-center justify-end gap-2">
@@ -1039,10 +1050,11 @@ const ModuleForum = () => {
             {!detail ? <p className="text-sm text-gray-500">Selecciona una pregunta para ver el detalle.</p> : (
               <>
                 <div className={`rounded-2xl border transition-all duration-500 overflow-hidden relative p-4 space-y-2 ${
+                  isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
                   isMeMentioned(detail.content, currentUser?.id) ? 'bg-amber-50 border-amber-200 animate-pulse-gold' : 
                   (Number(detail.user_id) === Number(currentUser?.id) ? 'is-me-card' : 'bg-gray-50 border-gray-100')
-                }`}>
-                   {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm">✨ Te mencionaron</div>}
+                }`}>                   {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10 shadow-sm">Origen del reporte</div>}
+                   {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200 flex items-center gap-1 z-10 shadow-sm">Te mencionaron</div>}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <UserAvatar photo={detail.author_photo} name={detail.author_name} userId={detail.user_id} userRole={detail.author_role} monitorId={moduleMonitorId} size="w-9 h-9" />
@@ -1133,10 +1145,10 @@ const ModuleForum = () => {
 
                       result.push(
                         <div key={reply.id} id={`reply-${reply.id}`} className={`rounded-2xl border transition-all duration-500 p-4 relative ${
+                          highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
                           isNewlyMentioned ? 'bg-amber-50 border-amber-200 animate-pulse-gold' : 
                           (isMentioned ? 'bg-amber-50/50 border-amber-100' : 
-                          (highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' :
-                          (isMeSender ? 'is-me-card' : 'bg-white border-gray-100')))
+                          (isMeSender ? 'is-me-card' : 'bg-white border-gray-100'))
                         }`}>
                           <div className="flex justify-between items-start mb-2 text-xs">
                             <div className="flex items-center gap-2 text-gray-500">

@@ -85,7 +85,7 @@ const uploadImage = async (req, res) => {
 
 const getMeStats = async (req, res) => {
   try {
-    const data = await usersService.getMeStats(req.user?.id);
+    const data = await usersService.getMeStats(req.userContext?.userId || req.user?.id);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -98,7 +98,7 @@ const getUserStats = async (req, res) => {
     if (!Number.isInteger(targetId) || targetId <= 0) {
       return res.status(400).json({ error: 'ID de usuario invalido.' });
     }
-    const data = await usersService.getUserStatsById(req.user?.id, targetId);
+    const data = await usersService.getUserStatsById(req.userContext?.userId || req.user?.id, targetId);
     res.json(data);
   } catch (error) {
     const code = error.message.includes('No autorizado') ? 403 : 400;

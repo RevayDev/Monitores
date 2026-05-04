@@ -11,6 +11,7 @@ import devRoutes from './routes/dev.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import pool from './utils/mysql.helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +52,39 @@ const wrapAllAsyncRoutes = (expressApp) => {
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
+
+const redactBody = (body = {}) => {
+  const clone = { ...body };
+  ['password', 'confirmPassword', 'token', 'content'].forEach((key) => {
+    if (key in clone) clone[key] = '[redacted]';
+  });
+  return clone;
+};
+
+app.use((req, res, next) => {
+  const method = String(req.method || '').toUpperCase();
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return next();
+  if (!String(req.path || '').startsWith('/api/')) return next();
+
+  res.on('finish', () => {
+    if (res.statusCode >= 400) return;
+    const userId = Number(req.headers['x-user-id']) || req.user?.id || req.userContext?.userId || null;
+    const actionPath = String(req.path || '').replace(/^\/api\//, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
+    pool.query(
+      'INSERT INTO activity_logs (user_id, action, entity_type, metadata, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+      [
+        userId,
+        'HTTP_' + method + '_' + actionPath,
+        'http',
+        JSON.stringify({ method, path: req.path, status: res.statusCode, body: redactBody(req.body) }),
+        req.ip || null,
+        req.headers['user-agent'] || null
+      ]
+    ).catch((error) => console.error('audit log error:', error.message));
+  });
+  next();
+});
 
 // Static files
 const uploadsDir = path.join(__dirname, 'uploads');

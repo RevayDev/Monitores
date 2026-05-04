@@ -899,7 +899,7 @@ class EngagementService {
     const role = String(user?.role || '').toLowerCase();
     
     const queryFilters = {};
-    if (['monitor_academico'].includes(role)) {
+    if (['monitor_academico','monitor'].includes(role)) {
       queryFilters.monitorId = userId;
     } else if (!['admin', 'dev'].includes(role)) {
       throw new Error('No autorizado para ver reportes.');
@@ -910,7 +910,7 @@ class EngagementService {
 
   async resolveReport(userId, reportId, resolutionNote) {
     const user = await engagementRepository.getUserById(userId);
-    if (!['admin', 'dev', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
+    if (!['admin', 'dev', 'monitor_academico', 'monitor'].includes(String(user?.role || '').toLowerCase())) {
       throw new Error('No autorizado.');
     }
     await engagementRepository.resolveForumReport(reportId, userId, resolutionNote);
@@ -929,10 +929,14 @@ class EngagementService {
 
   async getModerationLogs(userId) {
     const user = await engagementRepository.getUserById(userId);
-    if (!['admin', 'dev', 'monitor_academico'].includes(String(user?.role || '').toLowerCase())) {
+    if (!['admin', 'dev', 'monitor_academico', 'monitor'].includes(String(user?.role || '').toLowerCase())) {
       throw new Error('No autorizado.');
     }
-    return engagementRepository.getActivityLogs({ action: 'FORUM_REPORT_RESOLVED' });
+    const role = String(user?.role || '').toLowerCase();
+    if (['admin', 'dev'].includes(role)) {
+      return engagementRepository.getActivityLogs({ limit: 150 });
+    }
+    return engagementRepository.getActivityLogs({ action: 'FORUM_REPORT_RESOLVED', limit: 50 });
   }
 
   async updateForumReply(userId, replyId, payload) {

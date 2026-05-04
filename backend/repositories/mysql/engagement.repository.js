@@ -1222,7 +1222,9 @@ class EngagementRepositoryMySQL {
       query += ' AND al.action = ?';
       params.push(filters.action);
     }
-    query += ' ORDER BY al.created_at DESC LIMIT 50';
+    const limit = Math.max(1, Math.min(200, Number(filters.limit) || 100));
+    query += ' ORDER BY al.created_at DESC LIMIT ?';
+    params.push(limit);
     const [rows] = await pool.query(query, params);
     return rows;
   }

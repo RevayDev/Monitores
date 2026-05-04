@@ -108,9 +108,14 @@ const MisMonitorias = () => {
   const [selectedMonitoria, setSelectedMonitoria] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadedAssets, setUploadedAssets] = useState([]);
+  const [myFeedback, setMyFeedback] = useState(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: '', isAnonymous: false, isPublic: true });
+
 
   const threadMessageRef = React.useRef(null);
   const fileAnyRef = React.useRef(null);
@@ -240,9 +245,55 @@ const MisMonitorias = () => {
     insertAtCursor(threadMessage, `[${text}](${url})`, setThreadMessage, threadMessageRef);
   };
 
+  const loadMyFeedback = async (moduleId) => {
+    if (!moduleId) return;
+    setFeedbackLoading(true);
+    try {
+      const data = await getMyModuleFeedback(moduleId);
+      setMyFeedback(data || null);
+      setFeedbackForm({
+        rating: Number(data?.rating || 5),
+        comment: String(data?.comment || ''),
+        isAnonymous: !!data?.is_anonymous,
+        isPublic: data ? !!data.is_public : true
+      });
+    } catch {
+      setMyFeedback(null);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const saveMyFeedback = async (moduleId) => {
+    if (!moduleId) return;
+    const comment = String(feedbackForm.comment || '').trim();
+    if (!comment) return showToast('Escribe tu comentario.', 'error');
+    try {
+      await upsertMyModuleFeedback(moduleId, {
+        rating: Number(feedbackForm.rating || 5),
+        comment,
+        isAnonymous: !!feedbackForm.isAnonymous,
+        isPublic: feedbackForm.isPublic !== false
+      });
+      showToast('Comentario guardado.', 'success');
+      await loadMyFeedback(moduleId);
+    } catch (error) {
+      showToast(error.message || 'No se pudo guardar el comentario.', 'error');
+    }
+  };
+
   const openDetails = (m) => {
     setSelectedMonitoria(m);
+    setIsFeedbackOpen(false);
     setIsDetailOpen(true);
+    loadMyFeedback(m.id).catch(() => {});
+  };
+
+  const openFeedback = (m) => {
+    setSelectedMonitoria(m);
+    setIsDetailOpen(false);
+    setIsFeedbackOpen(true);
+    loadMyFeedback(m.id).catch(() => {});
   };
 
   const startDrop = () => {
@@ -278,6 +329,8 @@ const MisMonitorias = () => {
                   key={m.id}
                   data={m}
                   onAction={() => openDetails(m)}
+                  onSecondaryAction={() => openFeedback(m)}
+                  secondaryActionLabel="Comentario"
                   actionLabel="Ver detalles"
                   registrationCount={allRegistrations.filter((r) => Number(r.moduleId) === Number(m.id)).length}
                   isRegistered
@@ -493,6 +546,77 @@ const MisMonitorias = () => {
                 <Trash2 size={14} /> Darme de baja
               </button>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="Comentario del modulo">
+        {selectedMonitoria && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-sm font-black text-gray-900">{selectedMonitoria.modulo}</p>
+                <p className="text-xs text-gray-500">Un comentario por modulo, editable en cualquier momento.</p>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{myFeedback ? 'Guardado' : 'Nuevo comentario'}</span>
+            </div>
+
+            {feedbackLoading ? (
+              <p className="text-sm text-gray-500">Cargando...</p>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setFeedbackForm((prev) => ({ ...prev, rating: n }))}
+                        className={feedbackForm.rating >= n
+                          ? 'w-11 h-11 rounded-xl bg-yellow-400 text-white text-xl font-black shadow-sm'
+                          : 'w-11 h-11 rounded-xl bg-white border border-gray-200 text-gray-300 text-xl font-black'}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    value={feedbackForm.comment}
+                    onChange={(e) => setFeedbackForm((prev) => ({ ...prev, comment: e.target.value }))}
+                    placeholder="Escribe tu sugerencia o comentario del modulo..."
+                    className="w-full h-32 p-4 rounded-2xl border border-gray-200 bg-white text-sm text-gray-800 outline-none"
+                  />
+
+                  <div className="flex items-center gap-5 flex-wrap text-sm font-bold text-gray-700">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!feedbackForm.isAnonymous} onChange={(e) => setFeedbackForm((prev) => ({ ...prev, isAnonymous: e.target.checked }))} />
+                      Anonimo
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={feedbackForm.isPublic !== false} onChange={(e) => setFeedbackForm((prev) => ({ ...prev, isPublic: e.target.checked }))} />
+                      Publico
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setIsFeedbackOpen(false)} className="w-full py-3 rounded-xl border border-gray-200 text-gray-700 font-black">
+                    Cerrar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await saveMyFeedback(selectedMonitoria.id);
+                      setIsFeedbackOpen(false);
+                    }}
+                    className="w-full py-3 rounded-xl bg-gray-900 text-white font-black"
+                  >
+                    Guardar comentario
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>

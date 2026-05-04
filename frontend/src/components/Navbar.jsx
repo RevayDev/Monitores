@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -111,25 +111,6 @@ const Navbar = () => {
     prevUnreadRef.current = currentUnread;
   }, [notifications]);
 
-  useEffect(() => {
-    const onClickOutside = (event) => {
-      // Profile uses onBlur + timeout, but for notifications we want a strictly
-      // bounded area check so it only closes when clicking truly outside.
-      if (notificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setNotificationsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [notificationsOpen]);
-
-  useEffect(() => {
-    if (!notificationsOpen) return;
-    const onScrollClose = () => setNotificationsOpen(false);
-    window.addEventListener('scroll', onScrollClose, true);
-    return () => window.removeEventListener('scroll', onScrollClose, true);
-  }, [notificationsOpen]);
-
 
   async function fetchUser() {
     const data = await getCurrentUser();
@@ -216,8 +197,8 @@ const Navbar = () => {
     ],
     student: [
       { name: 'Inicio', path: '/' },
-      { name: 'MonitorÃ­as', path: '/monitorias' },
-      { name: 'Mis MonitorÃ­as', path: '/mis-monitorias' },
+      { name: 'Monitorías', path: '/monitorias' },
+      { name: 'Mis Monitorías', path: '/mis-monitorias' },
     ]
   };
 
@@ -385,7 +366,7 @@ const Navbar = () => {
                       <button
                         onClick={() => {
                           setProfileOpen(false);
-                          showToast("Estamos trabajando en esta funciÃ³n", "info");
+                          showToast("Estamos trabajando en esta función", "info");
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
                       >
@@ -396,7 +377,7 @@ const Navbar = () => {
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
                       >
-                        <LogOut size={18} /> Cerrar SesiÃ³n
+                        <LogOut size={18} /> Cerrar Seccion
                       </button>
                     </div>
                   )}
@@ -474,7 +455,7 @@ const Navbar = () => {
                   <User size={18} /> Mi Perfil
                 </button>
                 <button
-                  onClick={() => { setIsOpen(false); showToast("Estamos trabajando en esta funciÃ³n", "info"); }}
+                  onClick={() => { setIsOpen(false); showToast("Estamos trabajando en esta función", "info"); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-gray-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-xl transition-all"
                 >
                   <HelpCircle size={18} /> Ayuda
@@ -527,5 +508,6 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
 
 

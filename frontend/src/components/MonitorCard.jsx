@@ -2,7 +2,7 @@ import { User, Users, Book, Calendar, MapPin, Monitor, Clock, ExternalLink, Mess
 import { useNavigate } from 'react-router-dom';
 import UserAvatar from './UserAvatar';
 
-const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCount = 0 }) => {
+const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondaryActionLabel, isRegistered, registrationCount = 0 }) => {
   const navigate = useNavigate();
   const LIMIT = 32;
   const hasNoMonitor = !data.monitorId || data.monitorId === 0 || !data.monitor;
@@ -19,20 +19,18 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
     <div
       onClick={handleAction}
       className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full relative group ${hasNoMonitor
-          ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
-          : isRegistered
-            ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5 shadow-amber-100 shadow-lg'
-            : isFull
-              ? 'bg-red-50 border-red-200'
-              : 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
+        ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
+        : isRegistered
+          ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5 shadow-amber-100 shadow-lg'
+          : isFull
+            ? 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
+            : 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
         }`}>
       <div className={`${hasNoMonitor
-          ? 'bg-gray-500'
-          : isRegistered
-            ? 'bg-amber-500'
-            : isFull
-              ? 'bg-brand-blue group-hover:bg-brand-dark-blue'
-              : 'bg-brand-blue group-hover:bg-brand-dark-blue'
+        ? 'bg-gray-500'
+        : isRegistered
+          ? 'bg-amber-500'
+          : 'bg-brand-blue group-hover:bg-brand-dark-blue'
         } px-5 py-4 flex justify-between items-center text-white transition-colors duration-300`}>
         <div className="flex items-center gap-3">
           {isRegistered ? <Monitor size={18} className="animate-pulse" /> : <Book size={18} />}
@@ -95,15 +93,15 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
 
         <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-gray-600 pb-1">
           <div className="flex items-center gap-1.5">
-            <Calendar size={14} className={isFull ? "text-red-500" : "text-brand-blue"} />
+            <Calendar size={14} className="text-brand-blue" />
             <span className="text-xs truncate font-medium">{data.cuatrimestre}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <MapPin size={14} className={isFull ? "text-red-500" : "text-brand-blue"} />
+            <MapPin size={14} className="text-brand-blue" />
             <span className="text-xs truncate font-medium">{data.sede}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Clock size={14} className={isFull ? "text-red-500" : "text-brand-blue"} />
+            <Clock size={14} className="text-brand-blue" />
             <span className="text-xs truncate font-medium">{data.horario}</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -114,17 +112,26 @@ const MonitorCard = ({ data, onAction, actionLabel, isRegistered, registrationCo
           </div>
         </div>
 
-        <div className="mt-auto pt-3 border-t border-gray-50">
+        <div className="mt-auto pt-3 border-t border-gray-50 space-y-2">
+          {isRegistered && onSecondaryAction && secondaryActionLabel && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSecondaryAction(data); }}
+              className="w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 bg-gray-900 text-white hover:bg-black"
+            >
+              <Sparkles size={14} />
+              {secondaryActionLabel}
+            </button>
+          )}
           <button
             onClick={handleAction}
             disabled={(isFull && !isRegistered) || hasNoMonitor}
             className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${hasNoMonitor
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                : isRegistered
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
-                  : isFull
-                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    : 'bg-brand-blue text-white hover:bg-brand-dark-blue active:scale-[0.98] cursor-pointer shadow-lg shadow-brand-blue/20'
+              ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+              : isRegistered
+                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
+                : isFull
+                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  : 'bg-brand-blue text-white hover:bg-brand-dark-blue active:scale-[0.98] cursor-pointer shadow-lg shadow-brand-blue/20'
               }`}
           >
             {isRegistered && <ExternalLink size={14} />}

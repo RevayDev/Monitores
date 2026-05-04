@@ -22,7 +22,7 @@ const ProfilePersonalStats = () => {
         const data = await getMeUserStats();
         setStats(data || null);
       } catch (err) {
-        setError(err.message || 'No se pudieron cargar tus estadisticas.');
+        setError(err.message || 'No se pudieron cargar tus estadísticas.');
       } finally {
         setLoading(false);
       }
@@ -33,7 +33,7 @@ const ProfilePersonalStats = () => {
   if (loading) {
     return (
       <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100">
-        <p className="text-sm text-gray-500">Cargando estadisticas personales...</p>
+        <p className="text-sm text-gray-500">Cargando estadísticas personales...</p>
       </section>
     );
   }
@@ -52,7 +52,7 @@ const ProfilePersonalStats = () => {
 
   return (
     <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-6">
-      <h2 className="text-xl font-black text-gray-900">Mis Estadisticas</h2>
+      <h2 className="text-xl font-black text-gray-900">Mis estadísticas</h2>
 
       <div className="space-y-4">
         <p className="text-sm font-black uppercase text-gray-400 flex items-center gap-2">

@@ -60,6 +60,19 @@ const statements = [
     modalidad VARCHAR(100) NULL,
     estado VARCHAR(100) NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS module_feedback (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    module_id INT NOT NULL,
+    student_id INT NOT NULL,
+    rating TINYINT NULL,
+    comment TEXT NOT NULL,
+    is_public TINYINT(1) NOT NULL DEFAULT 1,
+    is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_module_feedback (module_id, student_id),
+    INDEX idx_feedback_module (module_id),
+    INDEX idx_feedback_student (student_id)
+  )`,
   `CREATE TABLE IF NOT EXISTS complaints (
     id INT AUTO_INCREMENT PRIMARY KEY,
     monitorId INT NULL,

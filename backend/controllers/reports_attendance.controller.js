@@ -1,4 +1,4 @@
-import { reportsService, attendanceService } from '../services/reports_attendance.service.js';
+import { reportsService, attendanceService, feedbackService } from '../services/reports_attendance.service.js';
 
 const createReport = async (req, res) => {
   try {
@@ -36,6 +36,33 @@ const registerAttendance = async (req, res) => {
   }
 };
 
+const upsertMyFeedback = async (req, res) => {
+  try {
+    const data = await feedbackService.upsertMyFeedback(req.params.moduleId, req.user.id, req.body || {});
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getMyFeedback = async (req, res) => {
+  try {
+    const data = await feedbackService.getMyFeedback(req.params.moduleId, req.user.id);
+    res.json(data || null);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getModuleFeedbackForMonitor = async (req, res) => {
+  try {
+    const data = await feedbackService.getModuleFeedbackForMonitor(req.params.moduleId, req.user.id);
+    res.json(data || []);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const getAttendanceByModule = async (req, res) => {
   try {
     const { moduleId } = req.params;
@@ -51,5 +78,8 @@ export default {
   getAllReports,
   getMealLogs,
   registerAttendance,
-  getAttendanceByModule
+  getAttendanceByModule,
+  upsertMyFeedback,
+  getMyFeedback,
+  getModuleFeedbackForMonitor
 };

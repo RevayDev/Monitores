@@ -1,11 +1,11 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   getStudentsByMonitor, deleteMonitoria, updateMonitoriaInfo, getMonitorias,
   getAllUsers, getMaintenanceConfig, getSedes, deleteModule, createMonitoria,
   getModalidades, getCuatrimestres, getAllRegistrations, getAcademicModuleStats,
   getAcademicSessionHistory, getAcademicSessionDetail, getDiningStats,
   getDiningStudentHistory, scanQrLunch, addAcademicAttendanceExcuse,
-  getForumReports, resolveForumReport
+  getForumReports, resolveForumReport, getModuleFeedbackForMonitor
 } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
+import RoleStatsPanel from '../components/RoleStatsPanel';
+import { splitHighlightedText } from '../utils/forumSearchHelpers';
 
 const MonitorDashboard = () => {
   const navigate = useNavigate();
@@ -90,9 +92,24 @@ const MonitorDashboard = () => {
   const audioCtxRef = useRef(null);
   const canvasRef = useRef(null);
   const [reports, setReports] = useState([]);
+  const [moduleFeedbackRows, setModuleFeedbackRows] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackModuleOpen, setFeedbackModuleOpen] = useState(null);
   const [resolvingReportId, setResolvingReportId] = useState(null);
   const [reportsPage, setReportsPage] = useState(1);
-  const REPORTS_PER_PAGE = 5;
+  const [studentsPage, setStudentsPage] = useState(1);
+  const REPORTS_PER_PAGE = 4;
+  const STUDENTS_PER_PAGE = 7;
+
+  const renderSearchHighlight = (value) => (
+    <>
+      {splitHighlightedText(String(value || ''), searchTerm).map((part, index) => (
+        part.match
+          ? <mark key={index} className="rounded bg-yellow-200 px-0.5 text-gray-950">{part.text}</mark>
+          : <React.Fragment key={index}>{part.text}</React.Fragment>
+      ))}
+    </>
+  );
 
   const safeParse = (raw, fallback = {}) => { try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } };
   const session = safeParse(localStorage.getItem('monitores_current_role'), {});
@@ -246,7 +263,7 @@ const MonitorDashboard = () => {
         : (session?.restrictions || {});
 
       if ((config?.monitorPanel || restrictions.dashboards) && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
-        showToast(restrictions.dashboards ? 'Tu acceso a este panel ha sido restringido.' : 'El panel del monitor estÃ¡ restringido por mantenimiento.', 'error');
+        showToast(restrictions.dashboards ? 'Tu acceso a este panel ha sido restringido.' : 'El panel del monitor está restringido por mantenimiento.', 'error');
         navigate('/');
         return;
       }
@@ -299,7 +316,7 @@ const MonitorDashboard = () => {
       }
     };
     loadAcademic();
-  }, [selectedAnalyticsModuleId, isDiningMonitor]);
+  }, [selectedAnalyticsModuleId, isDiningMonitor, monitorModules]);
 
   useEffect(() => {
     const loadDining = async () => {
@@ -318,10 +335,28 @@ const MonitorDashboard = () => {
   }, [isDiningMonitor]);
 
   useEffect(() => {
-    if (topTab === 'reports') {
-      loadReports();
-    }
+    if (topTab === 'reports') loadReports();
   }, [topTab]);
+
+  const loadModuleFeedback = async (moduleId) => {
+    const targetId = moduleId || selectedAnalyticsModuleId;
+    if (!targetId) return setModuleFeedbackRows([]);
+    setFeedbackLoading(true);
+    try {
+      const rows = await getModuleFeedbackForMonitor(targetId);
+      setModuleFeedbackRows(rows || []);
+    } catch {
+      setModuleFeedbackRows([]);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const openFeedbackModal = (mod) => {
+    setFeedbackModuleOpen(mod);
+    setSelectedAnalyticsModuleId(mod.id);
+    loadModuleFeedback(mod.id);
+  };
 
   const loadReports = async () => {
     try {
@@ -396,7 +431,7 @@ const MonitorDashboard = () => {
     await updateMonitoriaInfo(selectedModule.id, { ...submitData, horario });
     setIsEditModuleOpen(false);
     fetchData();
-    showToast('Â¡InformaciÃ³n del mÃ³dulo actualizada!', 'success');
+    showToast('¡Información del módulo actualizada!', 'success');
     window.dispatchEvent(new Event('data-updated'));
   };
 
@@ -408,7 +443,7 @@ const MonitorDashboard = () => {
   const executeDeleteModule = async () => {
     if (!moduleToDelete) return;
     await deleteModule(moduleToDelete.id);
-    showToast('MonitorÃ­a eliminada correctamente', 'success');
+    showToast('Monitoría eliminada correctamente', 'success');
     setIsConfirmDeleteModuleOpen(false);
     setModuleToDelete(null);
     fetchData();
@@ -416,7 +451,7 @@ const MonitorDashboard = () => {
   };
 
   const handlePrint = () => {
-    showToast("Estamos trabajando en esta funciÃ³n", "info");
+    showToast("Estamos trabajando en esta función", "info");
   };
 
   const handleCopySurvey = (mod) => {
@@ -527,7 +562,7 @@ const MonitorDashboard = () => {
   const handleCreateModule = async (e) => {
     e.preventDefault();
     if (createFormData.dias.length === 0) {
-      showToast("Por favor selecciona al menos un dÃ­a", "error");
+      showToast("Por favor selecciona al menos un día", "error");
       return;
     }
     const horario = `${createFormData.dias.join(', ')} ${createFormData.horaInicio} - ${createFormData.horaFin}`;
@@ -555,15 +590,15 @@ const MonitorDashboard = () => {
       teams: ''
     });
     fetchData();
-    showToast('Â¡Nueva monitorÃ­a creada!', 'success');
+    showToast('¡Nueva monitoría creada!', 'success');
     window.dispatchEvent(new Event('data-updated'));
   };
 
-  const diasSemana = ["Lunes", "Martes", "MiÃ©rcoles", "Jueves", "Viernes", "SÃ¡bado"];
+  const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
   const DayPicker = ({ selected, onChange }) => (
     <div className="space-y-2">
-      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">DÃ­as de la MonitorÃ­a</label>
+      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Días de la Monitoría</label>
       <div className="flex flex-wrap gap-2">
         {diasSemana.map(dia => (
           <button
@@ -617,14 +652,14 @@ const MonitorDashboard = () => {
 
               <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-teal-700 rounded-2xl">
                 {[
-                  { id: 'stats_dining', label: 'EstadÃ­sticas', icon: <Activity size={16} /> },
-                  { id: 'scanner', label: 'EscÃ¡ner QR', icon: <PlusCircle size={16} /> },
+                  { id: 'stats_dining', label: 'Estadísticas', icon: <Activity size={16} /> },
+                  { id: 'scanner', label: 'Escáner QR', icon: <PlusCircle size={16} /> },
                   { id: 'students', label: 'Atendidos', icon: <Users size={16} /> },
                 ].map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setTopTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${topTab === (tab.id === 'stats_dining' ? 'stats_dining' : tab.id) || (!topTab && tab.id === 'stats_dining')
+                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${topTab === (tab.id === 'stats_dining' ? 'stats_dining' : tab.id) || (!topTab && tab.id === 'stats_dining')
                       ? 'bg-white text-teal-900 shadow-xl'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
                       }`}
@@ -645,11 +680,11 @@ const MonitorDashboard = () => {
                   <p className="text-4xl font-black text-gray-900">{diningStats?.scans_today || 0}</p>
                 </div>
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Total HistÃ³rico</p>
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Total Histórico</p>
                   <p className="text-4xl font-black text-gray-900">{diningStats?.scans_total || 0}</p>
                 </div>
                 <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Ã‰xito Escaneo</p>
+                  <p className="text-[10px] font-black uppercase text-teal-600 tracking-widest mb-2">Éxito Escaneo</p>
                   <p className="text-4xl font-black text-emerald-600">
                     {diningStats?.scans_total > 0
                       ? Math.round(((diningStats?.scans_total - (diningStats?.scans_invalid || 0)) / diningStats?.scans_total) * 100)
@@ -698,7 +733,7 @@ const MonitorDashboard = () => {
               </div>
 
               <div className="rounded-[40px] border border-slate-100 p-6 bg-slate-50 shadow-inner space-y-4 relative">
-                {/* Flotante de Resultado QR - Absoluto sobre la cÃ¡mara */}
+                {/* Flotante de Resultado QR - Absoluto sobre la cámara */}
                 <AnimatePresence>
                   {scanResult && (
                     <motion.div
@@ -760,7 +795,7 @@ const MonitorDashboard = () => {
                         startCamera(selectedCameraId);
                         setTimeout(() => {
                           const res = captureFrameAndScan();
-                          if (!res) showToast('No se detectÃ³ QR. Intenta enfocar mejor.', 'info');
+                          if (!res) showToast('No se detectó QR. Intenta enfocar mejor.', 'info');
                         }, 800);
                       }}
                       className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black shadow-lg shadow-teal-500/20 hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2"
@@ -799,7 +834,7 @@ const MonitorDashboard = () => {
                         <Video size={48} />
                       </div>
                       <div className="space-y-2">
-                        <p className="text-lg font-black text-white">CÃ¡mara Inactiva</p>
+                        <p className="text-lg font-black text-white">Cámara Inactiva</p>
                         <p className="text-[10px] text-teal-400 font-bold max-w-[200px] leading-relaxed uppercase tracking-widest">Inicia el escaneo manual o inserta el token abajo.</p>
                       </div>
                     </div>
@@ -808,13 +843,13 @@ const MonitorDashboard = () => {
 
                 <div className="text-center pt-2">
                   {cameraStatus === 'loading' && <p className="text-teal-600 font-black animate-pulse text-[10px] uppercase tracking-widest">Iniciando Lente...</p>}
-                  {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> EscÃ¡ner Listo</p>}
+                  {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> Escáner Listo</p>}
                   {cameraStatus === 'error' && <p className="text-red-500 font-black text-[10px] uppercase tracking-widest">Error: {cameraError}</p>}
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-3 max-w-xl mx-auto">
-                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border-2 border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-sm font-bold focus:border-teal-500 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="O escribe el token aquÃ­..." />
+                <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border-2 border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-sm font-bold focus:border-teal-500 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="O escribe el token aquí..." />
                 <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-8 py-4 rounded-2xl bg-teal-600 text-white text-sm font-black shadow-xl shadow-teal-500/30 hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50">
                   {isValidatingScan ? '...' : 'Validar'}
                 </button>
@@ -856,7 +891,6 @@ const MonitorDashboard = () => {
             </section>
           )}
 
-
         </div>
       </div>
     );
@@ -880,17 +914,17 @@ const MonitorDashboard = () => {
                   <span className="text-emerald-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none mb-1">
-                  Panel Monitor AcadÃ©mico
+                  Panel Monitor Académico
                 </h1>
                 <p className="text-emerald-100 text-xs font-medium opacity-90 max-w-lg leading-snug">
-                  GestiÃ³n integral de monitorÃ­as, seguimiento de asistencias y control acadÃ©mico.
+                  Gestión integral de monitorías, seguimiento de asistencias y control académico.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-emerald-700 rounded-2xl">
+            <div className="flex items-center gap-1.5 p-1 bg-emerald-700 rounded-2xl overflow-x-auto scrollbar-hide">
               {[
-                { id: 'stats', label: 'EstadÃ­sticas', icon: <Activity size={16} /> },
+                { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
                 { id: '', label: 'Alumnos', icon: <Users size={16} /> },
                 { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={16} /> },
                 { id: 'history', label: 'Asistencia', icon: <ClipboardList size={16} /> }
@@ -898,7 +932,7 @@ const MonitorDashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setTopTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${topTab === tab.id
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap shrink-0 ${topTab === tab.id
                     ? 'bg-white text-emerald-900 shadow-xl'
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                     }`}
@@ -918,69 +952,61 @@ const MonitorDashboard = () => {
               <div className="lg:col-span-1 space-y-4">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <h2 className="text-xl font-bold text-brand-blue flex items-center gap-2">
-                    <BookOpen size={24} /> Mis MonitorÃ­as
+                    <BookOpen size={24} /> Mis Monitorías
                   </h2>
                   <button
                     onClick={() => setIsCreateModuleOpen(true)}
                     className="px-4 py-2 bg-emerald-100 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-200"
                   >
-                    <PlusCircle size={14} /> Nueva MonitorÃ­a
+                    <PlusCircle size={14} /> Nueva Monitoría
                   </button>
                 </div>
                 <div className="space-y-4">
-                  {monitorModules.map(mod => (
-                    <div key={mod.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 group">
-                      <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-extrabold text-gray-900 uppercase tracking-tight">{mod.modulo}</h3>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleOpenEdit(mod)}
-                            className="text-gray-400 hover:text-brand-blue transition-all p-2 hover:bg-blue-50 rounded-lg active:scale-90"
-                            title="Editar Datos"
-                          >
-                            <Edit3 size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteModule(mod)}
-                            className="text-gray-400 hover:text-red-500 transition-all p-2 hover:bg-red-50 rounded-lg active:scale-90"
-                            title="Eliminar MonitorÃ­a"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-500 line-clamp-3 italic">"{mod.descripcion}"</p>
-                      <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                        <span>{mod.sede}</span>
-                        <span>{mod.horario}</span>
-                      </div>
-                      <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                        <button
-                          onClick={() => setFilterModulo(mod.modulo)}
-                          className={`flex-grow py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all active:scale-95 ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                            }`}
-                        >
-                          <Users size={12} /> Ver Alumnos
-                        </button>
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleCopyTemplate(mod)}
-                            className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
-                            title="Copiar Plantilla"
-                          >
-                            <ClipboardList size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleCopySurvey(mod)}
-                            className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 hover:shadow-md transition-all flex items-center justify-center active:scale-90"
-                            title="Copiar Encuesta"
-                          >
-                            <Link size={18} />
-                          </button>
-                        </div>
-                      </div>
+                  {monitorModules.length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-3 shadow-sm">
+                      <BookOpen className="mx-auto text-gray-300" size={36} />
+                      <p className="text-sm font-black text-gray-700">No tienes módulos registrados.</p>
+                      <p className="text-xs text-gray-400 font-bold">Crea una monitoría o pide al admin que te asigne una.</p>
                     </div>
-                  ))}
+                  ) : (
+                    monitorModules.map(mod => (
+                      <div key={mod.id} className="rounded-2xl shadow-sm overflow-hidden border border-gray-100 bg-white transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group">
+                        {/* Card header */}
+                        <div className="bg-emerald-600 group-hover:bg-emerald-700 px-4 py-3 flex items-center justify-between text-white transition-colors duration-300">
+                          <div className="flex items-center gap-2.5">
+                            <BookOpen size={16} className="text-emerald-200" />
+                            <span className="font-black text-[12px] uppercase tracking-tight truncate">{mod.modulo}</span>
+                          </div>
+                          <span className="text-[8px] font-black uppercase tracking-widest bg-white/15 px-2 py-0.5 rounded-md shrink-0">
+                            {mod.modalidad || 'Presencial'}
+                          </span>
+                        </div>
+                        {/* Card body */}
+                        <div className="p-4 space-y-3">
+                          <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{mod.descripcion || 'Sin descripción'}</p>
+                          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
+                            <div className="flex items-center gap-1.5">
+                              <ShieldCheck size={12} className="text-emerald-500" />
+                              <span className="font-bold truncate">{mod.sede || 'Sin sede'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Clock3 size={12} className="text-emerald-500" />
+                              <span className="font-bold truncate">{mod.horario || 'Sin horario'}</span>
+                            </div>
+                          </div>
+                          {/* Action buttons */}
+                          <div className="pt-2 border-t border-gray-100 grid grid-cols-6 gap-1.5">
+                            <button onClick={() => setFilterModulo(mod.modulo)} title="Ver alumnos" className={`p-2 rounded-xl transition-all flex items-center justify-center ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-100'}`}><Users size={14} /></button>
+                            <button onClick={() => openFeedbackModal(mod)} title="Comentarios" className="p-2 bg-amber-50 text-amber-500 rounded-xl hover:bg-amber-100 transition-all flex items-center justify-center border border-amber-100"><MessageSquare size={14} /></button>
+                            <button onClick={() => handleCopyTemplate(mod)} title="Asistencia" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><ClipboardList size={14} /></button>
+                            <button onClick={() => handleCopySurvey(mod)} title="Encuesta" className="p-2 bg-violet-50 text-violet-500 rounded-xl hover:bg-violet-100 transition-all flex items-center justify-center border border-violet-100"><Link size={14} /></button>
+                            <button onClick={() => handleOpenEdit(mod)} title="Editar" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-brand-blue transition-all flex items-center justify-center border border-gray-100"><Edit3 size={14} /></button>
+                            <button onClick={() => handleDeleteModule(mod)} title="Eliminar" className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-600 transition-all flex items-center justify-center border border-red-100"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -1003,7 +1029,7 @@ const MonitorDashboard = () => {
                 <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
                   <div className="p-5 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10 text-center sm:text-left">
                     <h3 className="text-xl font-black text-gray-900">
-                      {topTab === 'reports' ? 'Centro de ModeraciÃ³n' : 'Estudiantes Registrados'}
+                      {topTab === 'reports' ? 'Centro de Moderación' : 'Estudiantes Registrados'}
                     </h3>
                     {topTab === 'reports' ? (
                       <div className="flex items-center gap-2">
@@ -1031,7 +1057,7 @@ const MonitorDashboard = () => {
                             placeholder="Buscar estudiante..."
                             className="w-full pl-9 pr-4 py-2 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-brand-blue outline-none text-sm font-bold text-gray-900 transition-all shadow-inner"
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => { setSearchTerm(e.target.value); setStudentsPage(1); }}
                           />
                         </div>
                       </div>
@@ -1052,7 +1078,7 @@ const MonitorDashboard = () => {
                           ) : (
                             <>
                               <th className="px-6 py-4">Estudiante</th>
-                              <th className="px-6 py-4">MÃ³dulo</th>
+                              <th className="px-6 py-4">Módulo</th>
                               <th className="px-6 py-4">Fecha Reg.</th>
                               <th className="px-6 py-4 text-right">Acciones</th>
                             </>
@@ -1066,44 +1092,71 @@ const MonitorDashboard = () => {
                               <td colSpan="4" className="px-6 py-20 text-center italic text-gray-400 font-bold">No hay reportes disponibles</td>
                             </tr>
                           ) : (
-                            reports.slice((reportsPage - 1) * REPORTS_PER_PAGE, reportsPage * REPORTS_PER_PAGE).map(rep => (
-                              <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <UserAvatar photo={rep.reported_photo} name={rep.reported_name} userId={rep.reported_id} size="w-8 h-8" />
-                                    <div>
-                                      <p className="font-bold text-gray-900 text-xs">{rep.reported_name}</p>
-                                      <p className="text-[9px] text-gray-400">Reportado por: {rep.reporter_name}</p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="max-w-xs">
-                                    <p className="text-xs font-bold text-gray-700">{rep.reason}</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">{new Date(rep.created_at).toLocaleString()}</p>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={() => navigate(`/modules/${rep.modulo_id || 0}/forum?forumId=${rep.target_id}`)}
-                                    className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase border border-amber-100 hover:bg-amber-100 transition-all"
-                                  >
-                                    {rep.target_type === 'thread' ? 'Ver Pregunta' : 'Ver Respuesta'}
-                                  </button>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                  <button
-                                    disabled={resolvingReportId === rep.id}
-                                    onClick={() => handleResolveReport(rep.id)}
-                                    className="px-4 py-2 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50"
-                                  >
-                                    {resolvingReportId === rep.id ? '...' : 'Resolver'}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )
-                        ) : (
+                            (() => {
+                              const totalReportsPages = Math.max(1, Math.ceil(reports.length / REPORTS_PER_PAGE));
+                              const safeReportsPage = Math.min(reportsPage, totalReportsPages);
+                              const pagedReports = reports.slice((safeReportsPage - 1) * REPORTS_PER_PAGE, safeReportsPage * REPORTS_PER_PAGE);
+
+                              return (
+                                <>
+                                  {pagedReports.map((rep) => (
+                                    <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
+                                      <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                          <UserAvatar photo={rep.reported_photo} name={rep.reported_name} userId={rep.reported_id} size="w-8 h-8" />
+                                          <div>
+                                            <p className="font-bold text-gray-900 text-xs">{rep.reported_name}</p>
+                                            <p className="text-[9px] text-gray-400">Reportado por: {rep.reporter_name}</p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4">
+                                        <div className="max-w-xs">
+                                          <p className="text-xs font-bold text-gray-700">{rep.reason}</p>
+                                          <p className="text-[10px] text-gray-400 mt-1">{new Date(rep.created_at).toLocaleString()}</p>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4">
+                                        <button
+                                          onClick={() => navigate('/modules/' + (rep.modulo_id || 0) + '/forum?forumId=' + (rep.chat_id || rep.target_id) + '&reportType=' + rep.type + '&targetId=' + rep.target_id)}
+                                          className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase border border-amber-100 hover:bg-amber-100 transition-all"
+                                        >
+                                          {rep.type === 'thread' ? 'Ver Pregunta' : 'Ver Respuesta'}
+                                        </button>
+                                      </td>
+                                      <td className="px-6 py-4 text-right">
+                                        <button
+                                          disabled={resolvingReportId === rep.id}
+                                          onClick={() => handleResolveReport(rep.id)}
+                                          className="px-4 py-2 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50"
+                                        >
+                                          {resolvingReportId === rep.id ? '...' : 'Resolver'}
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  <tr>
+                                    <td colSpan="4" className="px-6 py-4">
+                                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pagina {safeReportsPage} de {totalReportsPages}</span>
+                                        <div className="flex items-center gap-1">
+                                          {Array.from({ length: totalReportsPages }, (_, i) => i + 1).map((n) => (
+                                            <button
+                                              key={n}
+                                              onClick={() => setReportsPage(n)}
+                                              className={(safeReportsPage === n ? 'w-8 h-8 rounded-xl text-[11px] font-black bg-gray-900 text-white' : 'w-8 h-8 rounded-xl text-[11px] font-black bg-gray-100 text-gray-600 hover:bg-gray-200')}
+                                            >
+                                              {n}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </>
+                              );
+                            })()
+                          )) : (
                           (() => {
                             const filteredRegistrations = students
                               .filter(st => filterModulo === 'all' || st.modulo === filterModulo)
@@ -1125,6 +1178,10 @@ const MonitorDashboard = () => {
 
                             const uniqueStudents = Object.values(groupedMap);
 
+                            const totalStudentsPages = Math.max(1, Math.ceil(uniqueStudents.length / STUDENTS_PER_PAGE));
+                            const safeStudentsPage = Math.min(studentsPage, totalStudentsPages);
+                            const pagedStudents = uniqueStudents.slice((safeStudentsPage - 1) * STUDENTS_PER_PAGE, safeStudentsPage * STUDENTS_PER_PAGE);
+
                             if (uniqueStudents.length === 0) {
                               return (
                                 <tr>
@@ -1138,14 +1195,15 @@ const MonitorDashboard = () => {
                               );
                             }
 
-                            return uniqueStudents.map(st => (
+                            return (<>
+                              {pagedStudents.map(st => (
                               <tr key={st.studentEmail} className="hover:bg-gray-50 transition-all group">
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
                                     <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} />
                                     <div>
-                                      <p className="font-bold text-gray-900">{st.studentName}</p>
-                                      <p className="text-xs text-gray-400">{st.studentEmail}</p>
+                                      <p className="font-bold text-gray-900">{renderSearchHighlight(st.studentName)}</p>
+                                      <p className="text-xs text-gray-400">{renderSearchHighlight(st.studentEmail)}</p>
                                     </div>
                                   </div>
                                 </td>
@@ -1170,7 +1228,26 @@ const MonitorDashboard = () => {
                                   </button>
                                 </td>
                               </tr>
-                            ));
+                            ))}
+                              <tr>
+                                <td colSpan="4" className="px-6 py-4">
+                                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pagina {safeStudentsPage} de {totalStudentsPages}</span>
+                                    <div className="flex items-center gap-1">
+                                      {Array.from({ length: totalStudentsPages }, (_, i) => i + 1).slice(0, 9).map((n) => (
+                                        <button
+                                          key={n}
+                                          onClick={() => setStudentsPage(n)}
+                                          className={(safeStudentsPage === n ? 'w-8 h-8 rounded-xl text-[11px] font-black bg-gray-900 text-white' : 'w-8 h-8 rounded-xl text-[11px] font-black bg-gray-100 text-gray-600 hover:bg-gray-200')}
+                                        >
+                                          {n}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            </>);
                           })()
                         )}
                       </tbody>
@@ -1187,6 +1264,30 @@ const MonitorDashboard = () => {
             <RoleStatsPanel />
           </div>
         )}
+
+        {!isDiningMonitor && topTab === 'history' && (
+          <div className="animate-fade-in pt-4">
+            <section className="bg-white rounded-3xl border border-gray-100 p-6 space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-lg font-black text-gray-900">Asistencias</h2>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{sessionCards.length ? 'Hay asistencias registradas' : 'No hay asistencias registradas'}</span>
+              </div>
+              {sessionDayCards.length === 0 ? (
+                <div className="p-10 text-center text-gray-400 italic font-bold">Sin asistencias todavia.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {sessionDayCards.slice(0, 10).map((row) => (
+                    <button key={row.day} onClick={() => openSessionDetail(row.session_ids[0])} className="text-left p-4 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all">
+                      <p className="text-xs font-black uppercase tracking-widest text-gray-400">{row.day}</p>
+                      <p className="text-lg font-black text-gray-900 mt-1">{row.total_attendees} asistentes</p>
+                      <p className="text-[11px] text-gray-500">Ver detalle</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
       </div>
 
       {/* Modal Baja Estudiante */}
@@ -1201,7 +1302,7 @@ const MonitorDashboard = () => {
             <div className="flex-grow">
               <p className="font-black text-red-900">{selectedStudent?.studentName}</p>
               <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">
-                {selectedStudent?.modulos?.length > 1 ? 'Selecciona el mÃ³dulo para dar de baja' : `Retirar de: ${selectedStudent?.modulo}`}
+                {selectedStudent?.modulos?.length > 1 ? 'Selecciona el módulo para dar de baja' : `Retirar de: ${selectedStudent?.modulo}`}
               </p>
             </div>
           </div>
@@ -1225,6 +1326,47 @@ const MonitorDashboard = () => {
             </div>
           )}
 
+        {/* Feedback Modal per Module */}
+        <Modal isOpen={!!feedbackModuleOpen} onClose={() => { setFeedbackModuleOpen(null); setModuleFeedbackRows([]); }} title={`Comentarios · ${feedbackModuleOpen?.modulo || ''}`}>
+          <div className="space-y-4 py-2">
+            {feedbackLoading ? (
+              <div className="py-12 text-center">
+                <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Cargando comentarios...</p>
+              </div>
+            ) : (moduleFeedbackRows || []).length === 0 ? (
+              <div className="py-12 text-center">
+                <MessageSquare className="mx-auto text-gray-200 mb-3" size={40} />
+                <p className="text-sm font-black text-gray-700">Sin comentarios</p>
+                <p className="text-xs text-gray-400 font-bold">Este módulo aún no tiene comentarios de la encuesta.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                {moduleFeedbackRows.slice(0, 50).map((row) => (
+                  <div key={String(row.student_id) + String(row.updated_at)} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-[10px] border border-emerald-200 shrink-0">
+                          {row.is_anonymous ? '?' : String(row.student_name || 'E').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-gray-900 truncate">{row.is_anonymous ? 'Anónimo' : (row.student_name || 'Estudiante')}</p>
+                          <p className="text-[9px] text-gray-400 font-bold">{new Date(row.updated_at).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-black text-amber-500">{row.rating ? '★'.repeat(Math.max(1, Math.min(5, Number(row.rating)))) : '-'}</p>
+                        <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest">{row.is_public ? 'Público' : 'Privado'}</p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap bg-white p-3 rounded-lg border border-gray-100">{row.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+
           <div className="space-y-2 text-left">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
               <MessageSquare size={16} /> Comentario para el estudiante
@@ -1232,7 +1374,7 @@ const MonitorDashboard = () => {
             <textarea
               value={deleteComment}
               onChange={(e) => setDeleteComment(e.target.value)}
-              placeholder="Ej. El estudiante no asistiÃ³ a las sesiones..."
+              placeholder="Ej. El estudiante no asistió a las sesiones..."
               className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-gray-900 font-bold"
             />
           </div>
@@ -1248,13 +1390,13 @@ const MonitorDashboard = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de SesiÃ³n">
+      <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de Sesión">
         {sessionDetail ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">{sessionDetail.modulo} Â· {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
+            <p className="text-sm text-gray-600">{sessionDetail.modulo} · {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
             <div className="max-h-80 overflow-auto space-y-2">
               {(!sessionDetail.attendance || sessionDetail.attendance.length === 0) ? (
-                <p className="text-sm text-gray-400 text-center py-4 italic">No hay datos disponibles para esta sesiÃ³n.</p>
+                <p className="text-sm text-gray-400 text-center py-4 italic">No hay datos disponibles para esta sesión.</p>
               ) : (
                 sessionDetail.attendance.map((a) => (
                   <div key={a.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
@@ -1288,7 +1430,7 @@ const MonitorDashboard = () => {
             value={excuseDescription}
             onChange={(e) => setExcuseDescription(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm min-h-[90px]"
-            placeholder="DescripciÃ³n"
+            placeholder="Descripción"
           />
           <div className="flex justify-end gap-2">
             <button onClick={() => setExcuseTarget(null)} className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold">Cancelar</button>
@@ -1313,11 +1455,11 @@ const MonitorDashboard = () => {
         </div>
       </Modal>
 
-      {/* Modal Editar MÃ³dulo */}
+      {/* Modal Editar Módulo */}
       <Modal
         isOpen={isEditModuleOpen}
         onClose={() => setIsEditModuleOpen(false)}
-        title="Editar InformaciÃ³n de MonitorÃ­a"
+        title="Editar Información de Monitoría"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -1373,11 +1515,11 @@ const MonitorDashboard = () => {
 
           <InputField
             type="textarea"
-            label="DescripciÃ³n del MÃ³dulo"
+            label="Descripción del Módulo"
             required={false}
             value={editFormData.descripcion}
             onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
-            placeholder="Describe los temas que tratas en esta monitorÃ­a..."
+            placeholder="Describe los temas que tratas en esta monitoría..."
           />
 
           <div className="grid grid-cols-2 gap-4">
@@ -1408,19 +1550,19 @@ const MonitorDashboard = () => {
           </button>
         </div>
       </Modal>
-      {/* Modal Crear MÃ³dulo */}
+      {/* Modal Crear Módulo */}
       <Modal
         isOpen={isCreateModuleOpen}
         onClose={() => setIsCreateModuleOpen(false)}
-        title="Crear Nueva MonitorÃ­a"
+        title="Crear Nueva Monitoría"
       >
         <form onSubmit={handleCreateModule} className="space-y-4 py-2 text-left">
           <div className="grid grid-cols-2 gap-4">
             <InputField
-              label="Nombre del MÃ³dulo"
+              label="Nombre del Módulo"
               value={createFormData.modulo}
               onChange={(e) => setCreateFormData({ ...createFormData, modulo: e.target.value })}
-              placeholder="Ej. CÃ¡lculo I"
+              placeholder="Ej. Cálculo I"
             />
             <InputField
               type="select"
@@ -1431,12 +1573,12 @@ const MonitorDashboard = () => {
             />
           </div>
 
-          {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'HÃ­brido') && (
+          {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'Híbrido') && (
             <InputField
-              label="SalÃ³n"
+              label="Salón"
               value={createFormData.salon}
               onChange={(e) => setCreateFormData({ ...createFormData, salon: e.target.value })}
-              placeholder="Ej. SalÃ³n 204 Bloque B"
+              placeholder="Ej. Salón 204 Bloque B"
             />
           )}
 
@@ -1485,27 +1627,27 @@ const MonitorDashboard = () => {
 
           <InputField
             type="textarea"
-            label="DescripciÃ³n"
+            label="Descripción"
             required={false}
             value={createFormData.descripcion}
             onChange={(e) => setCreateFormData({ ...createFormData, descripcion: e.target.value })}
-            placeholder="Â¿QuÃ© temas enseÃ±arÃ¡s?"
+            placeholder="¿Qué temas enseñarás?"
           />
 
           <button
             type="submit"
             className="w-full py-4 bg-emerald-600 text-white font-extrabold rounded-2xl shadow-xl hover:bg-emerald-700 active:scale-95 transition-all text-sm uppercase tracking-widest"
           >
-            Publicar MonitorÃ­a
+            Publicar Monitoría
           </button>
         </form>
       </Modal>
 
-      {/* Modal: Confirmar EliminaciÃ³n de MonitorÃ­a */}
+      {/* Modal: Confirmar Eliminación de Monitoría */}
       <Modal
         isOpen={isConfirmDeleteModuleOpen}
         onClose={() => setIsConfirmDeleteModuleOpen(false)}
-        title="Â¿Confirmar EliminaciÃ³n?"
+        title="¿Confirmar Eliminación?"
       >
         <div className="space-y-8 text-center py-4">
           <div className="bg-red-50 p-6 rounded-2xl inline-block text-red-600 animate-pulse">
@@ -1513,17 +1655,17 @@ const MonitorDashboard = () => {
           </div>
           <div className="space-y-3 px-4">
             <p className="text-2xl font-black text-gray-900 leading-tight">
-              EstÃ¡s a punto de borrar la monitorÃ­a de: <br />
+              Estás a punto de borrar la monitoría de: <br />
               <span className="text-red-600 italic">"{moduleToDelete?.modulo}"</span>
             </p>
-            <p className="text-gray-500 font-medium">Esta acciÃ³n eliminarÃ¡ todos los registros asociados permanentemente y no se puede deshacer.</p>
+            <p className="text-gray-500 font-medium">Esta acción eliminará todos los registros asociados permanentemente y no se puede deshacer.</p>
           </div>
           <div className="flex flex-col gap-3">
             <button
               onClick={executeDeleteModule}
               className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 active:scale-95 transition-all text-sm uppercase tracking-widest"
             >
-              SÃ­, eliminar definitivamente
+              Sí, eliminar definitivamente
             </button>
             <button
               onClick={() => setIsConfirmDeleteModuleOpen(false)}
@@ -1539,7 +1681,4 @@ const MonitorDashboard = () => {
 };
 
 export default MonitorDashboard;
-
-
-
 
