@@ -2,11 +2,30 @@
 
 @theme {
   --color-brand-blue: #1e3a8a;
-  /* Navy Blue */
   --color-brand-gray: #f8fafc;
-  /* Lighter Gray */
   --color-brand-dark-blue: #172554;
   --color-brand-text: #0f172a;
+  
+  /* Role Colors */
+  --color-student: #3b82f6;
+  /* Blue */
+  --color-student-light: #eff6ff;
+  --color-student-dark: #1d4ed8;
+  
+  --color-monitor: #10b981;
+  /* Green */
+  --color-monitor-light: #ecfdf5;
+  --color-monitor-dark: #059669;
+  
+  --color-admin: #f97316;
+  /* Orange */
+  --color-admin-light: #fff7ed;
+  --color-admin-dark: #ea580c;
+  
+  --color-dev: #8b5cf6;
+  /* Purple */
+  --color-dev-light: #f5f3ff;
+  --color-dev-dark: #7c3aed;
 }
 
 @layer base {
