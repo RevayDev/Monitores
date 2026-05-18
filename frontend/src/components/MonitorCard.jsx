@@ -1,11 +1,12 @@
-import { User, Users, Book, Calendar, MapPin, Monitor, Clock, ExternalLink, MessageCircle, Video, Sparkles } from 'lucide-react';
+import { User, Users, Book, Calendar, MapPin, Monitor, Clock, ExternalLink, MessageCircle, MessageSquare, Video, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import UserAvatar from './UserAvatar';
+import { formatTimeAMPM } from '../utils/timeHelpers';
 
 const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondaryActionLabel, isRegistered, registrationCount = 0 }) => {
   const navigate = useNavigate();
   const LIMIT = 32;
-  const hasNoMonitor = !data.monitorId || data.monitorId === 0 || !data.monitor;
+  const hasNoMonitor = (!data.monitorId || data.monitorId === 0) && !data.monitor;
   const isFull = (registrationCount >= LIMIT) && !hasNoMonitor;
 
   const handleAction = () => {
@@ -102,7 +103,7 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
           </div>
           <div className="flex items-center gap-1.5">
             <Clock size={14} className="text-brand-blue" />
-            <span className="text-xs truncate font-medium">{data.horario}</span>
+            <span className="text-xs truncate font-medium">{formatTimeAMPM(data.horario)}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Users size={14} className={isFull ? "text-red-500" : "text-brand-blue"} />
@@ -118,7 +119,7 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
               onClick={(e) => { e.stopPropagation(); onSecondaryAction(data); }}
               className="w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 bg-gray-900 text-white hover:bg-black"
             >
-              <Sparkles size={14} />
+              <MessageSquare size={14} />
               {secondaryActionLabel}
             </button>
           )}

@@ -6,9 +6,9 @@ export const getRoleColors = (role) => {
       lightBg: 'bg-purple-50',
     };
     case 'admin': return {
-      color: 'bg-amber-600',
-      textColor: 'text-amber-600',
-      lightBg: 'bg-amber-50',
+      color: 'bg-indigo-600',
+      textColor: 'text-indigo-600',
+      lightBg: 'bg-indigo-50',
     };
     case 'monitor':
     case 'monitor_academico': return {

@@ -1,4 +1,4 @@
-﻿const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3000/api';
 
 // Persistence for the current user (session) still uses localStorage for convenience,
 // but the data itself comes from the backend.
@@ -299,7 +299,7 @@ export const toggleForumSave = (id) => request(`/forums/${id}/save`, { method: '
 export const deleteForum = (id) => request(`/forums/${id}`, { method: 'DELETE' });
 export const getMonitorAdminStats = () => request('/stats/monitor-admin');
 export const getAdminStats = () => request('/stats/admin');
-export const getGlobalStats = () => request('/stats/global');
+export const getGlobalStats = (forceGlobal = false) => request(`/stats/global${forceGlobal ? '?global=true' : ''}`);
 export const getUserStats = (userId) => request(`/stats/user/${userId}`);
 
 // --- Reports ---

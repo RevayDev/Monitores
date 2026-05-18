@@ -67,9 +67,9 @@ const Home = () => {
             <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full py-14 sm:py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full py-14 sm:py-20  ">
             <div className="max-w-3xl space-y-4 sm:space-y-6 animate-fade-in">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm header-portal">
                 <span className={`w-2 h-2 rounded-full animate-pulse ${config?.global || config?.monitorias ? 'bg-yellow-400' : 'bg-green-400'}`}></span>
                 <span className={`text-[10px] font-black uppercase tracking-widest ${config?.global || config?.monitorias ? 'text-yellow-400' : 'text-white'}`}>
                   {config?.global ? 'SISTEMA EN MANTENIMIENTO' : config?.monitorias ? 'PORTAL DE MONITORÍAS EN MANTENIMIENTO' : 'Portal Académico Activo'}
@@ -108,6 +108,8 @@ const Home = () => {
               </div>
             </div>
           </div>
+
+          <img src="img/Estudiantes.webp" className='img-portada' alt="" />
         </section>
 
         <section className="py-10 sm:py-16 md:py-20 bg-gray-50 px-4 sm:px-6">

@@ -26,6 +26,7 @@ import {
   getForumPresence,
   createForumReport
 } from '../services/api';
+import UserAvatar from '../components/UserAvatar';
 import { ToastContext } from '../context/ToastContext';
 import { splitHighlightedText } from '../utils/forumSearchHelpers';
 
@@ -72,21 +73,21 @@ const allowedMimeTypes = new Set([
 const roleChip = (vRole) => {
   if (vRole === 'monitor' || vRole === 'monitor_academico') return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
   if (vRole === 'monitor_administrativo') return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
-  if (vRole === 'admin') return 'bg-amber-100 text-amber-800 border border-amber-200';
+  if (vRole === 'admin') return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
   return 'bg-blue-100 text-blue-800 border border-blue-200';
 };
 
 const roleAvatar = (vRole) => {
   if (vRole === 'monitor' || vRole === 'monitor_academico') return 'bg-emerald-100 text-emerald-800';
   if (vRole === 'monitor_administrativo') return 'bg-indigo-100 text-indigo-800';
-  if (vRole === 'admin') return 'bg-amber-100 text-amber-800';
+  if (vRole === 'admin') return 'bg-indigo-100 text-indigo-800';
   return 'bg-blue-100 text-blue-800';
 };
 
 const roleMentionStyle = (vRole) => {
   if (vRole === 'monitor' || vRole === 'monitor_academico') return 'bg-green-100 text-green-900';
   if (vRole === 'monitor_administrativo') return 'bg-indigo-100 text-indigo-900';
-  if (vRole === 'admin') return 'bg-orange-100 text-orange-900';
+  if (vRole === 'admin') return 'bg-indigo-100 text-indigo-900';
   return 'bg-blue-100 text-blue-900';
 };
 
@@ -150,28 +151,6 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
   );
 };
 
-const UserAvatar = ({ photo, name, userId, userRole, monitorId, size = 'w-9 h-9', className = '' }) => {
-  if (photo) {
-    return (
-      <div className={`${size} rounded-full overflow-hidden bg-gray-100 ${className}`}>
-        <img src={photo} alt={name} className="w-full h-full object-cover" />
-      </div>
-    );
-  }
-  const initial = String(name || 'U').trim().charAt(0).toUpperCase();
-  const roleClasses = (vRole) => {
-    if (vRole === 'admin') return 'bg-amber-500 text-white';
-    if (vRole === 'monitor_administrativo') return 'bg-indigo-600 text-white';
-    if (vRole === 'monitor' || vRole === 'monitor_academico') return 'bg-emerald-500 text-white';
-    return 'bg-brand-blue text-white';
-  };
-  const vRole = getVisualRole(userId, userRole, monitorId);
-  return (
-    <div className={`${size} rounded-full flex items-center justify-center text-xs font-black ${roleClasses(vRole)} ${className}`}>
-      {initial}
-    </div>
-  );
-};
 
 const renderAttachment = (item) => {
   if (!item?.file_url) return null;
@@ -192,12 +171,8 @@ const TypingIndicator = ({ users, monitorId }) => {
       {users.map((user, idx) => (
         <div key={user.user_id + idx} className="flex items-center gap-2">
           <UserAvatar 
-            photo={user.foto} 
-            name={user.nombre} 
-            userId={user.user_id} 
-            userRole={user.role} 
-            monitorId={monitorId} 
-            size="w-8 h-8" 
+            user={{ nombre: user.nombre, foto: user.foto, role: user.role }}
+            size="sm"
             className="border-2 border-white shadow-md"
           />
           <div className="typing-bubble shadow-xl">
@@ -381,6 +356,7 @@ const ModuleForum = () => {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const messagesScrollRef = useRef(null);
   const [highlightedReplyId, setHighlightedReplyId] = useState(null);
+  const [visibleRepliesCount, setVisibleRepliesCount] = useState(6);
 
   useEffect(() => {
     return () => { if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current); };
@@ -634,6 +610,7 @@ const ModuleForum = () => {
     // Reset unread when switching threads
     setUnreadWhileBrowsing(0);
     setIsAtBottom(true);
+    setVisibleRepliesCount(6);
   }, [selectedId]);
 
   useEffect(() => {
@@ -1057,7 +1034,7 @@ const ModuleForum = () => {
                    {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10 shadow-sm">Te mencionaron</div>}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <UserAvatar photo={detail.author_photo} name={detail.author_name} userId={detail.user_id} userRole={detail.author_role} monitorId={moduleMonitorId} size="w-9 h-9" />
+                      <UserAvatar user={{ nombre: detail.author_name, foto: detail.author_photo, role: detail.author_role }} size="md" />
                       <div>
                         <div className="flex items-center gap-2">
                             <p className="font-bold text-gray-900 leading-tight">{detail.title}</p>
@@ -1121,11 +1098,16 @@ const ModuleForum = () => {
                   )}
                   {(() => {
                     const allReplies = (detail.replies || detail.comments || []);
+                    const totalReplies = allReplies.length;
+                    const displayedReplies = allReplies.slice(0, visibleRepliesCount);
+                    const hasMoreReplies = totalReplies > visibleRepliesCount;
+                    
                     const lastSeen = detail.lastSeenReplyId || 0;
                     const result = [];
                     let bannerShown = false;
                     const newMessages = allReplies.filter(r => Number(r.id) > lastSeen);
-                    allReplies.forEach((reply) => {
+
+                    displayedReplies.forEach((reply, idx) => {
                       if (!reply || !reply.id) return; // Defensive skip
                       if (!bannerShown && showBanner && !hasEnteredThread && lastSeen > 0 && Number(reply.id) > lastSeen) {
                         result.push(
@@ -1145,14 +1127,20 @@ const ModuleForum = () => {
 
                       result.push(
                         <div key={reply.id} id={`reply-${reply.id}`} className={`rounded-2xl border transition-all duration-500 p-4 relative ${
+                          (isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-100' :
                           highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
                           isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' : 
                            (isMentioned ? 'bg-blue-50/50 border-blue-100' : 
                           (isMeSender ? 'is-me-card' : 'bg-white border-gray-100'))
                         }`}>
+                          {(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) && (
+                            <div className="absolute -top-2 -right-2 px-3 py-1 bg-rose-600 text-white text-[9px] font-black rounded-full border-2 border-white shadow-xl z-20 animate-bounce-slow">
+                              OBJETO DEL REPORTE
+                            </div>
+                          )}
                           <div className="flex justify-between items-start mb-2 text-xs">
                             <div className="flex items-center gap-2 text-gray-500">
-                              <UserAvatar photo={reply.author_photo} name={reply.author_name || 'Usuario'} userId={reply.user_id} userRole={reply.author_role} monitorId={moduleMonitorId} size="w-6 h-6" />
+                              <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                   <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
@@ -1201,6 +1189,25 @@ const ModuleForum = () => {
                         </div>
                       );
                     });
+
+                    if (hasMoreReplies) {
+                      result.push(
+                        <div key="show-more-replies" className="relative pt-8 pb-4">
+                          <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                          <button 
+                            onClick={() => setVisibleRepliesCount(prev => prev + 10)}
+                            className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-xs font-black text-gray-400 hover:border-brand-blue/30 hover:text-brand-blue hover:bg-blue-50/30 transition-all flex flex-col items-center gap-2 group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />
+                              Ver {totalReplies - visibleRepliesCount} respuestas más
+                            </div>
+                            <span className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.2em]">Cargando respuestas adicionales</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
                     return result;
                   })()}
                   {!(detail.replies || detail.comments || []).length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
@@ -1260,11 +1267,43 @@ const ModuleForum = () => {
           </div>
         </div>
       </Modal>
-      <Modal isOpen={!!reportTarget} onClose={() => setReportTarget(null)} title="Reportar contenido">
-        <div className="space-y-4">
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center gap-3"><AlertOctagon className="text-amber-600" size={20} /><div><p className="text-xs font-black text-amber-800 uppercase tracking-wide">¿Por qué reportas esto?</p><p className="text-[10px] text-amber-600">Reportando a: {reportTarget?.name}</p></div></div>
-          <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Describe el motivo del reporte..." className="w-full h-32 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
-          <div className="flex justify-end gap-2 pt-2"><button onClick={() => setReportTarget(null)} className="px-4 py-2 rounded-xl text-gray-500 text-sm font-bold hover:bg-gray-100">Cancelar</button><button disabled={reporting || !reportReason.trim()} onClick={handleReport} className="px-5 py-2 rounded-xl bg-amber-600 text-white text-sm font-black shadow-lg shadow-amber-200 hover:bg-amber-700 active:scale-95 transition-all disabled:opacity-50">{reporting ? 'Enviando...' : 'Enviar Reporte'}</button></div>
+      <Modal isOpen={!!reportTarget} onClose={() => setReportTarget(null)}>
+        <div className="relative p-8 space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 border border-amber-100">
+              <AlertOctagon size={28} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Reportar Contenido</h3>
+              <p className="text-xs font-bold text-slate-400">Moderación del Foro • Caso de: {reportTarget?.name}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Motivo detallado</label>
+            <textarea 
+              value={reportReason} 
+              onChange={(e) => setReportReason(e.target.value)} 
+              placeholder="Describe por qué este contenido es inapropiado o sospechoso..." 
+              className="w-full h-32 border border-slate-200 rounded-2xl p-4 text-sm focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all resize-none bg-slate-50/50" 
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button 
+              disabled={reporting || !reportReason.trim()} 
+              onClick={handleReport} 
+              className="w-full py-4 rounded-2xl bg-amber-600 text-white text-xs font-black shadow-xl shadow-amber-200 hover:bg-amber-700 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest"
+            >
+              {reporting ? 'Enviando...' : 'Enviar Reporte'}
+            </button>
+            <button 
+              onClick={() => setReportTarget(null)} 
+              className="w-full py-4 rounded-2xl text-slate-400 text-xs font-bold hover:bg-slate-50 transition-all uppercase tracking-widest"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       </Modal>
       <div className={`fixed inset-0 z-[120] ${confirmDelete ? 'flex' : 'hidden'} items-center justify-center p-4`}>

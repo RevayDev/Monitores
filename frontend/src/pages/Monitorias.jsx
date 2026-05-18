@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getMonitorias, registerMonitoria, getCurrentUser, getMisMonitorias, getAllRegistrations, getMaintenanceConfig } from '../services/api';
 import MonitorCard from '../components/MonitorCard';
 import Modal from '../components/Modal';
-import { Search, Filter, Info, CheckCircle2 } from 'lucide-react';
+import { Search, Filter, Info, CheckCircle2, BookOpen } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ToastContext } from '../context/ToastContext';
 import SearchBar from '../components/SearchBar';
@@ -126,14 +126,18 @@ const Monitorias = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            Monitorías Disponibles
-          </h1>
-          <p className="text-lg text-gray-600">
-            Encuentra el apoyo académico que necesitas en las diferentes sedes y modalidades.
-          </p>
-        </div>
+        <header className="relative py-12 px-8 overflow-hidden rounded-[40px] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center space-y-4">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-brand-blue" />
+          <div className="w-20 h-20 rounded-3xl bg-blue-50 flex items-center justify-center text-brand-blue mb-2">
+            <BookOpen size={40} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Monitorías Disponibles</h1>
+            <p className="text-gray-500 font-bold text-sm max-w-lg mx-auto">
+              Encuentra el apoyo académico que necesitas en las diferentes sedes y modalidades de nuestra institución.
+            </p>
+          </div>
+        </header>
 
         <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           <SearchBar

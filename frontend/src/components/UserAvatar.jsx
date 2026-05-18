@@ -15,8 +15,8 @@ const UserAvatar = ({
 
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
-      case 'dev': return 'bg-purple-600';
-      case 'admin': return 'bg-amber-600';
+      case 'dev': return 'bg-violet-600';
+      case 'admin': return 'bg-indigo-600';
       case 'monitor':
       case 'monitor_academico': return 'bg-emerald-600';
       case 'monitor_administrativo': return 'bg-indigo-600';
@@ -26,6 +26,7 @@ const UserAvatar = ({
   };
 
   const sizes = {
+    xs: 'w-6 h-6 text-[10px]',
     sm: 'w-8 h-8 text-xs',
     md: 'w-12 h-12 text-lg',
     lg: 'w-24 h-24 text-3xl',
@@ -45,7 +46,7 @@ const UserAvatar = ({
 
   return (
     <div className={`relative inline-block ${className}`}>
-      <div className={`${sizes[size]} aspect-square ${rounded} flex items-center justify-center text-white font-black overflow-hidden shadow-inner border-2 border-white ring-1 ring-gray-100/50 ${getRoleColor(user?.role)}`}>
+      <div className={`${sizes[size]} aspect-square ${rounded} flex items-center justify-center text-white font-black overflow-hidden shadow-inner ${getRoleColor(user?.role)}`}>
 
         {user?.foto ? (
           <img
@@ -63,6 +64,12 @@ const UserAvatar = ({
         )}
 
       </div>
+
+      {(user?.role === 'dev' && (user?.is_monitor || user?.monitorId || user?.baseRole === 'monitor')) && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm" title="También es Monitor">
+          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+        </div>
+      )}
 
       {showBadge && isNew() && (
         <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 w-full flex justify-center text-center">

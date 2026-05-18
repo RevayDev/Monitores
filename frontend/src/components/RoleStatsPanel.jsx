@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getCurrentUser, getGlobalStats, getUserStats } from '../services/api';
 import { Activity } from 'lucide-react';
 
@@ -131,89 +131,89 @@ const RoleStatsPanel = () => {
       {!loading && error && <p className="text-sm text-red-500">{error}</p>}
 
       {!loading && !error && (
-        <>
-          {(!globalStats?.totals?.total_assistances && !globalStats?.totals?.unique_students && !userStats?.totals?.total_attendances && !userStats?.totals?.total_students_attended) ? (
-            <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-              <div className="bg-gray-50 p-4 rounded-full text-gray-300">
-                <Activity size={32} />
+        <div className="space-y-10">
+          {userStats && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-1.5 h-6 rounded-full bg-${getRoleColor(role)}-500`} />
+                <h3 className="text-sm font-black uppercase text-gray-800 tracking-wider">Tu Impacto Personal</h3>
               </div>
-              <p className="text-gray-400 font-bold">No hay datos disponibles en este momento.</p>
-            </div>
-          ) : (
-            <>
-              {globalStats && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black uppercase text-gray-500 tracking-wider">Actividad Global del Sistema</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50 group hover:border-gray-200 transition-all">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Total Asistencias Registradas</p>
-                      <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{globalStats?.totals?.total_assistances || 0}</p>
-                    </div>
-                    <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50 group hover:border-gray-200 transition-all">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Estudiantes Ãšnicos Atendidos</p>
-                      <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{globalStats?.totals?.unique_students || 0}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="rounded-3xl border border-gray-100 p-6">
-                      <p className="text-[10px] uppercase font-black text-gray-500 mb-4 tracking-widest">Registros por Fecha (Ãšltimos dÃ­as)</p>
-                      <DateBars items={globalStats?.assistances_by_date || []} color={getRoleColor(role)} />
-                    </div>
-                    <div className="rounded-3xl border border-gray-100 p-6">
-                      <p className="text-[10px] uppercase font-black text-gray-500 mb-4 tracking-widest">Tendencia de Actividad</p>
-                      <LineTrend items={globalStats?.assistances_by_date || []} color={getRoleColor(role)} />
-                    </div>
-                  </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-3xl border border-gray-100 p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-[10px] uppercase font-black text-gray-400 mb-2 tracking-widest">Estudiantes Atendidos</p>
+                  <p className={`text-4xl font-black text-${getRoleColor(role)}-600`}>
+                    {userStats?.role === 'student' 
+                      ? userStats?.totals?.monitorias_attended 
+                      : userStats?.totals?.total_students_attended || 0}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase">Alcance total acumulado</p>
                 </div>
-              )}
+                
+                <div className="rounded-3xl border border-gray-100 p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-[10px] uppercase font-black text-gray-400 mb-2 tracking-widest">
+                    {userStats?.role === 'student' ? 'Asistencias Totales' : 'Sesiones Realizadas'}
+                  </p>
+                  <p className={`text-4xl font-black text-${getRoleColor(role)}-600`}>
+                    {userStats?.role === 'student' 
+                      ? userStats?.totals?.total_attendances 
+                      : userStats?.totals?.sessions_count || 0}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase">Registros en plataforma</p>
+                </div>
+              </div>
 
               {userStats?.role === 'student' && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black uppercase text-gray-500 tracking-wider">Tu Actividad - Estudiante</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">MonitorÃ­as que has asistido</p>
-                      <p className="text-3xl font-black text-blue-600">{userStats?.totals?.monitorias_attended || 0}</p>
-                    </div>
-                    <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Total de tus Asistencias</p>
-                      <p className="text-3xl font-black text-blue-600">{userStats?.totals?.total_attendances || 0}</p>
-                    </div>
-                  </div>
-                  <div className="rounded-3xl border border-gray-100 p-6">
-                    <p className="text-[10px] uppercase font-black text-gray-500 mb-4 tracking-widest">Historial Reciente de Asistencia</p>
-                    <div className="max-h-56 overflow-auto space-y-2 pr-1">
-                      {(userStats?.attendance_history || []).map((row) => (
-                        <div key={row.id} className="text-xs rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 flex items-center justify-between gap-2 hover:bg-white hover:shadow-sm transition-all cursor-default">
-                          <span className="font-bold text-gray-700">{row.module_name || `MÃ³dulo #${row.module_id || '-'}`}</span>
-                          <span className="text-[10px] font-black uppercase text-gray-400">{row.date}</span>
-                        </div>
-                      ))}
-                      {!userStats?.attendance_history?.length && <p className="text-sm text-gray-400 italic text-center py-4">No tienes asistencias registradas aÃºn.</p>}
-                    </div>
+                <div className="rounded-3xl border border-gray-100 p-6 bg-gray-50/50">
+                  <p className="text-[10px] uppercase font-black text-gray-500 mb-4 tracking-widest">Historial Reciente de Asistencia</p>
+                  <div className="max-h-56 overflow-auto space-y-2 pr-1">
+                    {(userStats?.attendance_history || []).map((row) => (
+                      <div key={row.id} className="text-xs rounded-xl border border-gray-100 bg-white px-3 py-3 flex items-center justify-between gap-2 hover:shadow-sm transition-all cursor-default">
+                        <span className="font-bold text-gray-700">{row.module_name || `Módulo #${row.module_id || '-'}`}</span>
+                        <span className="text-[10px] font-black uppercase text-gray-400">{row.date}</span>
+                      </div>
+                    ))}
+                    {!userStats?.attendance_history?.length && <p className="text-sm text-gray-400 italic text-center py-4">No tienes asistencias registradas aún.</p>}
                   </div>
                 </div>
               )}
-
-              {(['monitor_academico', 'monitor_administrativo'].includes(userStats?.role)) && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black uppercase text-gray-500 tracking-wider">Tu Actividad - Monitor</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Estudiantes Diferentes Atendidos</p>
-                      <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{userStats?.totals?.total_students_attended || 0}</p>
-                    </div>
-                    <div className="rounded-2xl border border-gray-100 p-5 bg-gray-50">
-                      <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Sesiones de MonitorÃ­a Realizadas</p>
-                      <p className={`text-3xl font-black text-${getRoleColor(role)}-600`}>{userStats?.totals?.sessions_count || 0}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
-        </>
+
+          {globalStats && (role === 'admin' || role === 'dev' || !userStats?.totals?.total_students_attended) && (
+            <div className="space-y-6 pt-6 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity size={16} className="text-gray-400" />
+                  <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest">Actividad Global del Sistema</h3>
+                </div>
+                <span className="text-[9px] font-black bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">Vista Informativa</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-gray-50 p-4 bg-gray-50/50">
+                  <p className="text-[9px] uppercase font-black text-gray-400 mb-1">Total Asistencias Sistema</p>
+                  <p className="text-2xl font-black text-gray-700">{globalStats?.totals?.total_assistances || 0}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-50 p-4 bg-gray-50/50">
+                  <p className="text-[9px] uppercase font-black text-gray-400 mb-1">Estudiantes Únicos (Global)</p>
+                  <p className="text-2xl font-black text-gray-700">{globalStats?.totals?.unique_students || 0}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <p className="text-[9px] uppercase font-black text-gray-400 tracking-widest">Registros (Últimos días)</p>
+                  <DateBars items={globalStats?.assistances_by_date || []} color="gray" />
+                </div>
+                <div className="space-y-3">
+                  <p className="text-[9px] uppercase font-black text-gray-400 tracking-widest">Tendencia Global</p>
+                  <LineTrend items={globalStats?.assistances_by_date || []} color="gray" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </section>
   );

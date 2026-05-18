@@ -56,17 +56,17 @@ const QrCard = () => {
     : null;
 
   return (
-    <section className="bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100 space-y-4">
+    <section className="bg-white p-5 sm:p-8 rounded-[1.5rem] shadow-sm border border-gray-100 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-          <QrCode className="text-brand-blue" /> QR dinamico
+        <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+          <QrCode className="text-brand-blue" /> QR dinámico
         </h2>
         <button
           onClick={handleGenerate}
           disabled={loading || !canGenerate || (!!qr && !isExpired)}
-          className="px-6 py-3 rounded-xl bg-brand-blue text-white text-base font-black disabled:opacity-40 flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl bg-brand-blue text-white text-xs font-black disabled:opacity-40 flex items-center gap-2 hover:bg-brand-dark-blue transition-all"
         >
-          <RefreshCw size={14} /> {qr && !isExpired ? 'Activo' : 'Generar'}
+          <RefreshCw size={12} /> {qr && !isExpired ? 'Activo' : 'Generar'}
         </button>
       </div>
 

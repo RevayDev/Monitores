@@ -34,6 +34,7 @@ const Profile = () => {
   const [formData, setFormData] = useState({ nombre: '', email: '', sede: '', cuatrimestre: '' });
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
@@ -195,10 +196,18 @@ const Profile = () => {
   };
 
   const handleDeleteAccount = async () => {
-    await deleteUser(user.id);
-    await logout();
-    navigate('/');
-    window.location.reload();
+    if (!deletePassword) {
+      showToast("Debes ingresar tu contraseña para confirmar", "error");
+      return;
+    }
+    try {
+      await deleteUser(user.id);
+      showToast("Cuenta eliminada correctamente", "success");
+      apiLogout();
+      navigate('/login');
+    } catch (error) {
+      showToast("Error al eliminar la cuenta. Verifica tu contraseña.", "error");
+    }
   };
 
   if (!user) return null;
@@ -302,7 +311,7 @@ const Profile = () => {
         })()}
 
         {/* Profile Header */}
-        <header className="flex flex-col sm:flex-row gap-6 items-center bg-white p-6 sm:p-10 rounded-[32px] shadow-sm border border-gray-100">
+        <header className="flex flex-col sm:flex-row gap-6 items-center bg-white p-6 sm:p-8 rounded-[1.5rem] shadow-sm border border-gray-100">
 
           {/* Photo Management Area */}
           <div className="relative shrink-0">
@@ -373,19 +382,25 @@ const Profile = () => {
             </p>
           </div>
 
-          <div className="bg-white p-2 rounded-2xl border border-gray-100 inline-flex gap-2 selector-profile">
-            <button
-              onClick={() => setActiveTab('info')}
-              className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'info' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
-            >
-              Informacion del usuario
-            </button>
-            <button
-              onClick={() => setActiveTab('stats')}
-              className={`px-4 py-2 rounded-xl text-xs font-black ${activeTab === 'stats' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-600'}`}
-            >
-              Estadisticas e historial
-            </button>
+          <div className="bg-white/50 backdrop-blur-sm p-2 rounded-2xl border border-gray-100 flex gap-2 selector-profile">
+            {[
+              { id: 'info', label: 'Información' },
+              { id: 'stats', label: 'Estadísticas' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-[11px] font-extrabold uppercase tracking-widest transition-all relative group ${activeTab === tab.id
+                    ? 'text-brand-blue'
+                    : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                {tab.label}
+                {activeTab === tab.id && (
+                  <motion.div layoutId="profileTabUnderline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-blue" />
+                )}
+              </button>
+            ))}
           </div>
         </header>
 
@@ -576,28 +591,47 @@ const Profile = () => {
         )}
       </div>
 
-      <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="¿Confirmar Eliminación?">
-        <div className="space-y-8 text-center py-4">
+      <Modal isOpen={isDeleteOpen} onClose={() => { setIsDeleteOpen(false); setDeletePassword(''); }} title="¿Confirmar Eliminación?">
+        <div className="space-y-6 text-center py-4">
           <div className="bg-red-50 p-6 rounded-[32px] inline-block text-red-600 animate-pulse">
             <AlertCircle size={48} />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 px-4">
             <p className="text-xl font-black text-gray-900 leading-tight">Estás por borrar tu cuenta</p>
-            <p className="text-gray-400 font-medium text-sm px-4">Esta acción no se puede deshacer. Se perderán todos tus registros de monitorías y asistencia.</p>
+            <p className="text-gray-400 font-medium text-xs leading-relaxed">Esta acción no se puede deshacer. Se perderán todos tus registros de monitorías y asistencia permanentemente.</p>
           </div>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={handleDeleteAccount}
-              className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg hover:bg-red-700 active:scale-95 transition-all"
-            >
-              Sí, eliminar permanentemente
-            </button>
-            <button
-              onClick={() => setIsDeleteOpen(false)}
-              className="w-full py-4 bg-gray-50 text-gray-400 font-bold border-2 border-gray-100 rounded-2xl hover:bg-gray-100 transition-all"
-            >
-              Cancelar
-            </button>
+          
+          <div className="px-4 space-y-4">
+            <div className="text-left">
+              <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest px-1">Confirma con tu Contraseña</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition-colors">
+                  <Lock size={16} />
+                </div>
+                <input 
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Tu contraseña actual..."
+                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                onClick={handleDeleteAccount}
+                className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg shadow-red-100 hover:bg-red-700 active:scale-95 transition-all uppercase tracking-widest text-[11px]"
+              >
+                Sí, eliminar permanentemente
+              </button>
+              <button
+                onClick={() => { setIsDeleteOpen(false); setDeletePassword(''); }}
+                className="w-full py-4 bg-gray-100 text-gray-400 font-bold border-2 border-transparent rounded-2xl hover:bg-gray-200 transition-all uppercase tracking-widest text-[11px]"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

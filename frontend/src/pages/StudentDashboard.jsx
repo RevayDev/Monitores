@@ -25,6 +25,7 @@ import {
 import UserAvatar from '../components/UserAvatar';
 import Modal from '../components/Modal';
 import InputField from '../components/InputField';
+import { formatTimeAMPM } from '../utils/timeHelpers';
 
 const StudentDashboard = () => {
   const { showToast } = useContext(ToastContext);
@@ -256,9 +257,15 @@ const ModuleCard = ({ module, actionLabel, onAction, isEnrollable = true }) => (
       </div>
       <h3 className="text-xl font-black text-gray-900 leading-tight mb-2">{module.modulo}</h3>
       <p className="text-sm font-medium text-gray-500 line-clamp-2 mb-4">{module.descripcion || 'Sin descripción disponible'}</p>
-      <div className="pt-4 border-t border-blue-50 flex items-center gap-3">
-        <UserAvatar user={{ nombre: module.monitor, foto: null }} size="xs" />
-        <span className="text-xs font-black text-brand-blue uppercase tracking-widest">Monitor: {module.monitor}</span>
+      <div className="pt-4 border-t border-blue-50 flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-gray-500">
+          <Clock size={14} className="text-blue-400" />
+          <span className="text-[10px] font-bold uppercase tracking-tight">{formatTimeAMPM(module.horario)}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <UserAvatar user={{ nombre: module.monitor, foto: null }} size="xs" />
+          <span className="text-xs font-black text-brand-blue uppercase tracking-widest">Monitor: {module.monitor}</span>
+        </div>
       </div>
     </div>
     <div className="p-4 bg-blue-50/50">

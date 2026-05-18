@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -14,18 +15,21 @@ import {
   Wrench,
   Bell,
   Trash2,
-  ChevronDown
+  ChevronDown,
+  ChevronRight,
+  AlertCircle
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
+import Modal from './Modal';
 import { getCurrentUser, switchRole, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
 import { io } from 'socket.io-client';
 import { ToastContext } from '../context/ToastContext';
 
 const getRoleColor = (role) => {
-  if (role?.includes('dev')) return { bg: 'bg-violet-600', bgLight: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200' };
-  if (role?.includes('admin')) return { bg: 'bg-orange-500', bgLight: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' };
-  if (role?.includes('monitor')) return { bg: 'bg-emerald-600', bgLight: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' };
-  return { bg: 'bg-blue-600', bgLight: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' };
+  if (role?.includes('dev')) return { bg: 'bg-violet-600', gradient: 'from-violet-600 to-indigo-600', bgLight: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200' };
+  if (role?.includes('admin')) return { bg: 'bg-indigo-600', gradient: 'from-indigo-600 to-indigo-700', bgLight: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-200' };
+  if (role?.includes('monitor')) return { bg: 'bg-emerald-600', gradient: 'from-emerald-600 to-teal-600', bgLight: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' };
+  return { bg: 'bg-blue-600', gradient: 'from-blue-600 to-indigo-600', bgLight: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' };
 };
 
 const Navbar = () => {
@@ -37,6 +41,7 @@ const Navbar = () => {
   const notificationRef = React.useRef(null);
   const prevUnreadRef = React.useRef(0);
   const [bellAnimating, setBellAnimating] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
 
@@ -135,10 +140,16 @@ const Navbar = () => {
   };
 
   const handleLogout = async () => {
-    await apiLogout();
-    setProfileOpen(false);
-    navigate('/');
-    window.location.reload();
+    try {
+      await apiLogout();
+      setProfileOpen(false);
+      setIsLogoutConfirmOpen(false);
+      navigate('/login');
+      // Force a full reload to clear any remaining app state
+      window.location.reload();
+    } catch (error) {
+      showToast('Error al cerrar sesión', 'error');
+    }
   };
 
   const isGuest = !user?.nombre;
@@ -219,11 +230,11 @@ const Navbar = () => {
           setNotificationsOpen(!notificationsOpen);
           if (!notificationsOpen) markAllNotificationsAsRead();
         }}
-        className={`relative p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all active:scale-95 ${bellAnimating ? 'animate-shake-bell' : ''}`}
+        className={`relative p-2.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all active:scale-95 ${bellAnimating ? 'animate-shake-bell' : ''}`}
       >
-        <Bell size={18} />
+        <Bell size={20} />
         {unreadCount > 0 && (
-          <span className={`absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full ${roleColor.bg} text-white text-[10px] font-bold grid place-items-center shadow-sm`}>
+          <span className={`absolute top-2 right-2 min-w-4 h-4 px-1 rounded-full ${roleColor.bg} text-white text-[9px] font-bold grid place-items-center shadow-sm`}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -231,11 +242,11 @@ const Navbar = () => {
       {notificationsOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-2 w-80 max-h-[400px] overflow-auto bg-white rounded-xl shadow-lg border border-slate-200 z-[100] animate-fade-in"
+          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right"
         >
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-xl">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Notificaciones</span>
-            <span className="text-[10px] text-slate-400">{notifications.length} total</span>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Notificaciones</span>
+            <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{notifications.length} total</span>
           </div>
           <div className="divide-y divide-slate-50">
             {notifications.length ? notifications.map((n) => {
@@ -243,27 +254,32 @@ const Navbar = () => {
               const typeNormalized = String(n.type || '').toLowerCase();
               const isMention = ['forum_mention', 'mencion_foro'].includes(typeNormalized);
               return (
-                <div key={n.id} className={`px-4 py-3 flex items-start gap-3 transition-all hover:bg-slate-50 group ${isRecent ? (isMention ? `${roleColor.bgLight} border-l-4 ${roleColor.border}` : 'bg-blue-50 border-l-4 border-l-blue-400') : ''}`}>
+                <div key={n.id} className={`px-5 py-4 flex items-start gap-4 transition-all hover:bg-slate-50 group ${isRecent ? (isMention ? `${roleColor.bgLight} border-l-4 ${roleColor.border}` : 'bg-blue-50/50 border-l-4 border-l-blue-400') : ''}`}>
                   <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className={`text-[11px] font-semibold uppercase tracking-tight ${isRecent ? (isMention ? roleColor.text : 'text-blue-600') : 'text-slate-700'}`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <p className={`text-[10px] font-bold uppercase tracking-wide ${isRecent ? (isMention ? roleColor.text : 'text-blue-600') : 'text-slate-700'}`}>
                         {getNotificationTypeLabel(n.type)}
                       </p>
                       {isRecent && (
-                        <span className={`${isMention ? `${roleColor.bgLight} ${roleColor.text}` : 'bg-blue-100 text-blue-700'} text-[9px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-tight`}>
-                          Nuevo
-                        </span>
+                        <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-600 leading-snug">{n.message}</p>
-                    <p className="text-[10px] text-slate-400 mt-1 font-medium">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed">{n.message}</p>
+                    <p className="text-[10px] text-slate-400 mt-2 font-semibold">{new Date(n.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' }).toUpperCase()}</p>
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-1.5 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
                     <Trash2 size={14} />
                   </button>
                 </div>
               );
-            }) : <p className="px-4 py-8 text-sm text-slate-400 text-center">Sin notificaciones</p>}
+            }) : (
+              <div className="px-5 py-12 text-center space-y-3">
+                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                  <Bell className="text-slate-200" size={24} />
+                </div>
+                <p className="text-sm text-slate-400 font-medium">Sin notificaciones</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -273,28 +289,28 @@ const Navbar = () => {
   const currentLinks = isGuest ? navLinks.guest : navLinks.student;
 
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-20">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2 group min-w-max">
-              <div className="p-1.5 bg-brand-blue rounded-lg text-white group-hover:rotate-6 transition-transform shadow-md shadow-brand-blue/20 shrink-0">
-                <GraduationCap size={22} />
+            <Link to="/" className="flex items-center gap-3 group min-w-max">
+              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl text-white group-hover:rotate-6 group-hover:scale-110 transition-all shadow-lg shadow-blue-200 shrink-0">
+                <GraduationCap size={24} />
               </div>
-              <span className="text-lg font-black text-gray-900 tracking-tighter whitespace-nowrap">
-                MONI<span className="text-brand-blue">TORES</span>
+              <span className="text-xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap">
+                MONI<span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">TORES</span>
               </span>
             </Link>
           </div>
 
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-2">
             {currentLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
-                className="px-3 py-1.5 text-[13px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+                className="px-4 py-2 text-[13px] font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"
               >
                 {link.name}
               </Link>
@@ -302,50 +318,50 @@ const Navbar = () => {
 
 
 
-            <div className="ml-4 pl-4 border-l border-slate-200 flex items-center gap-3">
+            <div className="ml-6 pl-6 border-l border-slate-100 flex items-center gap-4">
               {!isGuest && <NotificationBell />}
 
-              {/* Dedicated Panel Buttons based on baseRole */}
+              {/* Dedicated Panel Buttons with Premium Styling */}
               {!isGuest && (user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/monitor-dashboard')}
-                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
+                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-100 transition-all"
                 >
-                  <Users size={13} /> Monitor
+                  <Users size={12} className="opacity-90" /> Monitor
                 </button>
               )}
 
               {!isGuest && (user.role === 'admin' || user.baseRole === 'admin') && (
                 <button
                   onClick={() => navigate('/admin-dashboard')}
-                  className="px-4 py-1.5 bg-orange-500 text-white rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-2 hover:bg-orange-600 active:scale-95 transition-all shadow-sm"
+                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-100 transition-all"
                 >
-                  <ShieldCheck size={13} /> Admin
+                  <ShieldCheck size={12} className="opacity-90" /> Admin
                 </button>
               )}
 
               {!isGuest && (user.role === 'dev' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/dev-dashboard')}
-                  className="px-4 py-1.5 bg-violet-600 text-white rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center gap-2 hover:bg-violet-700 active:scale-95 transition-all shadow-sm"
+                  className="px-4 py-1.5 bg-violet-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-violet-700 hover:shadow-lg hover:shadow-violet-100 transition-all"
                 >
-                  <Wrench size={13} /> Dev
+                  <Wrench size={12} className="opacity-90" /> Dev
                 </button>
               )}
 
               {isGuest ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => navigate('/signup')}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-[11px] font-semibold rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all uppercase tracking-wider"
-                  >
-                    <UserPlus size={14} /> Registrarse
-                  </button>
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => navigate('/login')}
-                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 text-[11px] font-semibold rounded-lg border border-blue-200 hover:bg-blue-50 active:scale-95 transition-all uppercase tracking-wider"
+                    className="px-5 py-2.5 text-[11px] font-extrabold text-slate-600 hover:text-slate-900 transition-colors uppercase tracking-wider"
                   >
-                    <LogIn size={14} /> Ingresar
+                    Ingresar
+                  </button>
+                  <button
+                    onClick={() => navigate('/signup')}
+                    className="px-6 py-2.5  bg-brand-blue text-white text-[11px] font-extrabold rounded-xl shadow-xl shadow-slate-200 hover:bg-black hover:-translate-y-0.5 active:translate-y-0 transition-all uppercase tracking-wider"
+                  >
+                    Registrarse
                   </button>
                 </div>
               ) : (
@@ -353,49 +369,123 @@ const Navbar = () => {
                   <button
                     onClick={() => setProfileOpen(!profileOpen)}
                     onBlur={() => setTimeout(() => setProfileOpen(false), 200)}
-                    className={`flex items-center gap-2 p-1 pl-2 rounded-xl transition-all border group ${roleColor.bgLight} border-transparent hover:border-slate-200`}
+                    className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border ${profileOpen ? 'border-slate-200 bg-white shadow-lg' : 'border-transparent hover:bg-slate-50 hover:shadow-sm'} group relative overflow-hidden`}
                   >
-                    <div className="text-right hidden sm:block">
-                      <p className="text-[9px] font-semibold text-slate-900 leading-none">{user.nombre || 'Usuario'}</p>
-                      <p className={`text-[8px] font-semibold uppercase leading-none mt-1 tracking-wide ${roleColor.text}`}>{user.role}</p>
+                    <UserAvatar user={user} size="md" className="shadow-sm group-hover:scale-105 transition-transform" />
+                    <div className="text-left hidden sm:block relative z-10">
+                      <p className="text-[11px] font-black text-gray-900 leading-tight tracking-tight">{user.nombre || 'Usuario'}</p>
+                      <p className={`text-[8px] font-black uppercase leading-none mt-1 tracking-[0.1em] ${roleColor.text} opacity-70`}>
+                        {user.role === 'dev' && (user.baseRole === 'monitor' || user.is_monitor || user.monitorId) ? 'Dev + Monitor' : user.role}
+                      </p>
                     </div>
-                    <UserAvatar user={user} size="md" />
-                    <ChevronDown size={14} className="text-slate-400" />
+                    <ChevronDown size={14} className={`text-slate-400 group-hover:text-slate-600 transition-all ${profileOpen ? 'rotate-180 text-brand-blue' : ''}`} />
+
+                    {/* Subtle hover glow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
                   </button>
 
-                  {profileOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 animate-fade-in z-50">
-                      <button
-                        onClick={() => {
-                          setProfileOpen(false);
-                          navigate('/profile');
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-all"
+                  <AnimatePresence>
+                    {profileOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-xl rounded-[24px] shadow-2xl border border-slate-100 py-3 z-50 overflow-hidden ring-1 ring-black/5"
                       >
-                        <User size={16} /> Mi Perfil
-                      </button>
-                      <button
-                        onClick={() => {
-                          setProfileOpen(false);
-                          showToast("Estamos trabajando en esta función", "info");
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-all"
-                      >
-                        <HelpCircle size={16} /> Ayuda
-                      </button>
-                      <div className="h-px bg-slate-100 my-1 mx-3"></div>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 transition-all"
-                      >
-                        <LogOut size={16} /> Cerrar Sesión
-                      </button>
-                    </div>
-                  )}
+                        <div className="px-5 py-3 mb-2 border-b border-slate-50/50 bg-slate-50/30">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Sesión Activa</p>
+                          <p className="text-[12px] font-black text-slate-900 truncate">{user.email || 'u@sede.edu'}</p>
+                        </div>
+
+                        <div className="px-2 space-y-1">
+                          <button
+                            onClick={() => {
+                              setProfileOpen(false);
+                              navigate('/profile');
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-brand-blue/5 hover:text-brand-blue rounded-xl transition-all group/item"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover/item:bg-brand-blue/10 group-hover/item:text-brand-blue transition-colors">
+                              <User size={16} />
+                            </div>
+                            <span className="flex-1 text-left">Mi Perfil</span>
+                            <ChevronRight size={14} className="opacity-0 group-hover/item:opacity-100 -translate-x-2 group-hover/item:translate-x-0 transition-all" />
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setProfileOpen(false);
+                              showToast("Centro de soporte en desarrollo", "info");
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all group/item"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover/item:bg-white group-hover/item:text-slate-600 transition-colors shadow-sm">
+                              <HelpCircle size={16} />
+                            </div>
+                            <span className="flex-1 text-left">Ayuda & Soporte</span>
+                          </button>
+                        </div>
+
+                        <div className="h-px bg-slate-100/50 my-2 mx-5"></div>
+
+                        <div className="px-2">
+                          <button
+                            onClick={() => {
+                              setProfileOpen(false);
+                              setIsLogoutConfirmOpen(true);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-black text-rose-500 hover:bg-rose-50 rounded-xl transition-all group/item"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-400 group-hover/item:bg-rose-500 group-hover/item:text-white transition-all">
+                              <LogOut size={16} />
+                            </div>
+                            <span>Cerrar Sesión</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
             </div>
           </div>
+
+          <Modal isOpen={isLogoutConfirmOpen} onClose={() => setIsLogoutConfirmOpen(false)} maxWidth="max-w-md">
+            <div className="relative p-8 md:p-10 text-center space-y-6">
+              <button
+                onClick={() => setIsLogoutConfirmOpen(false)}
+                className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-50 text-slate-300 hover:text-slate-900 transition-all"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="w-20 h-20 bg-rose-50 rounded-[24px] flex items-center justify-center mx-auto text-rose-500 shadow-inner">
+                <AlertCircle size={40} />
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">¿Cerrar Sesión?</h3>
+                <p className="text-sm font-bold text-slate-500 px-2 leading-relaxed">
+                  Estás a punto de salir de tu cuenta corporativa. Deberás ingresar tus credenciales nuevamente para acceder.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 pt-2">
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-200 hover:bg-rose-700 active:scale-95 transition-all uppercase tracking-widest text-[11px]"
+                >
+                  Sí, cerrar sesión
+                </button>
+                <button
+                  onClick={() => setIsLogoutConfirmOpen(false)}
+                  className="w-full py-4 bg-slate-50 text-slate-400 font-black rounded-2xl hover:bg-slate-100 hover:text-slate-600 transition-all uppercase tracking-widest text-[11px]"
+                >
+                  Seguir conectado
+                </button>
+              </div>
+            </div>
+          </Modal>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center gap-2">
@@ -410,7 +500,7 @@ const Navbar = () => {
         </div>
       </div>
 
-        {/* Mobile menu */}
+      {/* Mobile menu */}
       {isOpen && (
         <div className="md:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-lg animate-fade-in z-50">
           <div className="px-4 pt-3 pb-6 space-y-1">
@@ -486,7 +576,7 @@ const Navbar = () => {
                   {(user.role === 'admin' || user.baseRole === 'admin') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/admin-dashboard'); }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 transition-all shadow-sm uppercase tracking-wider"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm uppercase tracking-wider"
                     >
                       <ShieldCheck size={18} /> Admin
                     </button>

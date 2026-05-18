@@ -7,11 +7,13 @@ import {
   getAllRegistrations,
   getForumById,
   getForums,
+  getMisMonitorias,
   getMyModules,
   uploadForumFile
 } from '../services/api';
-import { ToastContext } from '../context/ToastContext';
 import MonitorCard from '../components/MonitorCard';
+import { formatTimeAMPM } from '../utils/timeHelpers';
+import { ToastContext } from '../context/ToastContext';
 import Modal from '../components/Modal';
 import UserAvatar from '../components/UserAvatar';
 import {
@@ -29,7 +31,9 @@ import {
   PlayCircle,
   Send,
   Trash2,
-  Video
+  Video,
+  Search,
+  Filter
 } from 'lucide-react';
 
 const renderRich = (text) => {
@@ -92,6 +96,7 @@ const insertAtCursor = (value, insertion, setter, ref) => {
 const MisMonitorias = () => {
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
+  const user = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
 
   const [tab, setTab] = useState('modules');
   const [monitorias, setMonitorias] = useState([]);
@@ -108,13 +113,10 @@ const MisMonitorias = () => {
   const [selectedMonitoria, setSelectedMonitoria] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadedAssets, setUploadedAssets] = useState([]);
-  const [myFeedback, setMyFeedback] = useState(null);
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: '', isAnonymous: false, isPublic: true });
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   const threadMessageRef = React.useRef(null);
@@ -133,11 +135,12 @@ const MisMonitorias = () => {
 
   const fetchMonitorias = async () => {
     try {
-      const [myModules, regs] = await Promise.all([getMyModules(), getAllRegistrations()]);
-      const modules = myModules || [];
+      const email = user?.email;
+      if (!email) return;
+      const myRegistrations = await getMisMonitorias(email);
+      const modules = myRegistrations || [];
       setMonitorias(modules);
-      setAllRegistrations(regs || []);
-      if (modules.length && !activeModuleId) setActiveModuleId(modules[0].id);
+      if (modules.length && !activeModuleId) setActiveModuleId(modules[0].id || modules[0].monitorId);
     } catch (error) {
       showToast(error.message || 'Error cargando tus monitorias.', 'error');
     } finally {
@@ -245,55 +248,13 @@ const MisMonitorias = () => {
     insertAtCursor(threadMessage, `[${text}](${url})`, setThreadMessage, threadMessageRef);
   };
 
-  const loadMyFeedback = async (moduleId) => {
-    if (!moduleId) return;
-    setFeedbackLoading(true);
-    try {
-      const data = await getMyModuleFeedback(moduleId);
-      setMyFeedback(data || null);
-      setFeedbackForm({
-        rating: Number(data?.rating || 5),
-        comment: String(data?.comment || ''),
-        isAnonymous: !!data?.is_anonymous,
-        isPublic: data ? !!data.is_public : true
-      });
-    } catch {
-      setMyFeedback(null);
-    } finally {
-      setFeedbackLoading(false);
-    }
-  };
-
-  const saveMyFeedback = async (moduleId) => {
-    if (!moduleId) return;
-    const comment = String(feedbackForm.comment || '').trim();
-    if (!comment) return showToast('Escribe tu comentario.', 'error');
-    try {
-      await upsertMyModuleFeedback(moduleId, {
-        rating: Number(feedbackForm.rating || 5),
-        comment,
-        isAnonymous: !!feedbackForm.isAnonymous,
-        isPublic: feedbackForm.isPublic !== false
-      });
-      showToast('Comentario guardado.', 'success');
-      await loadMyFeedback(moduleId);
-    } catch (error) {
-      showToast(error.message || 'No se pudo guardar el comentario.', 'error');
-    }
-  };
-
   const openDetails = (m) => {
     setSelectedMonitoria(m);
-    setIsFeedbackOpen(false);
     setIsDetailOpen(true);
-    loadMyFeedback(m.id).catch(() => {});
   };
 
-  const openFeedback = (m) => {
-    setSelectedMonitoria(m);
-    setIsDetailOpen(false);
-    setIsFeedbackOpen(true);
-    loadMyFeedback(m.id).catch(() => {});
+  const goToForum = (m) => {
+    navigate(`/modules/${m.id}/forum`);
   };
 
   const startDrop = () => {
@@ -314,23 +275,52 @@ const MisMonitorias = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <header className="text-center">
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">Mis Monitorias</h1>
-          <p className="text-gray-600 mt-1">Gestiona tus modulos y abre el foro nuevo por modulo.</p>
+        <header className="relative py-12 px-8 overflow-hidden rounded-[40px] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center space-y-4">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-brand-blue" />
+          <div className="w-20 h-20 rounded-3xl bg-blue-50 flex items-center justify-center text-brand-blue mb-2">
+            <Book size={40} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Mis Monitorías</h1>
+            <p className="text-gray-500 font-bold text-sm max-w-lg mx-auto">
+              Gestiona tus inscripciones, consulta horarios y accede al foro académico de tus módulos.
+            </p>
+          </div>
         </header>
+
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Filtrar mis módulos..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-transparent focus:border-brand-blue focus:bg-white rounded-xl outline-none transition-all font-bold text-sm text-gray-700"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between md:justify-end gap-3 px-4 py-2 md:py-0 border-t md:border-t-0 border-gray-50 md:border-l border-gray-100">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+              <Filter size={14} className="text-brand-blue" />
+              <span>{monitorias.length} Inscritos</span>
+            </div>
+          </div>
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div></div>
         ) : tab === 'modules' ? (
           monitorias.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {monitorias.map((m) => (
+              {monitorias.filter(m => m.modulo.toLowerCase().includes(searchTerm.toLowerCase()) || m.monitor.toLowerCase().includes(searchTerm.toLowerCase())).map((m) => (
                 <MonitorCard
                   key={m.id}
                   data={m}
                   onAction={() => openDetails(m)}
-                  onSecondaryAction={() => openFeedback(m)}
-                  secondaryActionLabel="Comentario"
+                  onSecondaryAction={() => goToForum(m)}
+                  secondaryActionLabel="Foro de Módulo"
                   actionLabel="Ver detalles"
                   registrationCount={allRegistrations.filter((r) => Number(r.moduleId) === Number(m.id)).length}
                   isRegistered
@@ -515,7 +505,7 @@ const MisMonitorias = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
               <div className="flex items-center gap-3"><UserAvatar user={{ nombre: selectedMonitoria.monitor, foto: selectedMonitoria.monitorFoto, role: 'monitor' }} size="sm" /><div><p className="text-[10px] uppercase text-gray-500">Docente / Monitor</p><p className="font-bold">{selectedMonitoria.monitor}</p></div></div>
               <div><p className="text-[10px] uppercase text-gray-500">Correo</p><p className="font-bold">{selectedMonitoria.monitorEmail || '-'}</p></div>
-              <div className="flex items-center gap-2"><Clock size={14} className="text-brand-blue" /> {selectedMonitoria.horario || '-'}</div>
+              <div className="flex items-center gap-2"><Clock size={14} className="text-brand-blue" /> {formatTimeAMPM(selectedMonitoria.horario) || '-'}</div>
               <div className="flex items-center gap-2"><MapPin size={14} className="text-brand-blue" /> {selectedMonitoria.sede || '-'}</div>
             </div>
 
@@ -546,77 +536,6 @@ const MisMonitorias = () => {
                 <Trash2 size={14} /> Darme de baja
               </button>
             </div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} title="Comentario del modulo">
-        {selectedMonitoria && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-sm font-black text-gray-900">{selectedMonitoria.modulo}</p>
-                <p className="text-xs text-gray-500">Un comentario por modulo, editable en cualquier momento.</p>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{myFeedback ? 'Guardado' : 'Nuevo comentario'}</span>
-            </div>
-
-            {feedbackLoading ? (
-              <p className="text-sm text-gray-500">Cargando...</p>
-            ) : (
-              <>
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setFeedbackForm((prev) => ({ ...prev, rating: n }))}
-                        className={feedbackForm.rating >= n
-                          ? 'w-11 h-11 rounded-xl bg-yellow-400 text-white text-xl font-black shadow-sm'
-                          : 'w-11 h-11 rounded-xl bg-white border border-gray-200 text-gray-300 text-xl font-black'}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    value={feedbackForm.comment}
-                    onChange={(e) => setFeedbackForm((prev) => ({ ...prev, comment: e.target.value }))}
-                    placeholder="Escribe tu sugerencia o comentario del modulo..."
-                    className="w-full h-32 p-4 rounded-2xl border border-gray-200 bg-white text-sm text-gray-800 outline-none"
-                  />
-
-                  <div className="flex items-center gap-5 flex-wrap text-sm font-bold text-gray-700">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={!!feedbackForm.isAnonymous} onChange={(e) => setFeedbackForm((prev) => ({ ...prev, isAnonymous: e.target.checked }))} />
-                      Anonimo
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={feedbackForm.isPublic !== false} onChange={(e) => setFeedbackForm((prev) => ({ ...prev, isPublic: e.target.checked }))} />
-                      Publico
-                    </label>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setIsFeedbackOpen(false)} className="w-full py-3 rounded-xl border border-gray-200 text-gray-700 font-black">
-                    Cerrar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await saveMyFeedback(selectedMonitoria.id);
-                      setIsFeedbackOpen(false);
-                    }}
-                    className="w-full py-3 rounded-xl bg-gray-900 text-white font-black"
-                  >
-                    Guardar comentario
-                  </button>
-                </div>
-              </>
-            )}
           </div>
         )}
       </Modal>

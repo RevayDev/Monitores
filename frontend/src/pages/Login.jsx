@@ -64,11 +64,11 @@ const Login = () => {
       shadow: 'shadow-emerald-200'
     },
     admin: {
-      bg: 'bg-amber-600',
-      text: 'text-amber-600',
-      border: 'border-amber-600',
-      lightBg: 'bg-amber-50',
-      shadow: 'shadow-amber-200'
+      bg: 'bg-indigo-600',
+      text: 'text-indigo-600',
+      border: 'border-indigo-600',
+      lightBg: 'bg-indigo-50',
+      shadow: 'shadow-indigo-200'
     },
     dev: {
       bg: 'bg-purple-600',

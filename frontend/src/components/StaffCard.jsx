@@ -32,9 +32,9 @@ const StaffCard = ({ user }) => {
       subtitle: 'Gestión Institucional'
     },
     admin: {
-      color: 'bg-amber-600',
-      textColor: 'text-amber-600',
-      lightBg: 'bg-amber-50',
+      color: 'bg-indigo-600',
+      textColor: 'text-indigo-600',
+      lightBg: 'bg-indigo-50',
       icon: <Shield size={18} />,
       title: 'Administrador',
       subtitle: 'Gestión Sistema'

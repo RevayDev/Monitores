@@ -21,6 +21,137 @@ import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
 import RoleStatsPanel from '../components/RoleStatsPanel';
 import { splitHighlightedText } from '../utils/forumSearchHelpers';
+import { formatTimeAMPM } from '../utils/timeHelpers';
+
+const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
+  const parse24h = (val) => {
+    if (!val) return { timeStr: '08:00', ampm: 'AM' };
+    const [hStr, mStr] = val.split(':');
+    const h24 = parseInt(hStr, 10) || 0;
+    const minute = mStr || '00';
+    
+    let ampm = 'AM';
+    let h12 = h24;
+    if (h24 >= 12) {
+      ampm = 'PM';
+      if (h24 > 12) h12 = h24 - 12;
+    }
+    if (h12 === 0) h12 = 12;
+    
+    const hour12 = String(h12).padStart(2, '0');
+    return { timeStr: `${hour12}:${minute}`, ampm };
+  };
+
+  const { timeStr, ampm } = parse24h(value);
+  const [inputValue, setInputValue] = useState(timeStr);
+
+  // Sync state if value prop changes
+  useEffect(() => {
+    setInputValue(timeStr);
+  }, [value]);
+
+  const handleTextChange = (e) => {
+    let val = e.target.value;
+    // Allow digits and colon only
+    val = val.replace(/[^0-9:]/g, '');
+    setInputValue(val);
+  };
+
+  const handleBlur = () => {
+    // Parse the input string to normalize it
+    let [hPart, mPart] = inputValue.split(':');
+    if (!hPart) hPart = '08';
+    if (!mPart) mPart = '00';
+
+    // Normalize hours to 01-12 range
+    let h = parseInt(hPart, 10) || 12;
+    if (h < 1) h = 12;
+    if (h > 12) h = 12;
+
+    // Normalize minutes to 00-59 range
+    let m = parseInt(mPart, 10) || 0;
+    if (m < 0) m = 0;
+    if (m > 59) m = 59;
+
+    const formattedH = String(h).padStart(2, '0');
+    const formattedM = String(m).padStart(2, '0');
+    const newTimeStr = `${formattedH}:${formattedM}`;
+    
+    setInputValue(newTimeStr);
+    
+    // Save as 24h
+    save24h(formattedH, formattedM, ampm);
+  };
+
+  const save24h = (h12Str, mStr, currentAmpm) => {
+    let h24 = parseInt(h12Str, 10) || 12;
+    if (currentAmpm === 'PM') {
+      if (h24 !== 12) h24 += 12;
+    } else {
+      if (h24 === 12) h24 = 0;
+    }
+    const h24Str = String(h24).padStart(2, '0');
+    onChange(`${h24Str}:${mStr}`);
+  };
+
+  const handleAmpmToggle = (newAmpm) => {
+    const [h12Str, mStr] = inputValue.split(':');
+    save24h(h12Str || '08', mStr || '00', newAmpm);
+  };
+
+  const getRoleColors = (r) => {
+    switch (r?.toLowerCase()) {
+      case 'dev': return { bg: 'bg-purple-600', ring: 'focus-within:ring-purple-600/10 focus-within:border-purple-600' };
+      case 'admin': return { bg: 'bg-indigo-600', ring: 'focus-within:ring-indigo-600/10 focus-within:border-indigo-600' };
+      default: return { bg: 'bg-emerald-600', ring: 'focus-within:ring-emerald-600/10 focus-within:border-emerald-600' };
+    }
+  };
+  const activeColor = getRoleColors(role);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] ml-2 block pointer-events-none">
+        {label}
+      </label>
+      <div className={`flex gap-3 items-center bg-white border border-slate-200 hover:border-slate-300 rounded-2xl p-2.5 transition-all shadow-sm focus-within:border-emerald-600 focus-within:ring-4 ${activeColor.ring}`}>
+        <div className="flex-1 flex items-center gap-1.5 pl-2">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleTextChange}
+            onBlur={handleBlur}
+            placeholder="08:00"
+            className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none border-none py-1 tracking-wider"
+          />
+        </div>
+        <div className="flex bg-slate-50 p-0.5 rounded-xl border border-slate-100/50 shrink-0">
+          <button
+            type="button"
+            onClick={() => handleAmpmToggle('AM')}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${
+              ampm === 'AM' 
+                ? `${activeColor.bg} text-white shadow-sm` 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            AM
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAmpmToggle('PM')}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${
+              ampm === 'PM' 
+                ? `${activeColor.bg} text-white shadow-sm` 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            PM
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const MonitorDashboard = () => {
   const navigate = useNavigate();
@@ -92,14 +223,13 @@ const MonitorDashboard = () => {
   const audioCtxRef = useRef(null);
   const canvasRef = useRef(null);
   const [reports, setReports] = useState([]);
-  const [moduleFeedbackRows, setModuleFeedbackRows] = useState([]);
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [feedbackModuleOpen, setFeedbackModuleOpen] = useState(null);
   const [resolvingReportId, setResolvingReportId] = useState(null);
+  const [modulesPage, setModulesPage] = useState(1);
   const [reportsPage, setReportsPage] = useState(1);
   const [studentsPage, setStudentsPage] = useState(1);
-  const REPORTS_PER_PAGE = 4;
-  const STUDENTS_PER_PAGE = 7;
+  const REPORTS_PER_PAGE = 8;
+  const STUDENTS_PER_PAGE = 15;
+  const MODULES_PER_PAGE = 8;
 
   const renderSearchHighlight = (value) => (
     <>
@@ -273,9 +403,12 @@ const MonitorDashboard = () => {
   }, []);
 
   async function fetchData() {
+    const fetchParams = { monitorId: monitorId };
+    const regParams = { monitorUserId: monitorId };
+
     const [myRegistrations, myModules, users, sedes, mods, cuats] = await Promise.all([
-      getAllRegistrations({ monitorUserId: monitorId }),
-      getMonitorias({ monitorId: monitorId }),
+      getAllRegistrations(regParams),
+      getMonitorias(fetchParams),
       getAllUsers(),
       getSedes(),
       getModalidades(),
@@ -336,32 +469,16 @@ const MonitorDashboard = () => {
 
   useEffect(() => {
     if (topTab === 'reports') loadReports();
-  }, [topTab]);
+  }, [topTab, monitorModules]);
 
-  const loadModuleFeedback = async (moduleId) => {
-    const targetId = moduleId || selectedAnalyticsModuleId;
-    if (!targetId) return setModuleFeedbackRows([]);
-    setFeedbackLoading(true);
-    try {
-      const rows = await getModuleFeedbackForMonitor(targetId);
-      setModuleFeedbackRows(rows || []);
-    } catch {
-      setModuleFeedbackRows([]);
-    } finally {
-      setFeedbackLoading(false);
-    }
-  };
 
-  const openFeedbackModal = (mod) => {
-    setFeedbackModuleOpen(mod);
-    setSelectedAnalyticsModuleId(mod.id);
-    loadModuleFeedback(mod.id);
-  };
 
   const loadReports = async () => {
     try {
       const data = await getForumReports();
-      setReports(data || []);
+      const myModuleIds = (monitorModules || []).map(m => String(m.id));
+      const filtered = (data || []).filter(rep => myModuleIds.includes(String(rep.modulo_id)));
+      setReports(filtered);
       setReportsPage(1);
     } catch (error) {
       showToast(error.message || 'Error al cargar reportes', 'error');
@@ -420,7 +537,8 @@ const MonitorDashboard = () => {
       horaInicio,
       horaFin,
       whatsapp: mod.whatsapp || '',
-      teams: mod.teams || ''
+      teams: mod.teams || '',
+      cuatrimestre: mod.cuatrimestre || '1° Cuatrimestre'
     });
     setIsEditModuleOpen(true);
   };
@@ -625,50 +743,58 @@ const MonitorDashboard = () => {
     return (
       <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="bg-teal-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6 shadow-xl shadow-teal-600/10">
-            <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+          <header className="bg-gradient-to-br from-teal-600 to-cyan-700 rounded-[1.5rem] p-6 md:p-8 text-white shadow-xl shadow-teal-900/10 relative overflow-hidden group">
+            {/* Subtle decorative background elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
+
+            <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-teal-500 border border-teal-400 relative group overflow-hidden shadow-inner">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <ShieldCheck size={44} className="text-teal-50 drop-shadow-md" />
-
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-3 transition-transform">
+                  <ShieldCheck size={40} className="text-white" />
                 </div>
-
-                <div className="space-y-1.5 pt-1">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-teal-500 rounded-full">
-                    <div className="w-1.5 h-1.5 bg-teal-200 rounded-full"></div>
-                    <span className="text-teal-50 text-[9px] font-black uppercase tracking-[0.15em]">Bienvenido(a), {session?.nombre || 'Administrador'}</span>
+                <div className="space-y-2 pt-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/5">
+                    <div className="w-1.5 h-1.5 bg-teal-300 rounded-full animate-pulse shadow-[0_0_8px_rgba(45,212,191,0.8)]"></div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-teal-50">Bienvenido(a), {session?.nombre || 'Administrador'}</span>
                   </div>
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none mb-1">
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-none">
                     Panel Administrativo
                   </h1>
-                  <p className="text-teal-100 text-xs font-medium opacity-90 max-w-lg leading-snug">
+                  <p className="text-teal-50 text-xs font-medium opacity-90 max-w-lg leading-relaxed">
                     Resumen de actividad diaria, escaneo de tokens y control de asistencia en comedor.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-teal-700 rounded-2xl">
-                {[
-                  { id: 'stats_dining', label: 'Estadísticas', icon: <Activity size={16} /> },
-                  { id: 'scanner', label: 'Escáner QR', icon: <PlusCircle size={16} /> },
-                  { id: 'students', label: 'Atendidos', icon: <Users size={16} /> },
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setTopTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${topTab === (tab.id === 'stats_dining' ? 'stats_dining' : tab.id) || (!topTab && tab.id === 'stats_dining')
-                      ? 'bg-white text-teal-900 shadow-xl'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
-                      }`}
-                  >
-                    {tab.icon}
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </button>
-                ))}
+              <div className="flex flex-col items-center md:items-end gap-3">
+                <div className="flex flex-wrap justify-center gap-1">
+                  {[
+                    { id: 'stats_dining', label: 'Estadísticas', icon: <Activity size={16} /> },
+                    { id: 'scanner', label: 'Escáner QR', icon: <PlusCircle size={16} /> },
+                    { id: 'students', label: 'Atendidos', icon: <Users size={16} /> },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setTopTab(tab.id)}
+                      className={`flex items-center gap-2 px-4 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 relative group/btn ${topTab === (tab.id === 'stats_dining' ? 'stats_dining' : tab.id) || (!topTab && tab.id === 'stats_dining')
+                        ? 'text-white'
+                        : 'text-white/60 hover:text-white'
+                        }`}
+                    >
+                      {tab.icon}
+                      <span className="hidden sm:inline">{tab.label}</span>
+                      {((topTab === (tab.id === 'stats_dining' ? 'stats_dining' : tab.id)) || (!topTab && tab.id === 'stats_dining')) && (
+                        <motion.div layoutId="diningTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-full" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="selector-profile text-[10px] font-bold text-teal-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Clock3 size={12} /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
               </div>
             </div>
-          </div>
+          </header>
 
           {(topTab === 'stats_dining' || !topTab) && (
             <div className="animate-fade-in space-y-6">
@@ -898,46 +1024,56 @@ const MonitorDashboard = () => {
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Monitor Académico */}
-        <header className="bg-emerald-500 rounded-2xl p-6 md:p-8 text-white">
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center bg-emerald-600 shadow-sm">
-                <GraduationCap size={44} className="text-emerald-100" />
-              </div>
+        <header className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[1.5rem] p-6 md:p-8 text-white shadow-xl shadow-emerald-900/10 relative overflow-hidden group">
+          {/* Subtle decorative background elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
 
-              <div className="space-y-1.5 pt-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 rounded-full">
-                  <div className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse"></div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
+          <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:-rotate-3 transition-transform">
+                <GraduationCap size={40} className="text-white" />
+              </div>
+              <div className="space-y-2 pt-1">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/10">
+                  <div className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-50">Bienvenido(a), {session?.nombre || 'Monitor'}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none">
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-none">
                   Panel Monitor Académico
                 </h1>
-                <p className="text-emerald-100 text-sm font-medium opacity-90 max-w-lg leading-relaxed">
+                <p className="text-emerald-50 text-xs font-medium opacity-90 max-w-lg leading-relaxed">
                   Gestión integral de monitorías, seguimiento de asistencias y control académico.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 p-1 bg-emerald-600 rounded-xl overflow-x-auto">
-              {[
-                { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
-                { id: '', label: 'Alumnos', icon: <Users size={16} /> },
-                { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={16} /> },
-                { id: 'history', label: 'Asistencia', icon: <ClipboardList size={16} /> }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setTopTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all active:scale-95 whitespace-nowrap ${topTab === tab.id
-                    ? 'bg-white text-emerald-700 shadow-sm'
-                    : 'text-emerald-100 hover:text-white hover:bg-emerald-500'
-                    }`}
-                >
-                  {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              ))}
+            <div className="flex flex-col items-center md:items-end gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {[
+                  { id: 'stats', label: 'Estadísticas', icon: <Activity size={16} /> },
+                  { id: '', label: 'Alumnos', icon: <Users size={16} /> },
+                  { id: 'reports', label: 'Reportes', icon: <AlertOctagon size={16} /> },
+                  { id: 'history', label: 'Asistencia', icon: <ClipboardList size={16} /> }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setTopTab(tab.id)}
+                    className={`flex items-center gap-2 px-4 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 relative group/btn ${topTab === tab.id
+                      ? 'text-white'
+                      : 'text-white/60 hover:text-white'
+                      }`}
+                  >
+                    {tab.icon}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    {topTab === tab.id && (
+                      <motion.div layoutId="academicTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10px] font-bold text-emerald-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Clock3 size={12} /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           </div>
         </header>
@@ -959,50 +1095,73 @@ const MonitorDashboard = () => {
                   </button>
                 </div>
                 <div className="space-y-4">
-                  {monitorModules.length === 0 ? (
-                    <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3">
-                      <BookOpen className="mx-auto text-slate-300" size={36} />
-                      <p className="text-sm font-semibold text-slate-700">No tienes módulos registrados.</p>
-                      <p className="text-xs text-slate-500 font-medium">Crea una monitoría o pide al admin que te asigne una.</p>
-                    </div>
-                  ) : (
-                    monitorModules.map(mod => (
-                      <div key={mod.id} className="rounded-2xl shadow-sm overflow-hidden border border-gray-100 bg-white transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group">
-                        {/* Card header */}
-                        <div className="bg-emerald-600 group-hover:bg-emerald-700 px-4 py-3 flex items-center justify-between text-white transition-colors duration-300">
-                          <div className="flex items-center gap-2.5">
-                            <BookOpen size={16} className="text-emerald-200" />
-                            <span className="font-black text-[12px] uppercase tracking-tight truncate">{mod.modulo}</span>
-                          </div>
-                          <span className="text-[8px] font-black uppercase tracking-widest bg-white/15 px-2 py-0.5 rounded-md shrink-0">
-                            {mod.modalidad || 'Presencial'}
-                          </span>
-                        </div>
-                        {/* Card body */}
-                        <div className="p-4 space-y-3">
-                          <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{mod.descripcion || 'Sin descripción'}</p>
-                          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
-                            <div className="flex items-center gap-1.5">
-                              <ShieldCheck size={12} className="text-emerald-500" />
-                              <span className="font-bold truncate">{mod.sede || 'Sin sede'}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Clock3 size={12} className="text-emerald-500" />
-                              <span className="font-bold truncate">{mod.horario || 'Sin horario'}</span>
-                            </div>
-                          </div>
-                          {/* Action buttons */}
-                          <div className="pt-2 border-t border-gray-100 grid grid-cols-5 gap-1.5">
-                            <button onClick={() => setFilterModulo(mod.modulo)} title="Ver alumnos" className={`p-2 rounded-xl transition-all flex items-center justify-center ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-100'}`}><Users size={14} /></button>
-                            <button onClick={() => openFeedbackModal(mod)} title="Comentarios" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><MessageSquare size={14} /></button>
-                            <button onClick={() => handleCopyTemplate(mod)} title="Asistencia" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><ClipboardList size={14} /></button>
-                            <button onClick={() => handleOpenEdit(mod)} title="Editar" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-brand-blue transition-all flex items-center justify-center border border-gray-100"><Edit3 size={14} /></button>
-                            <button onClick={() => handleDeleteModule(mod)} title="Eliminar" className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center border border-slate-100"><Trash2 size={14} /></button>
-                          </div>
-                        </div>
+                  {(() => {
+                    if (monitorModules.length === 0) return (
+                      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3">
+                        <BookOpen className="mx-auto text-slate-300" size={36} />
+                        <p className="text-sm font-semibold text-slate-700">No tienes módulos registrados.</p>
+                        <p className="text-xs text-slate-500 font-medium">Crea una monitoría o pide al admin que te asigne una.</p>
                       </div>
-                    ))
-                  )}
+                    );
+
+                    const totalModulePages = Math.ceil(monitorModules.length / MODULES_PER_PAGE);
+                    const paginatedModules = monitorModules.slice((modulesPage - 1) * MODULES_PER_PAGE, modulesPage * MODULES_PER_PAGE);
+
+                    return (
+                      <>
+                        {paginatedModules.map(mod => (
+                          <div key={mod.id} className="rounded-2xl shadow-sm overflow-hidden border border-gray-100 bg-white transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group">
+                            {/* Card header */}
+                            <div className="bg-emerald-600 group-hover:bg-emerald-700 px-4 py-3 flex items-center justify-between text-white transition-colors duration-300">
+                              <div className="flex items-center gap-2.5">
+                                <BookOpen size={16} className="text-emerald-200" />
+                                <span className="font-black text-[12px] uppercase tracking-tight truncate">{mod.modulo}</span>
+                              </div>
+                              <span className="text-[8px] font-black uppercase tracking-widest bg-white/15 px-2 py-0.5 rounded-md shrink-0">
+                                {mod.modalidad || 'Presencial'}
+                              </span>
+                            </div>
+                            {/* Card body */}
+                            <div className="p-4 space-y-3">
+                              <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{mod.descripcion || 'Sin descripción'}</p>
+                              <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
+                                <div className="flex items-center gap-1.5">
+                                  <ShieldCheck size={12} className="text-emerald-500" />
+                                  <span className="font-bold truncate">{mod.sede || 'Sin sede'}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Clock3 size={12} className="text-emerald-500" />
+                                  <span className="font-bold truncate">{formatTimeAMPM(mod.horario) || 'Sin horario'}</span>
+                                </div>
+                              </div>
+                              {/* Action buttons */}
+                              <div className="pt-2 border-t border-gray-100 grid grid-cols-5 gap-1.5">
+                                <button onClick={() => setFilterModulo(mod.modulo)} title="Ver alumnos" className={`p-2 rounded-xl transition-all flex items-center justify-center ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-100'}`}><Users size={14} /></button>
+                                <button onClick={() => navigate(`/modules/${mod.id}/forum`)} title="Foro del Módulo" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><MessageSquare size={14} /></button>
+                                <button onClick={() => handleCopyTemplate(mod)} title="Asistencia" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><ClipboardList size={14} /></button>
+                                <button onClick={() => handleOpenEdit(mod)} title="Editar" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-brand-blue transition-all flex items-center justify-center border border-gray-100"><Edit3 size={14} /></button>
+                                <button onClick={() => handleDeleteModule(mod)} title="Eliminar" className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center border border-slate-100"><Trash2 size={14} /></button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {totalModulePages > 1 && (
+                          <div className="flex items-center justify-center gap-1.5 py-4">
+                            {Array.from({ length: totalModulePages }, (_, i) => i + 1).map(num => (
+                              <button
+                                key={num}
+                                onClick={() => setModulesPage(num)}
+                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${modulesPage === num ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200 scale-110' : 'bg-white border border-gray-100 text-gray-400 hover:border-emerald-200 hover:text-emerald-600'}`}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1098,18 +1257,23 @@ const MonitorDashboard = () => {
                                   {pagedReports.map((rep) => (
                                     <tr key={rep.id} className="hover:bg-gray-50 transition-all group">
                                       <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                          <UserAvatar photo={rep.reported_photo} name={rep.reported_name} userId={rep.reported_id} size="w-8 h-8" />
+                                        <div className="flex items-center gap-3">
+                                          <UserAvatar user={{ nombre: rep.reported_name, foto: rep.reported_photo, id: rep.reported_id }} size="sm" />
                                           <div>
-                                            <p className="font-bold text-gray-900 text-xs">{rep.reported_name}</p>
-                                            <p className="text-[9px] text-gray-400">Reportado por: {rep.reporter_name}</p>
+                                            <p className="font-black text-gray-900 text-xs tracking-tight">{rep.reported_name}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase">Acusado de: <span className="text-gray-500">{rep.reason}</span></p>
                                           </div>
                                         </div>
                                       </td>
                                       <td className="px-6 py-4">
-                                        <div className="max-w-xs">
-                                          <p className="text-xs font-bold text-gray-700">{rep.reason}</p>
-                                          <p className="text-[10px] text-gray-400 mt-1">{new Date(rep.created_at).toLocaleString()}</p>
+                                        <div className="flex flex-col gap-1">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[8px] border border-blue-200 shrink-0">
+                                              {String(rep.reporter_name || 'U').charAt(0).toUpperCase()}
+                                            </div>
+                                            <p className="text-[10px] font-bold text-gray-600 truncate max-w-[120px]">{rep.reporter_name}</p>
+                                          </div>
+                                          <p className="text-[9px] text-gray-400 font-medium">{new Date(rep.created_at).toLocaleString()}</p>
                                         </div>
                                       </td>
                                       <td className="px-6 py-4">
@@ -1193,38 +1357,38 @@ const MonitorDashboard = () => {
 
                             return (<>
                               {pagedStudents.map(st => (
-                              <tr key={st.studentEmail} className="hover:bg-gray-50 transition-all group">
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} />
-                                    <div>
-                                      <p className="font-bold text-gray-900">{renderSearchHighlight(st.studentName)}</p>
-                                      <p className="text-xs text-gray-400">{renderSearchHighlight(st.studentEmail)}</p>
+                                <tr key={st.studentEmail} className="hover:bg-gray-50 transition-all group">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <UserAvatar user={{ nombre: st.studentName, email: st.studentEmail, role: 'student', registeredAt: st.registeredAt }} size="sm" showBadge={true} />
+                                      <div>
+                                        <p className="font-bold text-gray-900">{renderSearchHighlight(st.studentName)}</p>
+                                        <p className="text-xs text-gray-400">{renderSearchHighlight(st.studentEmail)}</p>
+                                      </div>
                                     </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {st.modulos.map((m, idx) => (
-                                      <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
-                                        {m}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 text-xs text-gray-500">
-                                  {new Date(st.registeredAt).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                  <button
-                                    onClick={() => handleOpenDelete(st)}
-                                    className="p-2 text-slate-200 hover:text-slate-500 hover:bg-slate-50 rounded-xl transition-all active:scale-90"
-                                  >
-                                    <Trash2 size={20} />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {st.modulos.map((m, idx) => (
+                                        <span key={idx} className="px-3 py-1 bg-brand-blue/5 text-brand-blue text-[9px] font-black rounded-lg uppercase tracking-wider">
+                                          {m}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-xs text-gray-500">
+                                    {new Date(st.registeredAt).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      onClick={() => handleOpenDelete(st)}
+                                      className="p-2 text-slate-200 hover:text-slate-500 hover:bg-slate-50 rounded-xl transition-all active:scale-90"
+                                    >
+                                      <Trash2 size={20} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
                               <tr>
                                 <td colSpan="4" className="px-6 py-4">
                                   <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1276,7 +1440,7 @@ const MonitorDashboard = () => {
                     <button key={row.day} onClick={() => openSessionDetail(row.session_ids[0])} className="text-left p-4 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all">
                       <p className="text-xs font-black uppercase tracking-widest text-gray-400">{row.day}</p>
                       <p className="text-lg font-black text-gray-900 mt-1">{row.total_attendees} asistentes</p>
-                      <p className="text-[11px] text-gray-500">Ver detalle</p>
+                      <p className="text-[11px] text-gray-500 font-bold uppercase tracking-tight">Ver detalle de jornada</p>
                     </button>
                   ))}
                 </div>
@@ -1322,46 +1486,7 @@ const MonitorDashboard = () => {
             </div>
           )}
 
-        {/* Feedback Modal per Module */}
-        <Modal isOpen={!!feedbackModuleOpen} onClose={() => { setFeedbackModuleOpen(null); setModuleFeedbackRows([]); }} title={`Comentarios · ${feedbackModuleOpen?.modulo || ''}`}>
-          <div className="space-y-4 py-2">
-            {feedbackLoading ? (
-              <div className="py-12 text-center">
-                <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Cargando comentarios...</p>
-              </div>
-            ) : (moduleFeedbackRows || []).length === 0 ? (
-              <div className="py-12 text-center">
-                <MessageSquare className="mx-auto text-gray-200 mb-3" size={40} />
-                <p className="text-sm font-black text-gray-700">Sin comentarios</p>
-                <p className="text-xs text-gray-400 font-bold">Este módulo aún no tiene comentarios de la encuesta.</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                {moduleFeedbackRows.slice(0, 50).map((row) => (
-                  <div key={String(row.student_id) + String(row.updated_at)} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-2 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-[10px] border border-emerald-200 shrink-0">
-                          {row.is_anonymous ? '?' : String(row.student_name || 'E').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-gray-900 truncate">{row.is_anonymous ? 'Anónimo' : (row.student_name || 'Estudiante')}</p>
-                          <p className="text-[9px] text-gray-400 font-bold">{new Date(row.updated_at).toLocaleString()}</p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-black text-blue-500">{row.rating ? '★'.repeat(Math.max(1, Math.min(5, Number(row.rating)))) : '-'}</p>
-                        <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest">{row.is_public ? 'Público' : 'Privado'}</p>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap bg-white p-3 rounded-lg border border-gray-100">{row.comment}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+
 
           <div className="space-y-2 text-left">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -1389,7 +1514,7 @@ const MonitorDashboard = () => {
       <Modal isOpen={!!sessionDetail} onClose={() => setSessionDetail(null)} title="Detalle de Sesión">
         {sessionDetail ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">{sessionDetail.modulo} · {new Date(sessionDetail.start_time).toLocaleString()} - {new Date(sessionDetail.end_time).toLocaleString()}</p>
+            <p className="text-sm text-gray-600 font-bold">{sessionDetail.modulo} · {new Date(sessionDetail.start_time).toLocaleDateString()} · {new Date(sessionDetail.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).replace(/am/i, 'A.M.').replace(/pm/i, 'P.M.')} - {new Date(sessionDetail.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).replace(/am/i, 'A.M.').replace(/pm/i, 'P.M.')}</p>
             <div className="max-h-80 overflow-auto space-y-2">
               {(!sessionDetail.attendance || sessionDetail.attendance.length === 0) ? (
                 <p className="text-sm text-gray-400 text-center py-4 italic">No hay datos disponibles para esta sesión.</p>
@@ -1443,7 +1568,7 @@ const MonitorDashboard = () => {
             diningStudentDetail.map((row) => (
               <div key={row.id} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
                 <p className="font-bold text-gray-900">{row.student_name}</p>
-                <p className="text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-tight">{new Date(row.created_at).toLocaleDateString()} · {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).replace(/am/i, 'A.M.').replace(/pm/i, 'P.M.')}</p>
                 <p className="text-xs text-gray-500">Registrado por: {row.scanner_name || '-'}</p>
               </div>
             ))
@@ -1456,12 +1581,14 @@ const MonitorDashboard = () => {
         isOpen={isEditModuleOpen}
         onClose={() => setIsEditModuleOpen(false)}
         title="Editar Información de Monitoría"
+        role="monitor"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <InputField
               type="select"
               label="Sede"
+              role="monitor"
               value={editFormData.sede}
               onChange={(e) => setEditFormData({ ...editFormData, sede: e.target.value })}
               options={dbSedes}
@@ -1469,6 +1596,7 @@ const MonitorDashboard = () => {
             <InputField
               type="select"
               label="Modalidad"
+              role="monitor"
               value={editFormData.modalidad}
               onChange={(e) => setEditFormData({ ...editFormData, modalidad: e.target.value })}
               options={dbModalidades}
@@ -1478,6 +1606,7 @@ const MonitorDashboard = () => {
           <InputField
             type="select"
             label="Cuatrimestre"
+            role="monitor"
             value={editFormData.cuatrimestre}
             onChange={(e) => setEditFormData({ ...editFormData, cuatrimestre: e.target.value })}
             options={dbCuatrimestres}
@@ -1489,29 +1618,24 @@ const MonitorDashboard = () => {
           />
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Inicio</label>
-              <input
-                type="time"
-                value={editFormData.horaInicio}
-                onChange={(e) => setEditFormData({ ...editFormData, horaInicio: e.target.value })}
-                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Fin</label>
-              <input
-                type="time"
-                value={editFormData.horaFin}
-                onChange={(e) => setEditFormData({ ...editFormData, horaFin: e.target.value })}
-                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
-              />
-            </div>
+            <Time12hPicker
+              label="Hora Inicio"
+              value={editFormData.horaInicio}
+              onChange={(val) => setEditFormData({ ...editFormData, horaInicio: val })}
+              role="monitor"
+            />
+            <Time12hPicker
+              label="Hora Fin"
+              value={editFormData.horaFin}
+              onChange={(val) => setEditFormData({ ...editFormData, horaFin: val })}
+              role="monitor"
+            />
           </div>
 
           <InputField
             type="textarea"
             label="Descripción del Módulo"
+            role="monitor"
             required={false}
             value={editFormData.descripcion}
             onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
@@ -1522,6 +1646,7 @@ const MonitorDashboard = () => {
             <InputField
               type="url"
               label="Link de WhatsApp"
+              role="monitor"
               icon={<MessageCircle className="text-green-500" />}
               value={editFormData.whatsapp}
               onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
@@ -1531,6 +1656,7 @@ const MonitorDashboard = () => {
             <InputField
               type="url"
               label="Link de Teams"
+              role="monitor"
               icon={<Video className="text-blue-500" />}
               value={editFormData.teams}
               onChange={(e) => setEditFormData({ ...editFormData, teams: e.target.value })}
@@ -1551,11 +1677,13 @@ const MonitorDashboard = () => {
         isOpen={isCreateModuleOpen}
         onClose={() => setIsCreateModuleOpen(false)}
         title="Crear Nueva Monitoría"
+        role="monitor"
       >
         <form onSubmit={handleCreateModule} className="space-y-4 py-2 text-left">
           <div className="grid grid-cols-2 gap-4">
             <InputField
               label="Nombre del Módulo"
+              role="monitor"
               value={createFormData.modulo}
               onChange={(e) => setCreateFormData({ ...createFormData, modulo: e.target.value })}
               placeholder="Ej. Cálculo I"
@@ -1563,6 +1691,7 @@ const MonitorDashboard = () => {
             <InputField
               type="select"
               label="Sede"
+              role="monitor"
               value={createFormData.sede}
               onChange={(e) => setCreateFormData({ ...createFormData, sede: e.target.value })}
               options={dbSedes}
@@ -1572,6 +1701,7 @@ const MonitorDashboard = () => {
           {(createFormData.modalidad === 'Presencial' || createFormData.modalidad === 'Híbrido') && (
             <InputField
               label="Salón"
+              role="monitor"
               value={createFormData.salon}
               onChange={(e) => setCreateFormData({ ...createFormData, salon: e.target.value })}
               placeholder="Ej. Salón 204 Bloque B"
@@ -1582,6 +1712,7 @@ const MonitorDashboard = () => {
             <InputField
               type="select"
               label="Modalidad"
+              role="monitor"
               value={createFormData.modalidad}
               onChange={(e) => setCreateFormData({ ...createFormData, modalidad: e.target.value })}
               options={dbModalidades}
@@ -1589,6 +1720,7 @@ const MonitorDashboard = () => {
             <InputField
               type="select"
               label="Cuatrimestre"
+              role="monitor"
               value={createFormData.cuatrimestre}
               onChange={(e) => setCreateFormData({ ...createFormData, cuatrimestre: e.target.value })}
               options={dbCuatrimestres}
@@ -1601,29 +1733,24 @@ const MonitorDashboard = () => {
           />
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Inicio</label>
-              <input
-                type="time"
-                value={createFormData.horaInicio}
-                onChange={(e) => setCreateFormData({ ...createFormData, horaInicio: e.target.value })}
-                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider ml-1">Hora Fin</label>
-              <input
-                type="time"
-                value={createFormData.horaFin}
-                onChange={(e) => setCreateFormData({ ...createFormData, horaFin: e.target.value })}
-                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:border-brand-blue outline-none text-slate-900 font-semibold transition-all text-sm shadow-sm"
-              />
-            </div>
+            <Time12hPicker
+              label="Hora Inicio"
+              value={createFormData.horaInicio}
+              onChange={(val) => setCreateFormData({ ...createFormData, horaInicio: val })}
+              role="monitor"
+            />
+            <Time12hPicker
+              label="Hora Fin"
+              value={createFormData.horaFin}
+              onChange={(val) => setCreateFormData({ ...createFormData, horaFin: val })}
+              role="monitor"
+            />
           </div>
 
           <InputField
             type="textarea"
             label="Descripción"
+            role="monitor"
             required={false}
             value={createFormData.descripcion}
             onChange={(e) => setCreateFormData({ ...createFormData, descripcion: e.target.value })}

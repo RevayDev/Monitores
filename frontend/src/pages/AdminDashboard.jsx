@@ -35,7 +35,6 @@ import Modal from '../components/Modal';
 import {
   Users,
   UserPlus,
-  FileText,
   Activity,
   ShieldCheck,
   Mail,
@@ -58,6 +57,8 @@ import {
   LogOut as LogOutIcon,
   Lock,
   Check,
+  Globe,
+  Monitor,
   BarChart3,
   PieChart,
   GraduationCap,
@@ -67,18 +68,20 @@ import {
   FileJson,
   FileText as FileTextIcon,
   Image as ImageIcon,
-  FolderOpen
+  FolderOpen,
+  AlertOctagon
 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
 import StatCard from '../components/StatCard';
 import { getRoleColors } from '../utils/roleHelpers';
 import { getPageItems, getPageNumbers, parseLogMetadata } from '../utils/adminDashboardHelpers';
+import { formatTimeAMPM } from '../utils/timeHelpers';
 
 const MaintToggle = ({ id, title, subtitle, icon: Icon, active, onToggle }) => (
   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
     <div className="flex items-center gap-4">
-      <div className={`p-3 rounded-xl ${active ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-400'} transition-colors`}>
+      <div className={`p-3 rounded-xl ${active ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'} transition-colors`}>
         <Icon size={20} />
       </div>
       <div>
@@ -88,7 +91,7 @@ const MaintToggle = ({ id, title, subtitle, icon: Icon, active, onToggle }) => (
     </div>
     <button
       onClick={() => onToggle(id)}
-      className={`relative w-12 h-7 rounded-full transition-all duration-300 ${active ? 'bg-orange-500' : 'bg-slate-200'}`}
+      className={`relative w-12 h-7 rounded-full transition-all duration-300 ${active ? 'bg-indigo-600' : 'bg-slate-200'}`}
     >
       <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${active ? 'left-6' : 'left-1'}`} />
     </button>
@@ -100,7 +103,7 @@ const num = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const StatMetricCard = ({ icon: Icon, label, value, color = 'text-orange-600' }) => (
+const StatMetricCard = ({ icon: Icon, label, value, color = 'text-indigo-600' }) => (
   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
     <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
       <Icon size={14} className={color} /> {label}
@@ -109,7 +112,7 @@ const StatMetricCard = ({ icon: Icon, label, value, color = 'text-orange-600' })
   </div>
 );
 
-const HorizontalBars = ({ rows = [], max = 1, color = 'bg-orange-500' }) => (
+const HorizontalBars = ({ rows = [], max = 1, color = 'bg-indigo-600' }) => (
   <div className="space-y-3">
     {rows.map((row) => (
       <div key={row.label}>
@@ -125,7 +128,7 @@ const HorizontalBars = ({ rows = [], max = 1, color = 'bg-orange-500' }) => (
   </div>
 );
 
-const Donut = ({ percent = 0, size = 120, color = '#f97316', track = '#e2e8f0', centerLabel = '0%' }) => {
+const Donut = ({ percent = 0, size = 120, color = '#4f46e5', track = '#e2e8f0', centerLabel = '0%' }) => {
   const safe = Math.max(0, Math.min(100, num(percent)));
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -146,6 +149,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
   const [activeTab, setActiveTab] = useState('users');
+  const [suspiciousLogs, setSuspiciousLogs] = useState(new Set());
   const { showToast } = React.useContext(ToastContext);
 
   // Users data
@@ -174,6 +178,7 @@ const AdminDashboard = () => {
   const [reports, setReports] = useState([]);
   const [moderationLogs, setModerationLogs] = useState([]);
   const [reportsPage, setReportsPage] = useState(1);
+  const [usersPage, setUsersPage] = useState(1);
   const [activityLogPage, setActivityLogPage] = useState(1);
   const [resolvingReportId, setResolvingReportId] = useState(null);
   const [resolveNote, setResolveNote] = useState('');
@@ -202,6 +207,7 @@ const AdminDashboard = () => {
   );
   const [academicModules, setAcademicModules] = useState([]);
   const [selectedAcademicModuleId, setSelectedAcademicModuleId] = useState('');
+  const [selectedLog, setSelectedLog] = useState(null);
   const [academicStats, setAcademicStats] = useState(null);
   const [loadingAcademic, setLoadingAcademic] = useState(false);
 
@@ -223,7 +229,7 @@ const AdminDashboard = () => {
   });
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' });
   const [moduleFormData, setModuleFormData] = useState({
-    modulo: '', monitor: '', monitorId: '', sede: '', cuatrimestre: ''
+    modulo: '', monitor: '', monitorId: '', sede: '', cuatrimestre: '', horario: ''
   });
 
   const fetchUsersByRole = async (role) => {
@@ -272,7 +278,7 @@ const AdminDashboard = () => {
       setAcademicModules(academicMods || []);
 
       try {
-        const gStats = await getGlobalStats();
+        const gStats = await getGlobalStats(true);
         setGlobalStats(gStats || null);
       } catch {
         setGlobalStats(null);
@@ -459,7 +465,7 @@ const AdminDashboard = () => {
     setSelectedModule(mod);
     setModuleFormData({
       modulo: mod.modulo || '', monitor: mod.monitor || '', monitorId: mod.monitorId || '',
-      sede: mod.sede || '', cuatrimestre: mod.cuatrimestre || ''
+      sede: mod.sede || '', cuatrimestre: mod.cuatrimestre || '', horario: mod.horario || ''
     });
     setIsEditModuleOpen(true);
   };
@@ -507,6 +513,10 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleMarkSuspicious = (log) => {
+    showToast(`El evento #${log.id} ha sido marcado como sospechoso. Auditoría en curso.`, 'warning');
+  };
+
   useEffect(() => {
     let active = true;
     const loadMemberStats = async () => {
@@ -552,56 +562,89 @@ const AdminDashboard = () => {
     loadAcademicStats();
   }, [selectedAcademicModuleId]);
 
-  const REPORTS_PER_PAGE = 4;
+  const USERS_PER_PAGE = 10;
+  const rawUsersList = (memberSubTab === 'student' ? students : memberSubTab === 'monitor' ? monitors : [...admins, ...devs].sort((a, b) => {
+    if (a.role === 'dev' && b.role !== 'dev') return -1;
+    if (b.role === 'dev' && a.role !== 'dev') return 1;
+    return 0;
+  })).filter(u => {
+    const search = searchTerm.toLowerCase();
+    return u.nombre?.toLowerCase().includes(search) || u.email?.toLowerCase().includes(search) || u.username?.toLowerCase().includes(search);
+  });
+  const visibleUsers = getPageItems(rawUsersList, usersPage, USERS_PER_PAGE);
+  const userPageNumbers = getPageNumbers(rawUsersList.length, USERS_PER_PAGE);
+
+  const REPORTS_PER_PAGE = 8;
   const LOGS_PER_PAGE = 20;
   const visibleReports = getPageItems(reports, reportsPage, REPORTS_PER_PAGE);
   const reportPageNumbers = getPageNumbers(reports.length, REPORTS_PER_PAGE);
-  const reportHistoryLogs = moderationLogs.filter((log) => String(log.action || "").toLowerCase().includes("report"));
+  const reportHistoryLogs = moderationLogs.filter((log) => {
+    const action = String(log.action || "").toLowerCase();
+    // Filter out raw HTTP logs to avoid redundancy in the UI
+    const isRedundant = action.includes("http") || action.includes("api");
+    const isRelevant = action.includes("report") || action.includes("resolve") || action.includes("moderation");
+    return isRelevant && !isRedundant && log.entity_id;
+  });
   const visibleActivityLogs = getPageItems(reportHistoryLogs, activityLogPage, LOGS_PER_PAGE);
   const activityLogPageNumbers = getPageNumbers(reportHistoryLogs.length, LOGS_PER_PAGE);
 
+  useEffect(() => {
+    setUsersPage(1);
+  }, [searchTerm, memberSubTab]);
+
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <header className="bg-orange-500 rounded-2xl p-6 md:p-8 text-white">
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <header className="bg-[#4f46e5] rounded-[1.5rem] p-6 md:p-8 text-white shadow-xl shadow-indigo-900/10 relative overflow-hidden group">
+          {/* Subtle decorative background elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
+
+          <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center bg-orange-600 shadow-sm">
-                <ShieldCheck size={36} className="text-orange-100" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-3 transition-transform">
+                <ShieldCheck size={40} className="text-white" />
               </div>
-              <div className="space-y-1.5 pt-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-600 rounded-full">
-                  <div className="w-1.5 h-1.5 bg-orange-300 rounded-full animate-pulse"></div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-100">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
+              <div className="space-y-2 pt-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/5">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/90">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none">
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-none">
                   Panel Administrativo
                 </h1>
-                <p className="text-orange-100 text-sm font-medium opacity-90 max-w-md leading-relaxed">
+                <p className="text-white/80 text-xs font-medium max-w-md leading-relaxed">
                   Gestión centralizada de privilegios, estadísticas y auditoría institucional.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-orange-600 rounded-xl">
-              {[
-                { id: 'users', label: 'Miembros', icon: <Users size={16} /> },
-                { id: 'modules', label: 'Monitorías', icon: <BookOpen size={16} /> },
-                { id: 'reports', label: 'Reportes', icon: <MessageSquare size={16} /> },
-                { id: 'log', label: 'Log', icon: <FileText size={16} /> }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-semibold uppercase tracking-wide transition-all active:scale-95 ${activeTab === tab.id
-                    ? 'bg-white text-orange-600 shadow-sm'
-                    : 'text-orange-100 hover:text-white hover:bg-orange-500'
-                    }`}
-                >
-                  {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              ))}
+            <div className="flex flex-col items-center md:items-end gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {[
+                  { id: 'users', label: 'Miembros', icon: <Users size={16} /> },
+                  { id: 'modules', label: 'Monitorías', icon: <BookOpen size={16} /> },
+                  { id: 'reports', label: 'Reportes', icon: <MessageSquare size={16} /> },
+                  { id: 'log', label: 'Log', icon: <FileTextIcon size={16} /> }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-4 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 relative group/btn ${activeTab === tab.id
+                      ? 'text-white'
+                      : 'text-white/60 hover:text-white'
+                      }`}
+                  >
+                    {tab.icon}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    {activeTab === tab.id && (
+                      <motion.div layoutId="adminTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="selector-profile text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Clock size={12} /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           </div>
         </header>
@@ -618,7 +661,7 @@ const AdminDashboard = () => {
             <section className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                  <Activity className="text-orange-600" /> Estadísticas Globales
+                  <Activity className="text-indigo-600" /> Estadísticas Globales
                 </h3>
                 <div className="flex items-center gap-3">
                   <select
@@ -632,25 +675,25 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-                {globalStats && (
+              {globalStats && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
-                      <Users size={14} className="text-orange-500" /> Asistencias Totales
+                      <Users size={14} className="text-indigo-500" /> Asistencias Totales
                     </p>
-                    <p className="text-2xl font-semibold text-orange-600">{globalStats.totals?.total_assistances || 0}</p>
+                    <p className="text-2xl font-semibold text-indigo-600">{globalStats.totals?.total_assistances || 0}</p>
                   </div>
                   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
-                      <MessageSquare size={14} className="text-orange-500" /> Reportes de Moderación
+                      <MessageSquare size={14} className="text-indigo-500" /> Reportes de Moderación
                     </p>
-                    <p className="text-2xl font-semibold text-orange-600">{reports.length || 0}</p>
+                    <p className="text-2xl font-semibold text-indigo-600">{reports.length || 0}</p>
                   </div>
                   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <p className="text-[11px] font-medium text-slate-500 mb-2 flex items-center gap-1.5">
-                      <UserCheck size={14} className="text-orange-500" /> Estudiantes Activos
+                      <UserCheck size={14} className="text-indigo-500" /> Estudiantes Activos
                     </p>
-                    <p className="text-2xl font-semibold text-orange-600">{globalStats.totals?.unique_students || 0}</p>
+                    <p className="text-2xl font-semibold text-indigo-600">{globalStats.totals?.unique_students || 0}</p>
                   </div>
                 </div>
               )}
@@ -658,13 +701,13 @@ const AdminDashboard = () => {
               {memberStats && (
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 space-y-4">
                   <p className="text-[11px] font-medium text-slate-500 mb-3 flex items-center gap-1.5">
-                    <BarChart3 size={14} className="text-orange-600" /> Vista por usuario seleccionado
+                    <BarChart3 size={14} className="text-indigo-600" /> Vista por usuario seleccionado
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {Object.entries(memberStats.totals || {}).slice(0, 3).map(([key, value]) => (
                       <div key={key} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                         <p className="text-[11px] font-medium text-slate-500">{key.replaceAll('_', ' ')}</p>
-                        <p className="text-2xl font-semibold text-orange-600">{value ?? 0}</p>
+                        <p className="text-2xl font-semibold text-indigo-600">{value ?? 0}</p>
                       </div>
                     ))}
                   </div>
@@ -689,9 +732,9 @@ const AdminDashboard = () => {
                 </div>
 
                 {loadingAcademic ? (
-                  <div className="h-20 flex items-center justify-center text-[10px] font-black text-emerald-600 animate-pulse uppercase tracking-widest">Calculando métricas Académicas...</div>
+                  <div className="h-20 flex items-center justify-center text-[10px] font-black text-emerald-600 uppercase tracking-widest">Calculando métricas Académicas...</div>
                 ) : academicStats ? (
-                  <div className="space-y-4 animate-fade-in">
+                  <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                       <div className="rounded-xl border border-emerald-50 p-3 bg-emerald-50/30 text-center"><p className="text-[9px] font-black uppercase text-emerald-600 mb-1">Rating Avg</p><p className="text-lg font-black text-emerald-700">{academicStats?.totals?.avg_rating || 0}</p></div>
                       <div className="rounded-xl border border-gray-50 p-3 bg-gray-50/50 text-center"><p className="text-[9px] font-black uppercase text-gray-500 mb-1">Presentes</p><p className="text-lg font-black text-gray-900">{academicStats?.totals?.present_count || 0}</p></div>
@@ -741,14 +784,14 @@ const AdminDashboard = () => {
         )}
 
         {activeTab !== 'stats' && (
-              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
             <div className="bg-slate-50 p-6 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                  {activeTab === 'users' ? <><Users className="text-orange-600" /> Directorio Institucional</> :
-                    activeTab === 'modules' ? <><BookOpen className="text-orange-600" /> Módulos Académicos</> :
-                      activeTab === 'reports' ? <><AlertTriangle className="text-orange-600" /> Centro de Reportes</> :
-                        activeTab === 'log' ? <><FileText className="text-orange-600" /> Log General</> : null}
+                  {activeTab === 'users' ? <><Users className="text-indigo-600" /> Directorio Institucional</> :
+                    activeTab === 'modules' ? <><BookOpen className="text-indigo-600" /> Módulos Académicos</> :
+                      activeTab === 'reports' ? <><AlertTriangle className="text-indigo-600" /> Centro de Reportes</> :
+                        activeTab === 'log' ? <><FileTextIcon className="text-indigo-600" /> Log General</> : null}
                 </h3>
               </div>
 
@@ -759,13 +802,13 @@ const AdminDashboard = () => {
                   setFormData(prev => ({ ...prev, role: roleMap[activeTab] || 'student' }));
                   setIsNewMonitorOpen(true);
                 }}
-                className="flex items-center gap-2 px-8 py-3.5 bg-orange-500 text-white rounded-xl font-semibold text-xs shadow-sm hover:bg-orange-600 active:scale-95 transition-all text-nowrap"
+                className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-xl font-semibold text-xs shadow-sm hover:bg-indigo-700 active:scale-95 transition-all text-nowrap"
               >
                 <PlusCircle size={16} /> Registrar Miembro
               </button>}
             </div>
 
-              {activeTab === 'users' && (
+            {activeTab === 'users' && (
               <div className="px-8 py-3 bg-white border-b border-slate-200 flex items-center gap-2">
                 {[
                   { id: 'student', label: 'Estudiantes' },
@@ -775,18 +818,21 @@ const AdminDashboard = () => {
                   <button
                     key={sub.id}
                     onClick={() => setMemberSubTab(sub.id)}
-                    className={`px-5 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${memberSubTab === sub.id
-                        ? 'bg-orange-500 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    className={`px-5 py-3 text-[11px] font-extrabold uppercase tracking-widest transition-all relative group ${memberSubTab === sub.id
+                      ? 'text-indigo-600'
+                      : 'text-slate-400 hover:text-slate-600'
                       }`}
                   >
                     {sub.label}
+                    {memberSubTab === sub.id && (
+                      <motion.div layoutId="memberSubTabUnderline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
+                    )}
                   </button>
                 ))}
               </div>
             )}
-            
-              {activeTab === 'reports' && (
+
+            {activeTab === 'reports' && (
               <div className="px-8 py-3 bg-white border-b border-slate-200 flex items-center gap-2">
                 {[
                   { id: 'pending', label: 'Registros Pendientes' },
@@ -795,12 +841,15 @@ const AdminDashboard = () => {
                   <button
                     key={sub.id}
                     onClick={() => setReportSubTab(sub.id)}
-                    className={`px-5 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${reportSubTab === sub.id
-                        ? 'bg-orange-500 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    className={`px-5 py-3 text-[11px] font-extrabold uppercase tracking-widest transition-all relative group ${reportSubTab === sub.id
+                      ? 'text-indigo-600'
+                      : 'text-slate-400 hover:text-slate-600'
                       }`}
                   >
                     {sub.label}
+                    {reportSubTab === sub.id && (
+                      <motion.div layoutId="reportSubTabUnderline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -808,13 +857,12 @@ const AdminDashboard = () => {
 
             <div className="px-8 py-4 bg-white border-b border-slate-100 flex items-center gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors" size={18} />
-                <input
-                  type="text"
+                <InputField
+                  icon={<Search />}
                   placeholder="Buscar en esta sección por nombre, correo, usuario o sede..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                  className="!space-y-0"
                 />
               </div>
             </div>
@@ -833,6 +881,7 @@ const AdminDashboard = () => {
                         <th className="px-8 py-4">Módulo Académico</th>
                         <th className="px-8 py-4">Responsable (Monitor)</th>
                         <th className="px-8 py-4">Sede / Ciclo</th>
+                        <th className="px-8 py-4">Horario</th>
                         <th className="px-8 py-4 text-right">Gestión</th>
                       </tr>
                     </thead>
@@ -876,6 +925,12 @@ const AdminDashboard = () => {
                                 <span className="block w-fit px-2 py-0.5 bg-blue-50 text-brand-blue text-[9px] font-black rounded uppercase">{mod.cuatrimestre}</span>
                               </div>
                             </td>
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-2 text-slate-600 font-bold text-xs">
+                                <Clock size={14} className="text-brand-blue" />
+                                {formatTimeAMPM(mod.horario)}
+                              </div>
+                            </td>
                             <td className="px-8 py-6 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <button onClick={() => handleEditModule(mod)} className="p-2.5 rounded-xl transition-all text-gray-400 hover:text-brand-blue hover:bg-brand-blue/5"><Edit3 size={18} /></button>
@@ -888,7 +943,7 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 ) : activeTab === 'reports' ? (
-                  <div className="p-8 space-y-8 animate-slide-up bg-gray-50/30">
+                  <div className="p-8 space-y-8 bg-gray-50/30">
                     {/* Header Summary */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-white border border-gray-100 p-6 rounded-3xl shadow-sm flex items-center justify-between">
@@ -911,245 +966,273 @@ const AdminDashboard = () => {
                       </div>
                     </div>
 
-                    <div className="w-full">
-                      {reportSubTab === 'pending' && (
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                            <AlertTriangle className="text-blue-500" size={18} /> Casos Reportados
-                          </h4>
-                          <button onClick={fetchReportsData} className="p-2 text-gray-400 hover:text-brand-blue transition-colors bg-white rounded-xl shadow-sm border border-gray-100">
-                            <Clock size={16} />
-                          </button>
-                        </div>
-
-                        {reports.length === 0 ? (
-                          <div className="bg-white border border-dashed border-gray-200 rounded-3xl py-16 text-center shadow-sm">
-                            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <Check size={32} />
-                            </div>
-                            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">Todo en orden</h3>
-                            <p className="text-xs font-bold text-gray-400">No hay reportes pendientes de revisión.</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {visibleReports.map(rep => (
-                              <div key={rep.id} className="rounded-2xl shadow-md overflow-hidden border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 flex flex-col bg-white group">
-                                {/* Colored header bar */}
-                                <div className="bg-gray-800 group-hover:bg-gray-900 px-5 py-3.5 flex justify-between items-center text-white transition-colors duration-300">
-                                  <div className="flex items-center gap-2.5">
-                                    <AlertTriangle size={16} className="text-blue-400" />
-                                    <span className="font-black text-[12px] uppercase tracking-tight">Caso #{rep.id}</span>
-                                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${rep.type === 'thread' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-violet-500/30 text-violet-200'}`}>
-                                      {rep.type === 'thread' ? 'HILO' : 'MENSAJE'}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    {rep.modulo_id && rep.chat_id && (
-                                      <a
-                                        href={`/modules/${rep.modulo_id}/forum?forumId=${rep.chat_id}&reportType=${rep.type}&targetId=${rep.target_id}`}
-                                        target="_blank" rel="noreferrer"
-                                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white/80 hover:text-white"
-                                        title="Ver en el foro"
-                                      >
-                                        <MessageSquare size={14} />
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Card body */}
-                                <div className="p-5 flex flex-col flex-grow space-y-4">
-                                  {/* Topic & date */}
-                                  <div>
-                                    <h5 className="text-sm font-black text-gray-900 line-clamp-1 mb-1">{rep.chat_topic || 'Sin tema'}</h5>
-                                    <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
-                                      <Clock size={10} /> {new Date(rep.created_at).toLocaleString()}
-                                    </p>
-                                  </div>
-
-                                  {/* Snippet */}
-                                  <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
-                                    <p className="text-[11px] text-gray-500 italic leading-relaxed line-clamp-2">"{rep.content_snippet}"</p>
-                                  </div>
-
-                                  {/* Accused & Reporter - prominent section */}
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-slate-50/60 rounded-xl p-3.5 border border-slate-100/80">
-                                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.15em] mb-2.5 flex items-center gap-1">
-                                        <AlertTriangle size={9} /> Acusado
-                                      </p>
-                                      <div className="flex items-center gap-2.5">
-                                        {rep.reported_photo ? (
-                                          <img src={rep.reported_photo} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-slate-200 shrink-0" />
-                                        ) : (
-                                          <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-black text-xs shrink-0 border-2 border-slate-200">
-                                            {String(rep.reported_name || 'U').charAt(0).toUpperCase()}
-                                          </div>
-                                        )}
-                                        <div className="min-w-0">
-                                          <p className="text-[12px] font-black text-gray-900 truncate leading-tight">{rep.reported_name}</p>
-                                          <p className="text-[9px] font-bold text-gray-500 uppercase">{rep.reported_role}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="bg-blue-50/60 rounded-xl p-3.5 border border-blue-100/80">
-                                      <p className="text-[8px] font-black text-blue-500 uppercase tracking-[0.15em] mb-2.5 flex items-center gap-1">
-                                        <ShieldCheck size={9} /> Denunciante
-                                      </p>
-                                      <div className="flex items-center gap-2.5">
-                                        {rep.reporter_photo ? (
-                                          <img src={rep.reporter_photo} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-blue-200 shrink-0" />
-                                        ) : (
-                                          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-black text-xs shrink-0 border-2 border-blue-200">
-                                            {String(rep.reporter_name || 'U').charAt(0).toUpperCase()}
-                                          </div>
-                                        )}
-                                        <div className="min-w-0">
-                                          <p className="text-[12px] font-black text-gray-900 truncate leading-tight">{rep.reporter_name}</p>
-                                          <p className="text-[9px] font-black text-blue-500 uppercase truncate" title={rep.reason}>{rep.reason}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Action buttons at bottom */}
-                                  <div className="pt-3 border-t border-gray-100 flex gap-2">
-                                    {rep.modulo_id && rep.chat_id && (
-                                      <a
-                                        href={`/modules/${rep.modulo_id}/forum?forumId=${rep.chat_id}&reportType=${rep.type}&targetId=${rep.target_id}`}
-                                        target="_blank" rel="noreferrer"
-                                        className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-[10px] font-black uppercase rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-1.5"
-                                      >
-                                        <MessageSquare size={13} /> Ver Foro
-                                      </a>
-                                    )}
-                                    <button
-                                      disabled={resolvingReportId === rep.id}
-                                      onClick={() => { setResolveTarget(rep); setResolveNote(''); }}
-                                      className="flex-1 py-2.5 bg-brand-blue text-white text-[10px] font-black uppercase rounded-xl hover:bg-brand-dark-blue transition-all shadow-md shadow-brand-blue/20 active:scale-[0.98] disabled:opacity-50"
-                                    >
-                                      {resolvingReportId === rep.id ? '...' : 'Resolver'}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                            
-                            {reportPageNumbers.length > 1 && (
-                              <div className="col-span-1 lg:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-4">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Página {reportsPage} de {reportPageNumbers.length}</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {reportPageNumbers.map(page => (
-                                    <button key={page} onClick={() => setReportsPage(page)} className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${reportsPage === page ? 'bg-brand-blue text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{page}</button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                    <div className="w-full space-y-6">
+                      {/* Sub-tab Navigation */}
+                      <div className="flex items-center gap-4 border-b border-gray-200">
+                        <button
+                          onClick={() => setReportSubTab('pending')}
+                          className={`px-4 py-2 text-xs font-black uppercase tracking-widest transition-all relative ${reportSubTab === 'pending' ? 'text-brand-blue' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                          Pendientes
+                          {reportSubTab === 'pending' && <motion.div layoutId="reportSubTabUnderline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-blue rounded-full" />}
+                        </button>
+                        <button
+                          onClick={() => setReportSubTab('history')}
+                          className={`px-4 py-2 text-xs font-black uppercase tracking-widest transition-all relative ${reportSubTab === 'history' ? 'text-brand-blue' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                          Historial
+                          {reportSubTab === 'history' && <motion.div layoutId="reportSubTabUnderline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-blue rounded-full" />}
+                        </button>
                       </div>
+                      {reportSubTab === 'pending' && (
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                              <AlertTriangle className="text-blue-500" size={18} /> Casos Reportados
+                            </h4>
+                            <button onClick={fetchReportsData} className="p-2 text-gray-400 hover:text-brand-blue transition-colors bg-white rounded-xl shadow-sm border border-gray-100">
+                              <Clock size={16} />
+                            </button>
+                          </div>
+
+                          {reports.length === 0 ? (
+                            <div className="bg-white border border-dashed border-gray-200 rounded-3xl py-16 text-center shadow-sm">
+                              <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Check size={32} />
+                              </div>
+                              <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">Todo en orden</h3>
+                              <p className="text-xs font-bold text-gray-400">No hay reportes pendientes de revisión.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {visibleReports.map((rep) => {
+                                const isSuspicious = String(rep.reason || '').toLowerCase().includes('sospechoso') || String(rep.reason || '').toLowerCase().includes('suspicious');
+                                return (
+                                  <div key={rep.id} className={`rounded-2xl shadow-md overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 flex flex-col bg-white group ${isSuspicious ? 'border-rose-300 ring-2 ring-rose-500/10' : 'border-gray-100'}`}>
+                                    {/* Colored header bar */}
+                                    <div className={`px-5 py-3.5 flex justify-between items-center text-white transition-colors duration-300 ${isSuspicious ? 'bg-rose-600' : 'bg-gray-800'}`}>
+                                      <div className="flex items-center gap-2.5">
+                                        {isSuspicious ? <AlertOctagon size={16} className="text-white animate-pulse" /> : <AlertTriangle size={16} className="text-blue-400" />}
+                                        <span className="font-black text-[12px] uppercase tracking-tight">Caso #{rep.id}</span>
+                                        {isSuspicious && <span className="bg-white/20 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md">Sospechoso</span>}
+                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${isSuspicious ? 'bg-white/20 text-white' : (rep.type === 'thread' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-violet-500/30 text-violet-200')}`}>
+                                          {rep.type === 'thread' ? 'HILO' : 'MENSAJE'}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        {rep.modulo_id && rep.chat_id && (
+                                          <a
+                                            href={`/modules/${rep.modulo_id}/forum?forumId=${rep.chat_id}&reportType=${rep.type}&targetId=${rep.target_id}`}
+                                            target="_blank" rel="noreferrer"
+                                            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white/80 hover:text-white"
+                                            title="Ver en el foro"
+                                          >
+                                            <MessageSquare size={14} />
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Card body */}
+                                    <div className="p-5 flex flex-col flex-grow space-y-4">
+                                      {/* Topic & date */}
+                                      <div>
+                                        <h5 className="text-sm font-black text-gray-900 line-clamp-1 mb-1">{rep.chat_topic || 'Sin tema'}</h5>
+                                        <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                          <Clock size={10} /> {new Date(rep.created_at).toLocaleString()}
+                                        </p>
+                                      </div>
+
+                                      {/* Snippet */}
+                                      <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
+                                        <p className="text-[11px] text-gray-500 italic leading-relaxed line-clamp-2">"{rep.content_snippet}"</p>
+                                      </div>
+
+                                      {/* Accused & Reporter - prominent section */}
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-slate-50/60 rounded-xl p-3.5 border border-slate-100/80">
+                                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.15em] mb-2.5 flex items-center gap-1">
+                                            <AlertTriangle size={9} /> Acusado
+                                          </p>
+                                          <div className="flex items-center gap-2.5">
+                                            <UserAvatar user={{ nombre: rep.reported_name, foto: rep.reported_photo, role: rep.reported_role }} size="md" />
+                                            <div className="min-w-0">
+                                              <p className="text-[12px] font-black text-gray-900 truncate leading-tight">{rep.reported_name}</p>
+                                              <p className="text-[9px] font-bold text-gray-500 uppercase">{rep.reported_role}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="bg-blue-50/60 rounded-xl p-3.5 border border-blue-100/80">
+                                          <p className="text-[8px] font-black text-blue-500 uppercase tracking-[0.15em] mb-2.5 flex items-center gap-1">
+                                            <ShieldCheck size={9} /> Denunciante
+                                          </p>
+                                          <div className="flex items-center gap-2.5">
+                                            <UserAvatar user={{ nombre: rep.reporter_name, foto: rep.reporter_photo }} size="md" />
+                                            <div className="min-w-0">
+                                              <p className="text-[12px] font-black text-gray-900 truncate leading-tight">{rep.reporter_name}</p>
+                                              <p className="text-[9px] font-black text-blue-500 uppercase truncate" title={rep.reason}>{rep.reason}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Action buttons at bottom */}
+                                      <div className="pt-3 border-t border-gray-100 flex gap-2">
+                                        {rep.modulo_id && rep.chat_id && (
+                                          <a
+                                            href={`/modules/${rep.modulo_id}/forum?forumId=${rep.chat_id}&reportType=${rep.type}&targetId=${rep.target_id}`}
+                                            target="_blank" rel="noreferrer"
+                                            className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-[10px] font-black uppercase rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-1.5"
+                                          >
+                                            <MessageSquare size={13} /> Ver Foro
+                                          </a>
+                                        )}
+                                        <button
+                                          disabled={resolvingReportId === rep.id}
+                                          onClick={() => { setResolveTarget(rep); setResolveNote(''); }}
+                                          className="flex-1 py-2.5 bg-brand-blue text-white text-[10px] font-black uppercase rounded-xl hover:bg-brand-dark-blue transition-all shadow-md shadow-brand-blue/20 active:scale-[0.98] disabled:opacity-50"
+                                        >
+                                          {resolvingReportId === rep.id ? '...' : 'Resolver'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {reportPageNumbers.length > 1 && (
+                                <div className="col-span-1 lg:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-4">
+                                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Página {reportsPage} de {reportPageNumbers.length}</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {reportPageNumbers.map(page => (
+                                      <button key={page} onClick={() => setReportsPage(page)} className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${reportsPage === page ? 'bg-brand-blue text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{page}</button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {reportSubTab === 'history' && (
-                      <div className="space-y-6 animate-fade-in">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                            <ShieldCheck className="text-emerald-500" size={18} /> Historial de Resoluciones
-                          </h4>
-                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
-                            {reportHistoryLogs.length} registros
-                          </span>
-                        </div>
-
-                        {reportHistoryLogs.length === 0 ? (
-                          <div className="bg-white border border-dashed border-gray-200 rounded-3xl py-16 text-center shadow-sm">
-                            <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <FileText size={32} />
-                            </div>
-                            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">Sin historial</h3>
-                            <p className="text-xs font-bold text-gray-400">No hay resoluciones registradas aún.</p>
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                              <ShieldCheck className="text-emerald-500" size={18} /> Historial de Resoluciones
+                            </h4>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                              {reportHistoryLogs.length} registros
+                            </span>
                           </div>
-                        ) : (
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-h-[700px] overflow-y-auto pr-1">
-                            {visibleActivityLogs.map(log => {
-                              const meta = parseLogMetadata(log.metadata);
-                              const actionLabel = String(log.action || 'REPORTE').replace(/_/g, ' ');
-                              const resolvedBy = meta.resolved_by || log.user_name || 'Desconocido';
-                              const dateObj = new Date(log.created_at);
-                              const dateStr = dateObj.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
-                              const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                              return (
-                                <div key={log.id} className="rounded-2xl shadow-sm overflow-hidden border border-gray-100 bg-white transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 flex flex-col group">
-                                  {/* Card header */}
-                                  <div className="bg-emerald-600 group-hover:bg-emerald-700 px-4 py-3 flex items-center justify-between text-white transition-colors duration-300">
-                                    <div className="flex items-center gap-2">
-                                      <ShieldCheck size={14} className="text-emerald-200" />
-                                      <span className="text-[10px] font-black uppercase tracking-tight">Caso #{log.entity_id || '-'}</span>
-                                    </div>
-                                    <span className="text-[8px] font-black uppercase tracking-widest bg-white/15 px-2 py-0.5 rounded-md">
-                                      Resuelto
-                                    </span>
-                                  </div>
+                          {reportHistoryLogs.length === 0 ? (
+                            <div className="bg-white border border-dashed border-gray-200 rounded-3xl py-16 text-center shadow-sm">
+                              <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FileTextIcon size={32} />
+                              </div>
+                              <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">Sin historial</h3>
+                              <p className="text-xs font-bold text-gray-400">No hay resoluciones registradas aún.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-h-[700px] overflow-y-auto pr-1">
+                              {visibleActivityLogs.map(log => {
+                                const meta = parseLogMetadata(log.metadata);
+                                const getFriendlyAction = (action) => {
+                                  const act = String(action || '').toUpperCase();
+                                  if (act.includes('REPORT_RESOLVE')) return 'Caso Cerrado';
+                                  if (act.includes('DELETE')) return 'Eliminación';
+                                  if (act.includes('CREATE')) return 'Registro Nuevo';
+                                  if (act.includes('UPDATE')) return 'Modificación';
+                                  if (act.includes('BAN')) return 'Bloqueo de Usuario';
+                                  return act.replace(/_/g, ' ');
+                                };
+                                const actionLabel = getFriendlyAction(log.action);
+                                const resolvedBy = meta.resolved_by || log.user_name || 'Sistema';
+                                const dateObj = new Date(log.created_at);
+                                const dateStr = dateObj.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Bogota' });
+                                const timeStr = dateObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' }).toUpperCase();
 
-                                  {/* Card body */}
-                                  <div className="p-4 flex flex-col flex-grow space-y-3">
-                                    {/* Action type */}
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[8px] font-black uppercase rounded-md tracking-widest">
-                                        {actionLabel}
+                                return (
+                                  <div
+                                    key={log.id}
+                                    onClick={() => setSelectedLog(log)}
+                                    className={`cursor-pointer rounded-2xl shadow-sm overflow-hidden border border-gray-100 bg-white hover:shadow-md flex flex-col group text-left w-full ${suspiciousLogs.has(log.id) ? 'border-rose-400 bg-rose-50/30' : 'bg-white'
+                                      }`}
+                                  >
+                                    {/* Card header */}
+                                    <div className={`${suspiciousLogs.has(log.id) ? 'bg-rose-600' : 'bg-emerald-600'} px-4 py-3 flex items-center justify-between text-white`}>
+                                      <div className="flex items-center gap-2">
+                                        {suspiciousLogs.has(log.id) ? <AlertTriangle size={14} className="text-rose-100" /> : <ShieldCheck size={14} className="text-emerald-200" />}
+                                        <span className="text-[10px] font-black uppercase tracking-tight">
+                                          {suspiciousLogs.has(log.id) ? 'ALERTA DE SOSPECHA' : `CASO #${log.entity_id || log.id}`}
+                                        </span>
+                                      </div>
+                                      <span className="text-[8px] font-black uppercase tracking-widest bg-white/15 px-2 py-0.5 rounded-md">
+                                        {suspiciousLogs.has(log.id) ? 'REVISIÓN REQUERIDA' : 'Resuelto'}
                                       </span>
                                     </div>
 
-                                    {/* Resolved by & date */}
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xs border-2 border-emerald-200 shrink-0">
-                                          {String(resolvedBy).charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="min-w-0">
-                                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Resuelto por</p>
-                                          <p className="text-[12px] font-black text-gray-900 truncate leading-tight">{resolvedBy}</p>
-                                        </div>
+                                    {/* Card body */}
+                                    <div className="p-4 flex flex-col flex-grow space-y-3">
+                                      {/* Action type and Sub-info */}
+                                      <div className="flex flex-col gap-1">
+                                        <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">
+                                          {log.action?.replace(/_/g, ' ')}
+                                        </h5>
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                                          Tipo: {log.entity_type || 'General'}
+                                        </span>
                                       </div>
-                                      <div className="text-right shrink-0">
-                                        <p className="text-[11px] font-black text-gray-700">{dateStr}</p>
-                                        <p className="text-[9px] font-bold text-gray-400 flex items-center justify-end gap-1">
-                                          <Clock size={9} /> {timeStr}
-                                        </p>
-                                      </div>
-                                    </div>
 
-                                    {/* Resolution note */}
-                                    {meta.resolution_note ? (
-                                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Nota de resolución</p>
-                                        <p className="text-[11px] text-gray-600 leading-relaxed">{meta.resolution_note}</p>
+                                      {/* Resolved by & date */}
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5">
+                                          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xs border-2 border-emerald-200 shrink-0">
+                                            {String(resolvedBy).charAt(0).toUpperCase()}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Resuelto por</p>
+                                            <p className="text-[12px] font-black text-gray-900 truncate leading-tight">{resolvedBy}</p>
+                                          </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                          <p className="text-[11px] font-black text-gray-700">{dateStr}</p>
+                                          <p className="text-[9px] font-bold text-gray-400 flex items-center justify-end gap-1">
+                                            <Clock size={9} /> {timeStr}
+                                          </p>
+                                        </div>
                                       </div>
-                                    ) : (
-                                      <div className="bg-gray-50/50 p-2.5 rounded-xl border border-dashed border-gray-200">
-                                        <p className="text-[10px] text-gray-400 italic text-center">Sin nota de resolución</p>
-                                      </div>
-                                    )}
+
+                                      {/* Resolution note */}
+                                      {meta.resolution_note ? (
+                                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Nota de resolución</p>
+                                          <p className="text-[11px] text-gray-600 leading-relaxed">{meta.resolution_note}</p>
+                                        </div>
+                                      ) : (
+                                        <div className="bg-gray-50/50 p-2.5 rounded-xl border border-dashed border-gray-200">
+                                          <p className="text-[10px] text-gray-400 italic text-center">Sin nota de resolución</p>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        
-                        {activityLogPageNumbers.length > 1 && (
-                          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Página {activityLogPage} de {activityLogPageNumbers.length}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {activityLogPageNumbers.map(page => (
-                                <button key={page} onClick={() => setActivityLogPage(page)} className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${activityLogPage === page ? 'bg-brand-blue text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{page}</button>
-                              ))}
+                                );
+                              })}
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+
+                          {activityLogPageNumbers.length > 1 && (
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Página {activityLogPage} de {activityLogPageNumbers.length}</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {activityLogPageNumbers.map(page => (
+                                  <button key={page} onClick={() => setActivityLogPage(page)} className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${activityLogPage === page ? 'bg-brand-blue text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{page}</button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1169,31 +1252,62 @@ const AdminDashboard = () => {
                         ) : (
                           visibleActivityLogs.map(log => {
                             const meta = parseLogMetadata(log.metadata);
-                            const metaText = Object.entries(meta).slice(0, 4).map(([key, value]) => key + ': ' + (typeof value === 'object' ? JSON.stringify(value) : value)).join(' | ');
+                            const actionLabel = (log.action || 'ACCION').replace(/_/g, ' ');
+                            const dateObj = new Date(log.created_at);
+                            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                             return (
-                              <div key={log.id} className="p-5 hover:bg-gray-50 transition-colors">
-                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                                  <div className="space-y-1 min-w-0">
-                                    <p className="text-[11px] font-black text-gray-900 uppercase">{log.action || 'ACCION'} #{log.entity_id || '-'}</p>
-                                    <p className="text-[10px] font-bold text-gray-500">{log.user_name || 'Sistema'} <span className="text-gray-300">/</span> {log.user_role || 'sin rol'} <span className="text-gray-300">/</span> {log.entity_type || '-'}</p>
-                                    {metaText && <p className="text-[10px] text-gray-500 truncate" title={metaText}>{renderSearchHighlight(metaText)}</p>}
+                              <button
+                                key={log.id}
+                                onClick={() => setSelectedLog(log)}
+                                className={`w-full text-left p-4 hover:bg-slate-50 transition-all border-b border-gray-50 flex items-center justify-between group ${suspiciousLogs.has(log.id) ? 'bg-rose-50/50' : ''
+                                  }`}
+                              >
+                                <div className="flex items-start gap-4 min-w-0">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110 ${suspiciousLogs.has(log.id) ? 'bg-rose-100 text-rose-500' :
+                                    log.action?.includes('DELETE') ? 'bg-rose-50 text-rose-500' :
+                                      log.action?.includes('CREATE') ? 'bg-emerald-50 text-emerald-500' :
+                                        log.action?.includes('UPDATE') ? 'bg-blue-50 text-blue-500' : 'bg-slate-50 text-slate-500'
+                                    }`}>
+                                    {suspiciousLogs.has(log.id) ? <AlertTriangle size={18} /> : <Activity size={18} />}
                                   </div>
-                                  <time className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap">{new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                                  <div className="min-w-0">
+                                    <p className={`text-[11px] font-black uppercase tracking-tight truncate ${suspiciousLogs.has(log.id) ? 'text-rose-600' : 'text-gray-900'}`}>
+                                      {suspiciousLogs.has(log.id) && '[SOSPECHOSO] '}{actionLabel} <span className="text-gray-300 font-medium">#{log.entity_id || '-'}</span>
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{log.user_name || 'Sistema'}</span>
+                                      <span className="text-[8px] px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded-md font-black uppercase tracking-widest">{log.user_role || 'SISTEMA'}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[10px] font-black text-gray-900">{timeStr}</p>
+                                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">{dateObj.toLocaleDateString()}</p>
+                                </div>
+                              </button>
                             );
                           })
                         )}
                       </div>
-                    </div>
-                    {activityLogPageNumbers.length > 1 && (
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pagina {activityLogPage} de {activityLogPageNumbers.length}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {activityLogPageNumbers.map(page => (<button key={page} onClick={() => setActivityLogPage(page)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${activityLogPage === page ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>{page}</button>))}
+
+                      {activityLogPageNumbers.length > 1 && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Página {activityLogPage} de {activityLogPageNumbers.length}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {activityLogPageNumbers.map(page => (
+                              <button
+                                key={page}
+                                onClick={() => setActivityLogPage(page)}
+                                className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${activityLogPage === page ? 'bg-brand-blue text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <table className="w-full text-left border-collapse">
@@ -1206,10 +1320,7 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {(memberSubTab === 'student' ? students : memberSubTab === 'monitor' ? monitors : [...admins, ...devs]).filter(u => {
-                        const search = searchTerm.toLowerCase();
-                        return u.nombre?.toLowerCase().includes(search) || u.email?.toLowerCase().includes(search) || u.username?.toLowerCase().includes(search);
-                      }).map(user => {
+                      {visibleUsers.map(user => {
                         const isBlocked = user.is_active === 0;
                         return (
                           <tr key={user.id} className="hover:bg-gray-50 transition-all">
@@ -1262,6 +1373,30 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 )}
+                {activeTab === 'users' && userPageNumbers.length > 1 && (
+                  <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Página {usersPage} de {userPageNumbers.length}
+                    </p>
+                    <div className="flex gap-1.5">
+                      {userPageNumbers.map(page => (
+                        <button
+                          key={page}
+                          onClick={() => {
+                            setUsersPage(page);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${usersPage === page
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                            : 'bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -1270,7 +1405,148 @@ const AdminDashboard = () => {
 
       {/* Modals placed outside main container for clarity and to avoid nesting errors */}
 
-      {/* Resolve Report Modal */}
+      {/* Detalle de Log Modal */}
+      <Modal isOpen={!!selectedLog} onClose={() => setSelectedLog(null)} title="Detalle de Evento de Auditoría" maxWidth="max-w-2xl">
+        {selectedLog && (() => {
+          const isSuspicious = suspiciousLogs.has(selectedLog.id);
+          const meta = parseLogMetadata(selectedLog.metadata);
+
+          return (
+            <div className="space-y-6 py-2">
+              {/* Premium Header Card - Light Theme */}
+              <div className={`relative overflow-hidden p-8 rounded-[32px] border transition-all duration-500 ${isSuspicious
+                ? 'bg-rose-50 border-rose-100 shadow-rose-50/50'
+                : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
+                }`}>
+                {/* Background Decoration */}
+                <div className={`absolute top-0 right-0 p-12 opacity-5 rotate-12 transition-colors ${isSuspicious ? 'text-rose-500' : 'text-slate-300'}`}>
+                  <Activity size={120} />
+                </div>
+
+                <div className="relative flex flex-col sm:flex-row gap-6 items-start sm:items-center">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-500 ${isSuspicious ? 'bg-rose-500 text-white' :
+                    selectedLog.action?.includes('DELETE') ? 'bg-rose-500 text-white' :
+                      selectedLog.action?.includes('CREATE') ? 'bg-emerald-500 text-white' :
+                        'bg-brand-blue text-white'
+                    }`}>
+                    {isSuspicious ? <AlertTriangle size={32} /> : <Activity size={32} />}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isSuspicious ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                        Log # {selectedLog.id}
+                      </span>
+                      {isSuspicious && (
+                        <span className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest">
+                          Sospechoso Detectado
+                        </span>
+                      )}
+                    </div>
+                    <h3 className={`text-2xl font-black uppercase tracking-tight truncate ${isSuspicious ? 'text-rose-900' : 'text-slate-900'}`}>
+                      {selectedLog.action?.replace(/_/g, ' ')}
+                    </h3>
+                    <p className={`text-[11px] font-bold mt-1 ${isSuspicious ? 'text-rose-600' : 'text-slate-400'}`}>
+                      {selectedLog.entity_type} ID: {selectedLog.entity_id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* User and Time Context */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-brand-blue/30 transition-all">
+                  <UserAvatar user={{ nombre: selectedLog.user_name, role: selectedLog.user_role }} size="md" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ejecutado por</p>
+                    <p className="text-sm font-black text-slate-900 truncate">{selectedLog.user_name || 'Sistema'}</p>
+                    <p className="text-[10px] font-bold text-brand-blue uppercase">{selectedLog.user_role}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Fecha y Hora</p>
+                    <p className="text-sm font-black text-slate-900">{new Date(selectedLog.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' }).toUpperCase()}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{new Date(selectedLog.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Bogota' })}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Details Section - NEW INFO */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-blue-500 shrink-0 border border-slate-100 shadow-sm">
+                    <Globe size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dirección IP</p>
+                    <p className="text-sm font-black text-slate-900">{selectedLog.ip_address || meta.ip || '127.0.0.1'}</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-slate-500 shrink-0 border border-slate-100 shadow-sm">
+                    <Monitor size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dispositivo / Agente</p>
+                    <p className="text-[10px] font-bold text-slate-900 truncate">{selectedLog.user_agent || meta.user_agent || 'Navegador Web'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Metadata Raw View - Light and Clean */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-2">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <FileTextIcon size={14} className="text-brand-blue" /> Metadatos Técnicos
+                  </h4>
+                  <span className="text-[8px] font-bold text-slate-300 italic">JSON RAW FORMAT</span>
+                </div>
+                <div className="bg-slate-50 rounded-[28px] p-1 border border-slate-100 relative group overflow-hidden">
+                  <div className="max-h-64 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    <pre className="text-[11px] font-mono leading-relaxed text-slate-600 whitespace-pre-wrap break-all">
+                      {JSON.stringify(parseLogMetadata(selectedLog.metadata), null, 4)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    const newSuspicious = new Set(suspiciousLogs);
+                    if (isSuspicious) newSuspicious.delete(selectedLog.id);
+                    else newSuspicious.add(selectedLog.id);
+                    setSuspiciousLogs(newSuspicious);
+                    showToast(isSuspicious ? "Marca de sospecha removida" : "Marcado como sospechoso correctamente", isSuspicious ? "info" : "warning");
+                  }}
+                  className={`flex-1 py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isSuspicious
+                    ? 'bg-rose-100 text-rose-600 hover:bg-rose-200'
+                    : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100'
+                    }`}
+                >
+                  <AlertTriangle size={16} />
+                  {isSuspicious ? 'Quitar Sospecha' : 'Marcar Sospechoso'}
+                </button>
+                <button
+                  onClick={() => setSelectedLog(null)}
+                  className="flex-1 py-4 px-6 bg-slate-900 text-white font-black rounded-2xl hover:bg-black transition-all flex items-center justify-center gap-2 text-xs shadow-lg shadow-slate-200 uppercase tracking-widest"
+                >
+                  <Check size={16} /> Cerrar Detalle
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
       <Modal isOpen={!!resolveTarget} onClose={() => { setResolveTarget(null); setResolveNote(''); }} title="Resolver Reporte">
         {resolveTarget && (
           <div className="space-y-5 py-2">
@@ -1308,13 +1584,14 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block tracking-widest">Motivo de Resolución *</label>
-              <textarea
+            <div className="space-y-1">
+              <InputField
+                label="Motivo de Resolución"
+                type="textarea"
                 value={resolveNote}
                 onChange={e => setResolveNote(e.target.value)}
                 placeholder="Describe la acción tomada y el motivo de la resolución..."
-                className="w-full h-28 bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue/30 outline-none transition-all resize-none"
+                required
               />
             </div>
             <div className="flex gap-3">
@@ -1336,11 +1613,16 @@ const AdminDashboard = () => {
         )}
       </Modal>
 
-      <Modal isOpen={isNewMonitorOpen} onClose={() => { setIsNewMonitorOpen(false); resetForm(); }} title="Registrar en Sistema Central">
+      <Modal isOpen={isNewMonitorOpen} onClose={() => { setIsNewMonitorOpen(false); resetForm(); }} title="Registrar en Sistema Central" role="admin">
         <form onSubmit={handleCreate} className="space-y-5 py-2">
           <InputField label="Cargo Institucional" type="select" value={formData.role}
             onChange={e => setFormData({ ...formData, role: e.target.value })}
-            options={[{ value: 'student', label: 'Estudiante' }, { value: 'monitor_academico', label: 'Monitor Académico' }, { value: 'admin', label: 'Administrador' }]} />
+            options={[
+              { value: 'student', label: 'Estudiante' },
+              { value: 'monitor_academico', label: 'Monitor Académico' },
+              { value: 'admin', label: 'Administrador' },
+              ...(session.role === 'dev' ? [{ value: 'dev', label: 'Developer' }] : [])
+            ]} />
           <InputField label="Nombre" icon={<Users />} value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} />
           <InputField label="Usuario ID" icon={<UserCheck />} value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
           <InputField label="Correo Institucional" icon={<Mail />} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
@@ -1370,7 +1652,12 @@ const AdminDashboard = () => {
               </div>
               <InputField label="Correo Institucional" icon={<Mail />} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
               <div className="grid grid-cols-2 gap-4">
-                <InputField label="Cargo" type="select" options={[{ value: 'student', label: 'Estudiante' }, { value: 'monitor_academico', label: 'Monitor' }, { value: 'admin', label: 'Admin' }, { value: 'dev', label: 'Developer' }]} value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} />
+                <InputField label="Cargo" type="select" options={[
+                  { value: 'student', label: 'Estudiante' },
+                  { value: 'monitor_academico', label: 'Monitor' },
+                  { value: 'admin', label: 'Admin' },
+                  ...(session.role === 'dev' ? [{ value: 'dev', label: 'Developer' }] : [])
+                ]} value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} />
                 <InputField label="Sede" type="select" options={dbSedes.map(s => ({ value: s, label: s }))} value={formData.sede} onChange={e => setFormData({ ...formData, sede: e.target.value })} />
               </div>
               <InputField label="Ciclo" type="select" options={dbCuatrimestres.map(c => ({ value: c, label: c }))} value={formData.cuatrimestre} onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })} />
@@ -1623,7 +1910,7 @@ const AdminDashboard = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={isEditModuleOpen} onClose={() => setIsEditModuleOpen(false)} title="Gobernanza de Módulo">
+      <Modal isOpen={isEditModuleOpen} onClose={() => setIsEditModuleOpen(false)} title="Gobernanza de Módulo" role="admin">
         <form onSubmit={confirmUpdateModule} className="space-y-5 py-2">
           <div className="bg-brand-blue/5 p-5 rounded-3xl border border-brand-blue/10">
             <p className="text-[10px] font-black text-brand-blue uppercase tracking-widest mb-1 flex items-center gap-1.5"><ShieldCheck size={12} /> Seguridad Administrativa</p>
@@ -1634,19 +1921,19 @@ const AdminDashboard = () => {
             <InputField label="Sede" type="select" options={dbSedes.map(s => ({ value: s, label: s }))} value={moduleFormData.sede} onChange={e => setModuleFormData({ ...moduleFormData, sede: e.target.value })} />
             <InputField label="Ciclo" type="select" options={dbCuatrimestres.map(c => ({ value: c, label: c }))} value={moduleFormData.cuatrimestre} onChange={e => setModuleFormData({ ...moduleFormData, cuatrimestre: e.target.value })} />
           </div>
+          <InputField label="Horario (Días Hora-Hora)" icon={<Clock />} value={moduleFormData.horario} onChange={e => setModuleFormData({ ...moduleFormData, horario: e.target.value })} placeholder="Ej: Lunes, Martes 08:00 - 10:00" />
           <div className="pt-2">
-            <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest">Vincular Nuevo Titular (Monitor)</label>
-            <select
+            <InputField
+              label="Vincular Nuevo Titular (Monitor)"
+              type="select"
               value={moduleFormData.monitorId}
               onChange={e => {
                 const mon = monitors.find(m => m.id === Number(e.target.value));
                 setModuleFormData({ ...moduleFormData, monitorId: e.target.value, monitor: mon?.nombre || '' });
               }}
-              className="w-full bg-gray-50 border border-gray-200 rounded-[20px] px-5 py-4 text-sm font-black text-gray-900 outline-none focus:ring-4 focus:ring-brand-blue/10"
-            >
-              <option value="">Seleccionar Monitor Activo...</option>
-              {monitors.map(m => <option key={m.id} value={m.id}>{m.nombre} ({m.email})</option>)}
-            </select>
+              options={monitors.map(m => ({ value: m.id, label: `${m.nombre} (${m.email})` }))}
+              icon={<Users />}
+            />
           </div>
           <button type="submit" className="w-full py-5 bg-brand-blue text-white font-black rounded-[24px] shadow-2xl hover:bg-brand-dark-blue">Ejecutar Cambios Institucionales</button>
         </form>

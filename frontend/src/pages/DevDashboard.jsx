@@ -769,35 +769,59 @@ const DevDashboard = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray p-4 sm:p-6 md:p-10 pb-32">
       <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
-        <div className="bg-violet-700 rounded-[32px] p-4 md:p-7 text-white flex flex-col items-center justify-between gap-6">
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-violet-600 border border-violet-500">
-                <Wrench size={36} className="text-violet-50" />
+        <header className="bg-gradient-to-br from-violet-700 to-indigo-800 rounded-[1.5rem] p-6 md:p-8 text-white shadow-xl shadow-violet-900/20 relative overflow-hidden group">
+          {/* Subtle decorative background elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
+
+          <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-6 transition-transform">
+                <Wrench size={40} className="text-white" />
               </div>
-              <div className="space-y-1.5 text-center sm:text-left">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-violet-600 rounded-full">
-                  <div className="w-1.5 h-1.5 bg-violet-300 rounded-full"></div>
-                  <span className="text-violet-100 text-[9px] font-black uppercase tracking-[0.15em]">ROOT / Bienvenido, {currentUser.nombre}</span>
+              <div className="space-y-2 pt-1">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/10">
+                  <div className="w-2 h-2 bg-violet-300 rounded-full animate-pulse shadow-[0_0_8px_rgba(167,139,250,0.8)]"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-50">ROOT ACCESS / Bienvenido, {currentUser.nombre}</span>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-black tracking-tighter leading-tight">Developer Console</h1>
-                <p className="text-violet-100 text-xs md:text-sm font-medium opacity-90 max-w-lg leading-snug">Gestión técnica, mantenimiento y herramientas de diagnóstico ROOT.</p>
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tighter leading-tight">
+                  Developer Console
+                </h1>
+                <p className="text-violet-50 text-xs font-medium opacity-90 max-w-lg leading-relaxed">
+                  Gestión técnica, mantenimiento y herramientas de diagnóstico institucional.
+                </p>
               </div>
             </div>
-            <div className="flex p-1 bg-violet-800 rounded-2xl">
-              {[
-                { id: 'config', label: 'Mantenimiento', icon: <Globe size={12} /> },
-                { id: 'devs', label: 'Equipo DEV', icon: <ShieldCheck size={12} /> },
-                { id: 'utils', label: 'Utilidades', icon: <Wrench size={12} /> },
-                { id: 'console', label: 'Terminal', icon: <Activity size={12} /> }
-              ].map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-white text-violet-900 shadow-md scale-[1.02]' : 'text-white/60 hover:text-white hover:bg-white/10'}`}>
-                  {tab.icon} {tab.label}
-                </button>
-              ))}
+
+            <div className="flex flex-col items-center md:items-end gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {[
+                  { id: 'config', label: 'Mantenimiento', icon: <Globe size={14} /> },
+                  { id: 'devs', label: 'Equipo DEV', icon: <ShieldCheck size={14} /> },
+                  { id: 'utils', label: 'Utilidades', icon: <Wrench size={14} /> },
+                  { id: 'console', label: 'Terminal', icon: <Activity size={14} /> }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-extrabold uppercase tracking-wider transition-all duration-300 relative group/btn ${activeTab === tab.id
+                      ? 'text-white'
+                      : 'text-white/60 hover:text-white'
+                      }`}
+                  >
+                    {tab.icon}
+                    <span className="hidden lg:inline">{tab.label}</span>
+                    {activeTab === tab.id && (
+                      <motion.div layoutId="devTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="selector-profile text-[10px] font-bold text-violet-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Shield size={12} /> SECURED SYSTEM
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {activeTab === 'config' && (
           <div className="space-y-8 animate-slide-up">
