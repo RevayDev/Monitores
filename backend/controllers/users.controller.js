@@ -79,7 +79,8 @@ const uploadImage = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No se subió ningún archivo' });
   }
-  const fileUrl = `http://localhost:3000/uploads/${req.file.filename}`;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
   res.json({ url: fileUrl });
 };
 

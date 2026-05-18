@@ -199,7 +199,8 @@ const getMyStats = async (req, res) => {
 
 const uploadForumFile = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subio ningun archivo.' });
-  const fileUrl = `http://localhost:3000/uploads/forum/${req.file.filename}`;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const fileUrl = `${baseUrl}/uploads/forum/${req.file.filename}`;
   const mime = req.file.mimetype || '';
   const kind = mime.startsWith('image/')
     ? 'image'
