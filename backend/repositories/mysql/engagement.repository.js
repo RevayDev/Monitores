@@ -360,9 +360,14 @@ class EngagementRepositoryMySQL {
 
     const [rows] = await pool.query(
       `
-      SELECT m.*, r.id AS registration_id, r.registeredAt, 'active' AS registration_status
+      SELECT m.*, 
+             COALESCE(u.nombre, m.monitor) as monitor,
+             COALESCE(u.email, m.monitorEmail) as monitorEmail,
+             u.role AS monitorRole, u.foto AS monitorFoto,
+             r.id AS registration_id, r.registeredAt, 'active' AS registration_status
       FROM registrations r
       JOIN modules m ON m.id = r.monitorId
+      LEFT JOIN users u ON m.monitorId = u.id
       WHERE r.studentEmail = ?
       ORDER BY r.registeredAt DESC
       `,

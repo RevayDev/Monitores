@@ -7,7 +7,7 @@ const STUDENT_ROLES = new Set(['student']);
 const normalizeRole = (role) => String(role || '').toLowerCase();
 
 class StatsService {
-  async getGlobalStats(requesterId) {
+  async getGlobalStats(requesterId, forceGlobal = false) {
     const requester = await statsRepository.getUserById(requesterId);
     if (!requester) throw new Error('Usuario no encontrado.');
 
@@ -16,12 +16,22 @@ class StatsService {
       throw new Error('No tienes permisos para consultar estadisticas globales.');
     }
 
-    if (role === 'monitor_academico') {
-      const moduleIds = await statsRepository.getModuleIdsByMonitorUser(requester.id);
+    // Always check for assigned modules regardless of role (for scoping)
+    const moduleIds = await statsRepository.getModuleIdsByMonitorUser(requester.id);
+    
+    // If the user is an admin and specifically wants the GLOBAL view, give it to them
+    if (forceGlobal && ADMIN_ROLES.has(role)) {
+      return statsRepository.getGlobalStats(null);
+    }
+
+    // If the user has assigned modules, they should only see those stats
+    if (moduleIds.length > 0) {
       return statsRepository.getGlobalStats(moduleIds);
     }
 
-    return statsRepository.getGlobalStats(null);
+    // If no modules assigned and it's not a forced global admin view:
+    // Regular monitors (and admins with no modules who didn't ask for global) see empty stats (0)
+    return statsRepository.getGlobalStats([]);
   }
 
   async getUserStats(requesterId, targetUserId) {

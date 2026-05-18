@@ -4,7 +4,10 @@ class MonitoriasRepositoryMySQL {
   // Modules
   async getAll(filters = {}) {
     let query = `
-      SELECT m.*, u.role AS monitorRole, u.foto AS monitorFoto, u.createdAt AS monitorCreatedAt,
+      SELECT m.*, 
+             COALESCE(u.nombre, m.monitor) as monitor,
+             COALESCE(u.email, m.monitorEmail) as monitorEmail,
+             u.role AS monitorRole, u.foto AS monitorFoto, u.createdAt AS monitorCreatedAt,
              (m.monitorId IS NULL OR u.id IS NULL) as isOrphan
       FROM modules m
       LEFT JOIN users u ON m.monitorId = u.id
@@ -79,7 +82,9 @@ class MonitoriasRepositoryMySQL {
       SELECT r.*, 
              r.monitorId AS moduleId,
              m.monitorId AS monitorUserId,
-             m.monitor, m.monitorEmail, m.sede, m.horario, m.cuatrimestre, m.modalidad, m.whatsapp, m.teams, m.descripcion,
+             COALESCE(u.nombre, m.monitor) as monitor,
+             COALESCE(u.email, m.monitorEmail) as monitorEmail,
+             m.sede, m.horario, m.cuatrimestre, m.modalidad, m.whatsapp, m.teams, m.descripcion,
              u.role AS monitorRole, u.foto AS monitorFoto
       FROM registrations r
       LEFT JOIN modules m ON r.monitorId = m.id

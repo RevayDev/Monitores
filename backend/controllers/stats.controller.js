@@ -2,7 +2,8 @@ import statsService from '../services/stats.service.js';
 
 const getGlobalStats = async (req, res) => {
   try {
-    const data = await statsService.getGlobalStats(req.userContext.userId);
+    const forceGlobal = req.query.global === 'true';
+    const data = await statsService.getGlobalStats(req.userContext.userId, forceGlobal);
     res.json(data);
   } catch (error) {
     const message = error.message || 'Error consultando estadisticas globales.';
