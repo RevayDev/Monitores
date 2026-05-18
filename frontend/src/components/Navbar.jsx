@@ -60,7 +60,8 @@ const Navbar = () => {
     // Socket connection for notifications (Restored)
     let socket;
     if (user?.id) {
-      socket = io('http://localhost:3000');
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+      socket = io(socketUrl);
       socket.emit('join_user', user.id);
       socket.on('new_notification', (data) => {
         if (data?.event === 'notifications_read_all') {
