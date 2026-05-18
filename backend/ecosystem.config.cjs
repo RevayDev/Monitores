@@ -12,7 +12,7 @@ module.exports = {
       MYSQL_PASSWORD: "072007",
       MYSQL_DATABASE: "monitores_db",
 
-      FRONTEND_URL: "https://monitores.vercel.app"
+      FRONTEND_URL: "https://monitoreshub.vercel.app"
     }
   }]
 };
