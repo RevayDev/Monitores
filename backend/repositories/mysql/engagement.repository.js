@@ -1136,20 +1136,6 @@ class EngagementRepositoryMySQL {
 
   // Admin / Moderator Reports
   async createForumReport({ type, targetId, reporterId, reportedId, reason }) {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS forum_reports (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        type ENUM('thread', 'reply') NOT NULL,
-        target_id INT NOT NULL,
-        reporter_id INT NOT NULL,
-        reported_id INT NOT NULL,
-        reason TEXT NOT NULL,
-        status ENUM('pending', 'resolved') DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        resolved_at DATETIME NULL,
-        resolved_by INT NULL
-      )
-    `);
 
     const [result] = await pool.query(
       `

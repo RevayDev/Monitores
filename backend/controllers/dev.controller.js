@@ -1,11 +1,11 @@
-import pool, { ensureDatabaseExists } from '../utils/mysql.helper.js';
+import pool from '../utils/mysql.helper.js';
 import testingService from '../services/testing.service.js';
 import bcrypt from 'bcryptjs';
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
-import { ensureSchema } from '../utils/schema-init.helper.js';
+import { initializeDatabase } from '../database/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,8 +19,7 @@ const UPLOADS_ROOT = path.resolve(BACKEND_ROOT, 'uploads');
 const devController = {
   ensureDatabase: async (req, res) => {
     try {
-      await ensureDatabaseExists();
-      await ensureSchema();
+      await initializeDatabase();
       res.json({ success: true, message: 'Base de datos verificada y esquema sincronizado.' });
     } catch (error) {
       console.error('Error in ensureDatabase:', error);
@@ -225,8 +224,7 @@ const devController = {
       if (cmdParts.length === 0) return res.status(400).json({ error: 'Comando vacío' });
       const mainCmd = cmdParts[0].toLowerCase();
       if (mainCmd === 'ensure_db') {
-        await ensureDatabaseExists();
-        await ensureSchema();
+        await initializeDatabase();
         return res.json({ result: 'Base de datos verificada y esquema sincronizado.' });
       }
       

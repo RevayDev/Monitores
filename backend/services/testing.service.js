@@ -1,7 +1,7 @@
 import pool from '../utils/mysql.helper.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { ensureSchema } from '../utils/schema-init.helper.js';
+import { initializeDatabase } from '../database/index.js';
 
 class TestingService {
   async nukeAndRebuild() {
@@ -20,7 +20,7 @@ class TestingService {
     }
 
     await pool.query('SET FOREIGN_KEY_CHECKS = 1');
-    await ensureSchema();
+    await initializeDatabase();
 
     const hashedCommon = await bcrypt.hash('123', 10);
     const hashedDev = await bcrypt.hash('dev123', 10);
