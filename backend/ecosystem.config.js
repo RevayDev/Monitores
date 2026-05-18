@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   apps: [{
     name: "monitores-backend",
     script: "server.js",
@@ -8,9 +8,9 @@ module.exports = {
       PORT: 3000,
       MYSQL_HOST: "localhost",
       MYSQL_USER: "root",
-      MYSQL_PASSWORD: "TU_PASSWORD_DB_AQUI", // Cambiar en la VM
+      MYSQL_PASSWORD: "072007", // Cambiar en la VM
       MYSQL_DATABASE: "monitores_db",
-      FRONTEND_URL: "https://tu-app-vercel.vercel.app" // Cambiar por el dominio real de Vercel
+      FRONTEND_URL: "https://monitores.vercel.app" // Cambiar por el dominio real de Vercel
     }
   }]
-}
+};
