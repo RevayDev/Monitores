@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { 
-  ArrowLeft, BellDot, Bookmark, Paperclip, Plus, Send, Trash2, X, ChevronDown, 
-  Bold, Italic, List, Quote, Heading, Type, Link, ListOrdered, MoreVertical, 
-  CornerUpLeft, Edit3, AlertOctagon, CheckCircle2 
+import {
+  ArrowLeft, BellDot, Bookmark, Paperclip, Plus, Send, Trash2, X, ChevronDown,
+  Bold, Italic, List, Quote, Heading, Type, Link, ListOrdered, MoreVertical,
+  CornerUpLeft, Edit3, AlertOctagon, CheckCircle2
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import {
@@ -32,7 +32,7 @@ import { splitHighlightedText } from '../utils/forumSearchHelpers';
 
 const getVisualRole = (userId, userRole, monitorId, members = []) => {
   const roleStr = String(userRole || '').toLowerCase();
-  
+
   // Rule: If Admin/Dev is matriculado (in members list) -> they are acting as Student
   const isEnrolledAdmin = (roleStr === 'dev' || roleStr === 'admin') && members.some(m => Number(m.id) === Number(userId));
   if (isEnrolledAdmin) return 'student';
@@ -170,12 +170,12 @@ const TypingIndicator = ({ users, monitorId }) => {
     <div className="absolute bottom-full left-1 mb-3 flex flex-col gap-2 animate-fade-in z-20 pointer-events-none">
       {users.map((user, idx) => (
         <div key={user.user_id + idx} className="flex items-center gap-2">
-          <UserAvatar 
+          <UserAvatar
             user={{ nombre: user.nombre, foto: user.foto, role: user.role }}
             size="sm"
-            className="border-2 border-white shadow-md"
+            className="border-2 border-white"
           />
-          <div className="typing-bubble shadow-xl">
+          <div className="typing-bubble">
             <div className="typing-dot"></div>
             <div className="typing-dot"></div>
             <div className="typing-dot"></div>
@@ -236,7 +236,7 @@ const renderInlines = (text, members = [], monitorId, myId) => {
     if (!part) return null;
     const mdImage = part.match(/^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/);
     if (mdImage) {
-      return <img key={`img-${idx}`} src={mdImage[1]} alt="imagen" className="max-h-64 rounded-2xl border border-gray-200 my-2 shadow-sm block mx-auto lg:mx-0" />;
+      return <img key={`img-${idx}`} src={mdImage[1]} alt="imagen" className="max-h-64 rounded-2xl border border-gray-200 my-2 block mx-auto lg:mx-0" />;
     }
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={idx} className="font-black text-gray-900">{part.slice(2, -2)}</strong>;
@@ -298,10 +298,10 @@ const LiveImagePreview = ({ text, cursorPosition }) => {
       {images.map((img, i) => {
         const isActive = cursorPosition >= img.start && cursorPosition <= img.end;
         return (
-          <div key={i} className={`relative flex-shrink-0 transition-all duration-300 rounded-xl p-1 border-2 ${isActive ? 'border-brand-blue bg-white shadow-lg scale-105 z-10' : 'border-transparent opacity-70 scale-95'}`}>
+          <div key={i} className={`relative flex-shrink-0 transition-all duration-300 rounded-xl p-1 border-2 ${isActive ? 'border-brand-blue bg-white scale-105 z-10' : 'border-transparent opacity-70 scale-95'}`}>
             <img src={img.url} alt="preview" className="h-24 w-auto rounded-lg object-contain bg-white" />
-            <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase shadow-sm transition-all ${isActive ? 'bg-brand-blue text-white' : 'bg-white/80 text-gray-500'}`}>{isActive ? 'Editando ahora' : 'Imagen'}</div>
-            {isActive && <div className="absolute -bottom-1 -right-1 bg-brand-blue text-white p-1 rounded-full shadow-lg animate-bounce"><Plus size={10} className="rotate-45" /></div>}
+            <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase transition-all ${isActive ? 'bg-brand-blue text-white' : 'bg-white/80 text-gray-500'}`}>{isActive ? 'Editando ahora' : 'Imagen'}</div>
+            {isActive && <div className="absolute -bottom-1 -right-1 bg-brand-blue text-white p-1 rounded-full animate-bounce"><Plus size={10} className="rotate-45" /></div>}
           </div>
         );
       })}
@@ -323,11 +323,11 @@ const ModuleForum = () => {
   const replyImageRef = useRef(null);
   const threadScrollRef = useRef(null);
   const replyScrollRef = useRef(null);
-  const repliesEndRef = useRef(null); 
-  
+  const repliesEndRef = useRef(null);
+
   const [toolbar, setToolbar] = useState({ isVisible: false, x: 0, y: 0, target: null });
   const [cursorPos, setCursorPos] = useState({ thread: 0, reply: 0 });
-  const [editingId, setEditingId] = useState(null); 
+  const [editingId, setEditingId] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [moduleData, setModuleData] = useState(null);
   const [myModules, setMyModules] = useState([]);
@@ -338,7 +338,7 @@ const ModuleForum = () => {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null); 
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const lastPresenceUpdateRef = useRef(0);
   const [newCount, setNewCount] = useState(0);
   const [lastSeenId, setLastSeenId] = useState(0);
@@ -370,8 +370,8 @@ const ModuleForum = () => {
   const [mentionTarget, setMentionTarget] = useState(null);
   const [mentionQuery, setMentionQuery] = useState('');
   const [showInsertMenu, setShowInsertMenu] = useState(null);
-  const [activeMenuId, setActiveMenuId] = useState(null); 
-  const [reportTarget, setReportTarget] = useState(null); 
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
   const [reportReason, setReportReason] = useState('');
   const [reporting, setReporting] = useState(false);
 
@@ -396,13 +396,13 @@ const ModuleForum = () => {
       showToast('Reporte enviado correctamente', 'success');
       setReportTarget(null);
       setReportReason('');
-    } catch (error) { showToast(error.message || 'Error al enviar reporte', 'error'); } 
+    } catch (error) { showToast(error.message || 'Error al enviar reporte', 'error'); }
     finally { setReporting(false); }
   };
 
   const handleInputKeyDown = (target, e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      if (mentionTarget === target) return; 
+      if (mentionTarget === target) return;
       e.preventDefault();
       if (target === 'thread') handleCreate();
       else if (target === 'reply') handleReply();
@@ -440,13 +440,13 @@ const ModuleForum = () => {
 
   const mentionCandidates = useMemo(() => {
     const query = String(mentionQuery || '').trim().toLowerCase();
-    
+
     // Combine members and all admins, then remove duplicates and self
     const combined = [...members];
     allAdmins.forEach(admin => {
-        if (!combined.some(m => Number(m.id) === Number(admin.id))) {
-            combined.push(admin);
-        }
+      if (!combined.some(m => Number(m.id) === Number(admin.id))) {
+        combined.push(admin);
+      }
     });
 
     const sorted = combined.sort((a, b) => {
@@ -474,7 +474,7 @@ const ModuleForum = () => {
     if (selectedId) {
       const saved = localStorage.getItem(`forum_draft_reply_${selectedId}`);
       if (saved) setReplyText(saved);
-      else setReplyText(''); 
+      else setReplyText('');
     }
   }, [selectedId]);
 
@@ -496,7 +496,7 @@ const ModuleForum = () => {
     if (isBottom) setUnreadWhileBrowsing(0);
   };
 
-  const scrollToBottom = () => { 
+  const scrollToBottom = () => {
     if (messagesScrollRef.current) {
       messagesScrollRef.current.scrollTo({ top: messagesScrollRef.current.scrollHeight, behavior: 'smooth' });
     }
@@ -513,7 +513,7 @@ const ModuleForum = () => {
     try {
       const fetchThreadsPromise = getForumsByModule(moduleId).catch(err => {
         if (err.message?.toLowerCase().includes('acceso') || err.message?.toLowerCase().includes('perteneces')) return [];
-        throw err; 
+        throw err;
       });
       const [forumRows, modulesRows] = await Promise.all([fetchThreadsPromise, getMyModules()]);
       const list = forumRows || [];
@@ -531,22 +531,32 @@ const ModuleForum = () => {
       if (forumIdParam && !selectedId) {
         const pId = Number(forumIdParam);
         if (pId > 0) setSelectedId(pId);
-      } else if (!selectedId && list.length) setSelectedId(list[0].id);
+      } else if (!selectedId && list.length) {
+        if (window.innerWidth >= 1024) {
+          setSelectedId(list[0].id);
+        }
+      }
       if (selectedId && !forumIdParam) {
         const exists = list.some((item) => Number(item.id) === Number(selectedId));
-        if (!exists && list.length > 0) setSelectedId(list[0].id);
+        if (!exists && list.length > 0) {
+          if (window.innerWidth >= 1024) {
+            setSelectedId(list[0].id);
+          } else {
+            setSelectedId(null);
+          }
+        }
       }
       const current = ownModules.find((m) => Number(m.id) === moduleId);
       setModuleData(current || null);
-    } catch (error) { showToast(error.message || 'Error cargando foro.', 'error'); navigate('/mis-monitorias'); } 
+    } catch (error) { showToast(error.message || 'Error cargando foro.', 'error'); navigate('/mis-monitorias'); }
     finally { if (!silent) setLoading(false); }
   };
 
   const filteredThreads = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     if (!q) return threads;
-    return threads.filter(t => 
-      String(t.title || '').toLowerCase().includes(q) || 
+    return threads.filter(t =>
+      String(t.title || '').toLowerCase().includes(q) ||
       String(t.content || '').toLowerCase().includes(q)
     );
   }, [threads, searchTerm]);
@@ -573,7 +583,7 @@ const ModuleForum = () => {
       if (!silent && savedLastSeen > 0 && maxReplyId > savedLastSeen) {
         setShowBanner(true);
         if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
-        bannerTimerRef.current = setTimeout(() => setShowBanner(false), 300000); 
+        bannerTimerRef.current = setTimeout(() => setShowBanner(false), 300000);
       }
       localStorage.setItem(storageKey, String(maxReplyId || savedLastSeen || 0));
       if (!silent) { setEditingId(null); setShowInsertMenu(null); }
@@ -585,16 +595,16 @@ const ModuleForum = () => {
     const loadBase = async () => {
       try {
         const [user, memberRows, userRows] = await Promise.all([
-          getCurrentUser(), 
+          getCurrentUser(),
           getForumMembers(moduleId),
           getAllUsers().catch(() => [])
         ]);
         setCurrentUser(user || null);
         setMembers(memberRows || []);
-        
-        const admins = (userRows || []).filter(u => 
+
+        const admins = (userRows || []).filter(u =>
           (
-            ['admin', 'dev'].includes(String(u.role || '').toLowerCase()) || 
+            ['admin', 'dev'].includes(String(u.role || '').toLowerCase()) ||
             ['admin', 'dev'].includes(String(u.baseRole || '').toLowerCase())
           ) && Number(u.id) !== Number(user?.id)
         );
@@ -604,9 +614,9 @@ const ModuleForum = () => {
     loadBase();
   }, [moduleId]);
 
-  useEffect(() => { 
-    setShowBanner(false); 
-    loadDetail(selectedId); 
+  useEffect(() => {
+    setShowBanner(false);
+    loadDetail(selectedId);
     // Reset unread when switching threads
     setUnreadWhileBrowsing(0);
     setIsAtBottom(true);
@@ -621,7 +631,7 @@ const ModuleForum = () => {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 400);
   }, [detail, isReportReplyTarget, reportTargetIdParam, highlightedReplyId]);
-  
+
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
     setSocket(newSocket);
@@ -653,7 +663,7 @@ const ModuleForum = () => {
         if (!prev || Number(prev.id) !== Number(selectedId)) return prev;
         const replies = prev.replies || prev.comments || [];
         if (replies.find(r => r.id === newMessage.id)) return prev;
-        
+
         // If user is not at bottom, increment unread bubble
         if (!isAtBottom) {
           setUnreadWhileBrowsing(c => c + 1);
@@ -821,27 +831,27 @@ const ModuleForum = () => {
     try {
       const response = await createForum({ modulo_id: Number(selectedCreateModuleId), title: title.trim(), content: content.trim(), attachments });
       if (response?.success === false) return showToast('No se pudo publicar', 'error');
-      
+
       showToast('Pregunta publicada correctamente', 'success');
-      setTitle(''); 
-      setContent(''); 
-      setAttachments([]); 
-      setMentionTarget(null); 
-      setMentionQuery(''); 
-      setShowInsertMenu(null); 
+      setTitle('');
+      setContent('');
+      setAttachments([]);
+      setMentionTarget(null);
+      setMentionQuery('');
+      setShowInsertMenu(null);
       setShowCreate(false);
       localStorage.removeItem(`forum_draft_thread_${moduleId}`);
-      updateForumPresence(Number(selectedCreateModuleId), false).catch(() => {});
+      updateForumPresence(Number(selectedCreateModuleId), false).catch(() => { });
       if (Number(selectedCreateModuleId) !== Number(moduleId)) {
         navigate(`/modules/${selectedCreateModuleId}/forum`);
-      } else { 
-        await loadThreads(); 
-        markSeen(); 
+      } else {
+        await loadThreads();
+        markSeen();
       }
-    } catch (error) { 
-      showToast(error?.message || 'No se pudo publicar', 'error'); 
-    } finally { 
-      setPublishing(false); 
+    } catch (error) {
+      showToast(error?.message || 'No se pudo publicar', 'error');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -852,7 +862,7 @@ const ModuleForum = () => {
     try {
       const response = await createForumReply(selectedId, { content: replyText.trim(), attachments: replyAttachments });
       if (response?.success === false) return showToast('No se pudo publicar', 'error');
-      
+
       const commentId = response.reply?.id || response.id || response;
       const enrichedReply = {
         id: commentId,
@@ -875,9 +885,9 @@ const ModuleForum = () => {
       await loadThreads({ silent: true });
       setReplyText(''); setReplyAttachments([]); setMentionTarget(null); setMentionQuery('');
       localStorage.removeItem(`forum_draft_reply_${selectedId}`);
-      updateForumPresence(selectedId, false).catch(() => {});
+      updateForumPresence(selectedId, false).catch(() => { });
       showToast('Respuesta publicada correctamente', 'success');
-    } catch (error) { showToast(error?.message || 'No se pudo publicar', 'error'); } 
+    } catch (error) { showToast(error?.message || 'No se pudo publicar', 'error'); }
     finally { setReplying(false); }
   };
 
@@ -898,15 +908,14 @@ const ModuleForum = () => {
       } else { await deleteForumMessage(confirmDelete.id); showToast('Respuesta eliminada.', 'success'); }
       await loadThreads();
       if (selectedId) await loadDetail(selectedId);
-    } catch (error) { showToast(error.message || 'Error al eliminar', 'error'); } 
-    finally { setConfirmDelete(null); }
+    } catch (error) { showToast(error.message || 'Error al eliminar', 'error'); }
   };
 
   const renderMentionDropdown = (target) => {
     if (mentionTarget !== target) return null;
     if (!mentionCandidates.length) return null;
     return (
-      <div className="absolute left-0 bottom-full mb-1 z-20 w-[320px] max-h-44 overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl p-1 space-y-1">
+      <div className="absolute left-0 bottom-full mb-1 z-20 w-[320px] max-h-44 overflow-auto rounded-xl border border-gray-200 bg-white p-1 space-y-1">
         {mentionCandidates.map((member) => (
           <button key={member.id} type="button" onClick={() => insertMention(target, member)} className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <UserAvatar photo={member.foto} name={member.nombre} userId={member.id} userRole={member.role} monitorId={moduleMonitorId} size="w-8 h-8" />
@@ -942,7 +951,7 @@ const ModuleForum = () => {
         <Plus size={12} /> Insertar <ChevronDown size={12} />
       </button>
       {showInsertMenu === target && (
-        <div className="absolute bottom-[110%] left-0 w-44 rounded-xl border border-gray-200 bg-white shadow-xl p-2 space-y-1 z-30 animate-scale-in">
+        <div className="absolute bottom-[110%] left-0 w-44 rounded-xl border border-gray-200 bg-white p-2 space-y-1 z-30 animate-scale-in">
           <button type="button" onClick={() => { setShowInsertMenu(null); if (target === 'thread') threadImageRef.current?.click(); else replyImageRef.current?.click(); }} className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center gap-2"><Plus size={12} /> Imagen en texto</button>
           <button type="button" onClick={() => { setShowInsertMenu(null); if (target === 'thread') threadFileRef.current?.click(); else replyFileRef.current?.click(); }} className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center gap-2"><Paperclip size={12} /> Archivo adjunto</button>
         </div>
@@ -953,24 +962,34 @@ const ModuleForum = () => {
   const FloatingToolbar = () => {
     if (!toolbar.isVisible) return null;
     return (
-      <div className="fixed z-50 bg-gray-900 text-white rounded-xl shadow-2xl p-1.5 flex items-center gap-1 border border-white/10 animate-scale-in" style={{ left: toolbar.x, top: toolbar.y }}>
+      <div className="fixed z-50 bg-gray-900 text-white rounded-xl p-1.5 flex items-center gap-1 border border-white/10 animate-scale-in" style={{ left: toolbar.x, top: toolbar.y }}>
         <button onClick={() => applyFormat('bold')} className="p-2 hover:bg-white/10 rounded-lg" title="Negrita"><Bold size={14} /></button>
         <button onClick={() => applyFormat('italic')} className="p-2 hover:bg-white/10 rounded-lg" title="Cursiva"><Italic size={14} /></button>
         <button onClick={() => applyFormat('h1')} className="p-2 hover:bg-white/10 rounded-lg" title="Título"><Heading size={14} /></button>
         <button onClick={() => applyFormat('quote')} className="p-2 hover:bg-white/10 rounded-lg" title="Cita"><Quote size={14} /></button>
         <div className="w-px h-6 bg-white/10 mx-1" />
-        <button onClick={() => setToolbar({isVisible: false})} className="p-2 hover:bg-white/10 rounded-lg text-gray-400"><X size={14} /></button>
+        <button onClick={() => setToolbar({ isVisible: false })} className="p-2 hover:bg-white/10 rounded-lg text-gray-400"><X size={14} /></button>
       </div>
     );
   };
 
   if (loading) return <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-8 px-4 flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div></div>;
 
+  const handleTopBack = () => {
+    if (selectedId) {
+      setSelectedId(null);
+    } else {
+      navigate('/mis-monitorias');
+    }
+  };
+
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-8 px-4">
-      <div className="max-w-7xl mx-auto space-y-4">
-        <button onClick={() => navigate('/mis-monitorias')} className="flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold"><ArrowLeft size={18} /> Volver</button>
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-2 sm:py-8 px-0 sm:px-4">
+      <div className="max-w-7xl mx-auto space-y-2 sm:space-y-4">
+        <button onClick={handleTopBack} className="flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold px-4 sm:px-0">
+          <ArrowLeft size={18} /> {selectedId ? 'Volver a la lista' : 'Volver'}
+        </button>
+        <div className="bg-white p-4 sm:p-6 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <div><h1 className="text-2xl font-black text-gray-900 tracking-tight">Foro del modulo</h1><p className="text-gray-500 text-sm mt-1">{moduleData?.modulo || detail?.module_name || `Modulo #${moduleId}`}</p></div>
           <div className="flex items-center gap-2">
             <button onClick={loadThreads} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-black">Actualizar</button>
@@ -979,24 +998,24 @@ const ModuleForum = () => {
             {newCount > 0 && <button onClick={markSeen} className="px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black inline-flex items-center gap-1"><BellDot size={14} /> {newCount} nuevas</button>}
           </div>
         </div>
-        <div className={`grid grid-cols-1 ${isReadOnly ? '' : 'lg:grid-cols-3'} gap-4`}>
+        <div className={`grid grid-cols-1 ${isReadOnly ? '' : 'lg:grid-cols-3'} gap-0 sm:gap-4`}>
           {!isReadOnly && (
-            <section className="lg:col-span-1 bg-white p-4 rounded-3xl border border-gray-100 space-y-4">
+            <section className={`lg:col-span-1 bg-white p-3 sm:p-4 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 space-y-4 ${selectedId ? 'hidden lg:block' : 'block'}`}>
               <div className="flex flex-col gap-3">
                 <h2 className="font-black text-gray-900 text-xs uppercase tracking-widest px-1">Preguntas</h2>
                 <div className="relative w-full group">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand-blue transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                   </div>
-                  <input 
-                    type="text" 
-                    value={searchTerm} 
-                    onChange={(e) => setSearchTerm(e.target.value)} 
-                    placeholder="Buscar por título o contenido..." 
-                    className="w-full pl-9 pr-8 py-2.5 text-base font-bold border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/10 focus:border-brand-blue/30 transition-all bg-gray-50/50 hover:bg-white" 
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar por título o contenido..."
+                    className="w-full pl-9 pr-8 py-2.5 text-base font-bold border border-gray-200 rounded-xl outline-none focus:border-brand-blue transition-all bg-gray-50/50 hover:bg-white"
                   />
                   {searchTerm && (
-                    <button 
+                    <button
                       onClick={() => setSearchTerm('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-all text-gray-400"
                     >
@@ -1007,15 +1026,15 @@ const ModuleForum = () => {
               </div>
               <div className="space-y-2 max-h-[58vh] overflow-auto pr-1 mt-2">
                 {filteredThreads.map((thread) => (
-                  <div key={thread.id} className={`w-full text-left rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
+                  <div key={thread.id} className={`w-full text-left rounded-xl sm:rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
                     <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
                       <p className="text-sm text-gray-900 line-clamp-1">{renderSearchHighlight(thread.title)}</p>
                       <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{renderSearchHighlight(thread.content)}</p>
                       <p className="text-[11px] text-gray-400 mt-2">{thread.responses_count || 0} respuestas</p>
                     </button>
                     <div className="mt-2 flex items-center justify-end gap-2">
-                       <button onClick={() => handleSaveToggle(thread.id)} className={`px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 ${thread.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}><Bookmark size={11} /> {thread.is_saved ? 'Guardado' : 'Guardar'}</button>
-                       {(Number(thread.user_id) === Number(currentUser?.id) || canModerate) && <button onClick={() => setConfirmDelete({ id: thread.id, type: 'forum' })} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600"><Trash2 size={11} /> Borrar</button>}
+                      <button onClick={() => handleSaveToggle(thread.id)} className={`px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 ${thread.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700'}`}><Bookmark size={11} /> {thread.is_saved ? 'Guardado' : 'Guardar'}</button>
+                      {(Number(thread.user_id) === Number(currentUser?.id) || canModerate) && <button onClick={() => setConfirmDelete({ id: thread.id, type: 'forum' })} className="px-2 py-1 rounded-lg text-[11px] font-black inline-flex items-center gap-1 bg-red-100 text-red-600"><Trash2 size={11} /> Borrar</button>}
                     </div>
                   </div>
                 ))}
@@ -1023,33 +1042,33 @@ const ModuleForum = () => {
               </div>
             </section>
           )}
-          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-white p-5 rounded-3xl border border-gray-100 space-y-4`}>
+          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-white p-3 sm:p-5 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 space-y-4 ${!selectedId ? 'hidden lg:block' : 'block'}`}>
             {!detail ? <p className="text-sm text-gray-500">Selecciona una pregunta para ver el detalle.</p> : (
               <>
-                <div className={`rounded-2xl border transition-all duration-500 overflow-hidden relative p-4 space-y-2 ${
-                  isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
-                  isMeMentioned(detail.content, currentUser?.id) ? 'bg-blue-50 border-blue-200 animate-pulse-blue' : 
-                  (Number(detail.user_id) === Number(currentUser?.id) ? 'is-me-card' : 'bg-gray-50 border-gray-100')
-                }`}>                   {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10 shadow-sm">Origen del reporte</div>}
-                   {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10 shadow-sm">Te mencionaron</div>}
+                <div className={`rounded-xl sm:rounded-2xl border transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'bg-blue-50 border-blue-300' :
+                    isMeMentioned(detail.content, currentUser?.id) ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
+                      (Number(detail.user_id) === Number(currentUser?.id) ? 'is-me-card' : 'bg-gray-50 border-gray-100')
+                  }`}>
+                  {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Origen del reporte</div>}
+                  {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Te mencionaron</div>}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <UserAvatar user={{ nombre: detail.author_name, foto: detail.author_photo, role: detail.author_role }} size="md" />
                       <div>
-                        <div className="flex items-center gap-2">
-                            <p className="font-bold text-gray-900 leading-tight">{detail.title}</p>
-                            {(() => {
-                              const vRole = getVisualRole(detail.user_id, detail.author_role, moduleMonitorId, members);
-                              if (vRole === 'admin' || vRole === 'monitor') {
-                                return (
-                                  <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border shadow-sm ${roleChip(vRole)}`}>
-                                    {roleBadgeLabel(detail.user_id, detail.author_role, moduleMonitorId, members)}
-                                  </span>
-                                );
-                              }
-                              return null;
-                            })()}
-                            <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border shadow-sm bg-gray-100 text-gray-700 border-gray-200">Autor</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="font-bold text-gray-900 leading-tight">{detail.title}</p>
+                          {(() => {
+                            const vRole = getVisualRole(detail.user_id, detail.author_role, moduleMonitorId, members);
+                            if (vRole === 'admin' || vRole === 'monitor') {
+                              return (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
+                                  {roleBadgeLabel(detail.user_id, detail.author_role, moduleMonitorId, members)}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border bg-gray-100 text-gray-700 border-gray-200">Autor</span>
                         </div>
                         <p className="text-[10px] text-gray-500 line-clamp-1">por {detail.author_name} · {new Date(detail.created_at).toLocaleString()}</p>
                       </div>
@@ -1059,7 +1078,7 @@ const ModuleForum = () => {
                       <div className="relative group">
                         <button onClick={() => setActiveMenuId(activeMenuId === 'thread' ? null : 'thread')} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={16} /></button>
                         {activeMenuId === 'thread' && (
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                          <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
                             {Number(detail.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'thread', id: detail.id, name: detail.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
                             {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { handleStartEdit(detail, false); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
                             {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: detail.id, type: 'forum' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
@@ -1069,9 +1088,9 @@ const ModuleForum = () => {
                     </div>
                   </div>
                   {editingId?.id === detail.id && !editingId.isReply ? (
-                    <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 shadow-inner mt-2">
+                    <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 mt-2">
                       <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu publicación..." minHeight="100px" onSelect={() => handleEditorSelection('edit')} />
-                      <div className="flex justify-end gap-2 text-xs"><button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-md font-black bg-brand-blue text-white shadow-md">Guardar</button></div>
+                      <div className="flex justify-end gap-2 text-xs"><button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
                     </div>
                   ) : (
                     <>
@@ -1082,140 +1101,137 @@ const ModuleForum = () => {
                 </div>
 
                 <div className="relative flex-1 min-h-0 flex flex-col">
-                  <div 
+                  <div
                     ref={messagesScrollRef}
                     onScroll={handleScrollTracking}
-                    className="flex-1 overflow-auto pr-1 space-y-3 max-h-[45vh]"
+                    className="flex-1 overflow-auto pr-1 space-y-3 max-h-[50vh] sm:max-h-[60vh]"
                   >
-                  {unreadWhileBrowsing > 0 && !isAtBottom && (
-                    <button 
-                      onClick={scrollToBottom}
-                      className="scroll-bottom-btn animate-bounce-slow"
-                    >
-                      <Plus className="rotate-45 text-black" size={20} />
-                      <span className="unread-bubble">{unreadWhileBrowsing}</span>
-                    </button>
-                  )}
-                  {(() => {
-                    const allReplies = (detail.replies || detail.comments || []);
-                    const totalReplies = allReplies.length;
-                    const displayedReplies = allReplies.slice(0, visibleRepliesCount);
-                    const hasMoreReplies = totalReplies > visibleRepliesCount;
-                    
-                    const lastSeen = detail.lastSeenReplyId || 0;
-                    const result = [];
-                    let bannerShown = false;
-                    const newMessages = allReplies.filter(r => Number(r.id) > lastSeen);
+                    {unreadWhileBrowsing > 0 && !isAtBottom && (
+                      <button
+                        onClick={scrollToBottom}
+                        className="scroll-bottom-btn animate-bounce-slow"
+                      >
+                        <Plus className="rotate-45 text-black" size={20} />
+                        <span className="unread-bubble">{unreadWhileBrowsing}</span>
+                      </button>
+                    )}
+                    {(() => {
+                      const allReplies = (detail.replies || detail.comments || []);
+                      const totalReplies = allReplies.length;
+                      const displayedReplies = allReplies.slice(0, visibleRepliesCount);
+                      const hasMoreReplies = totalReplies > visibleRepliesCount;
 
-                    displayedReplies.forEach((reply, idx) => {
-                      if (!reply || !reply.id) return; // Defensive skip
-                      if (!bannerShown && showBanner && !hasEnteredThread && lastSeen > 0 && Number(reply.id) > lastSeen) {
-                        result.push(
-                          <div key="new-banner" className="flex items-center gap-4 py-4 animate-fade-in">
-                            <div className="flex-1 h-px bg-emerald-100" />
-                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 select-none">
-                              - {newMessages.length || 1} mensajes nuevos -
-                            </span>
-                            <div className="flex-1 h-px bg-emerald-100" />
-                          </div>
-                        );
-                        bannerShown = true;
-                      }
-                      const isMentioned = isMeMentioned(reply.content, currentUser?.id);
-                      const isNewlyMentioned = isMentioned && isNewlyCreated(reply.created_at);
-                      const isMeSender = Number(reply.user_id) === Number(currentUser?.id);
+                      const lastSeen = detail.lastSeenReplyId || 0;
+                      const result = [];
+                      let bannerShown = false;
+                      const newMessages = allReplies.filter(r => Number(r.id) > lastSeen);
 
-                      result.push(
-                        <div key={reply.id} id={`reply-${reply.id}`} className={`rounded-2xl border transition-all duration-500 p-4 relative ${
-                          (isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-100' :
-                          highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' :
-                          isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' : 
-                           (isMentioned ? 'bg-blue-50/50 border-blue-100' : 
-                          (isMeSender ? 'is-me-card' : 'bg-white border-gray-100'))
-                        }`}>
-                          {(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) && (
-                            <div className="absolute -top-2 -right-2 px-3 py-1 bg-rose-600 text-white text-[9px] font-black rounded-full border-2 border-white shadow-xl z-20 animate-bounce-slow">
-                              OBJETO DEL REPORTE
+                      displayedReplies.forEach((reply, idx) => {
+                        if (!reply || !reply.id) return;
+                        if (!bannerShown && showBanner && !hasEnteredThread && lastSeen > 0 && Number(reply.id) > lastSeen) {
+                          result.push(
+                            <div key="new-banner" className="flex items-center gap-4 py-4 animate-fade-in">
+                              <div className="flex-1 h-px bg-emerald-100" />
+                              <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 select-none">
+                                - {newMessages.length || 1} mensajes nuevos -
+                              </span>
+                              <div className="flex-1 h-px bg-emerald-100" />
                             </div>
-                          )}
-                          <div className="flex justify-between items-start mb-2 text-xs">
-                            <div className="flex items-center gap-2 text-gray-500">
-                              <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
-                              <div className="flex flex-col">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
-                                  {(() => {
-                                    const vRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
-                                    const isEnrolledAdmin = ['admin', 'dev'].includes(String(reply.author_role || '').toLowerCase()) && 
-                                                         members.some(m => Number(m.id) === Number(reply.user_id));
-                                    
-                                    // Rule: Show badge if Admin/Monitor (that isn't enrolled) OR if they are the thread author
-                                    // BUT: "si el admin esta matriculado... no se mostrara la etiqueta"
-                                    if (isEnrolledAdmin) return null;
+                          );
+                          bannerShown = true;
+                        }
+                        const isMentioned = isMeMentioned(reply.content, currentUser?.id);
+                        const isNewlyMentioned = isMentioned && isNewlyCreated(reply.created_at);
+                        const isMeSender = Number(reply.user_id) === Number(currentUser?.id);
 
-                                    const isAuthorOfThread = Number(reply.user_id) === Number(detail?.user_id);
-                                    if (vRole === 'admin' || vRole === 'monitor' || isAuthorOfThread) {
-                                      return (
-                                        <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
-                                          {isAuthorOfThread && vRole !== 'admin' && vRole !== 'monitor' ? 'Autor' : roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId, members)}
-                                        </span>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
+                        result.push(
+                          <div key={reply.id} id={`reply-${reply.id}`} className={`rounded-xl sm:rounded-2xl border transition-all duration-500 p-3 sm:p-4 relative ${(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300' :
+                              highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300' :
+                                isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
+                                  (isMentioned ? 'bg-blue-50/50 border-blue-100' :
+                                    (isMeSender ? 'is-me-card' : 'bg-white border-gray-100'))
+                            }`}>
+                            {(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) && (
+                              <div className="absolute -top-2 -right-2 px-3 py-1 bg-rose-600 text-white text-[9px] font-black rounded-full border-2 border-white z-20 animate-bounce-slow">
+                                OBJETO DEL REPORTE
+                              </div>
+                            )}
+                            <div className="flex justify-between items-start mb-2 text-xs">
+                              <div className="flex items-center gap-2 text-gray-500">
+                                <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
+                                    {(() => {
+                                      const vRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
+                                      const isEnrolledAdmin = ['admin', 'dev'].includes(String(reply.author_role || '').toLowerCase()) &&
+                                        members.some(m => Number(m.id) === Number(reply.user_id));
+
+                                      if (isEnrolledAdmin) return null;
+
+                                      const isAuthorOfThread = Number(reply.user_id) === Number(detail?.user_id);
+                                      if (vRole === 'admin' || vRole === 'monitor' || isAuthorOfThread) {
+                                        return (
+                                          <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
+                                            {isAuthorOfThread && vRole !== 'admin' && vRole !== 'monitor' ? 'Autor' : roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId, members)}
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
+                                  <span className="text-[9px]">{new Date(reply.created_at).toLocaleString()}</span>
                                 </div>
-                                <span className="text-[9px]">{new Date(reply.created_at).toLocaleString()}</span>
+                              </div>
+                              <div className="flex gap-1 h-fit relative">
+                                {!isReadOnly && <button onClick={() => quickReply(reply)} className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"><CornerUpLeft size={14} /></button>}
+                                <button onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={14} /></button>
+                                {activeMenuId === `reply-${reply.id}` && (
+                                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                                    {Number(reply.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
+                                    {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && <button onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
+                                    {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            <div className="flex gap-1 h-fit relative">
-                              {!isReadOnly && <button onClick={() => quickReply(reply)} className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"><CornerUpLeft size={14} /></button>}
-                              <button onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={14} /></button>
-                              {activeMenuId === `reply-${reply.id}` && (
-                                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30 animate-scale-in">
-                                  {Number(reply.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
-                                  {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && <button onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
-                                  {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
-                                </div>
-                              )}
-                            </div>
+                            {editingId?.id === reply.id && editingId.isReply ? (
+                              <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
+                                <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu respuesta..." minHeight="60px" onSelect={() => handleEditorSelection('edit')} />
+                                <div className="flex justify-end gap-2 text-[10px]"><button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
+                              </div>
+                            ) : <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">{renderRichText(reply.content, members, moduleMonitorId, currentUser?.id)}</div>}
+                            {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
                           </div>
-                          {editingId?.id === reply.id && editingId.isReply ? (
-                            <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
-                              <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu respuesta..." minHeight="60px" onSelect={() => handleEditorSelection('edit')} />
-                              <div className="flex justify-end gap-2 text-[10px]"><button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
-                            </div>
-                          ) : <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">{renderRichText(reply.content, members, moduleMonitorId, currentUser?.id)}</div>}
-                          {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
-                        </div>
-                      );
-                    });
+                        );
+                      });
 
-                    if (hasMoreReplies) {
-                      result.push(
-                        <div key="show-more-replies" className="relative pt-8 pb-4">
-                          <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-                          <button 
-                            onClick={() => setVisibleRepliesCount(prev => prev + 10)}
-                            className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-xs font-black text-gray-400 hover:border-brand-blue/30 hover:text-brand-blue hover:bg-blue-50/30 transition-all flex flex-col items-center gap-2 group"
-                          >
-                            <div className="flex items-center gap-2">
-                              <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />
-                              Ver {totalReplies - visibleRepliesCount} respuestas más
-                            </div>
-                            <span className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.2em]">Cargando respuestas adicionales</span>
-                          </button>
-                        </div>
-                      );
-                    }
+                      if (hasMoreReplies) {
+                        result.push(
+                          <div key="show-more-replies" className="relative pt-8 pb-4">
+                            <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                            <button
+                              onClick={() => setVisibleRepliesCount(prev => prev + 10)}
+                              className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-xs font-black text-gray-400 hover:border-brand-blue/30 hover:text-brand-blue hover:bg-blue-50/30 transition-all flex flex-col items-center gap-2 group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />
+                                Ver {totalReplies - visibleRepliesCount} respuestas más
+                              </div>
+                              <span className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.2em]">Cargando respuestas adicionales</span>
+                            </button>
+                          </div>
+                        );
+                      }
 
-                    return result;
-                  })()}
-                  {!(detail.replies || detail.comments || []).length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
-                  <div ref={repliesEndRef} />
+                      return result;
+                    })()}
+                    {!(detail.replies || detail.comments || []).length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
+                    <div ref={repliesEndRef} />
                   </div>
                 </div>
                 {!isReadOnly && (
-                  <div className={`rounded-2xl border transition-all duration-300 p-3 space-y-2 relative ${editingId ? 'bg-gray-50' : 'border-gray-100'}`}>
+                  <div className={`rounded-xl sm:rounded-2xl border transition-all duration-300 p-3 space-y-2 relative ${editingId ? 'bg-gray-50' : 'border-gray-100'}`}>
                     <TypingIndicator users={typingUsers} monitorId={moduleMonitorId} />
                     <div className="relative">
                       <MentionHighlighter textareaRef={replyTextRef} scrollRef={replyScrollRef} value={replyText} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('reply', e.target.value)} onKeyDown={(e) => handleInputKeyDown('reply', e)} placeholder="Escribe una respuesta... usa @ para mencionar" minHeight="100px" onSelect={() => handleEditorSelection('reply')} />
@@ -1227,7 +1243,7 @@ const ModuleForum = () => {
                       {insertMenu('reply')}
                       <input ref={replyFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'reply')} />
                       <input ref={replyImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'reply')} />
-                      <button disabled={replying || !!editingId} onClick={handleReply} className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black hover:shadow-lg active:scale-95 transition-all disabled:opacity-50"><Send size={14} /> {replying ? 'Publicando...' : 'Responder'}</button>
+                      <button disabled={replying || !!editingId} onClick={handleReply} className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50"><Send size={14} /> {replying ? 'Publicando...' : 'Responder'}</button>
                     </div>
                   </div>
                 )}
@@ -1256,12 +1272,12 @@ const ModuleForum = () => {
             {insertMenu('thread')}
             <input ref={threadFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'thread')} />
             <input ref={threadImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'thread')} />
-            <button 
-              disabled={publishing || !title.trim() || !content.trim()} 
-              onClick={handleCreate} 
-              className="ml-auto px-6 py-3 bg-brand-blue text-white rounded-2xl text-[11px] font-black inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-blue/20 hover:scale-105 active:scale-95 transition-all"
+            <button
+              disabled={publishing || !title.trim() || !content.trim()}
+              onClick={handleCreate}
+              className="ml-auto px-6 py-3 bg-brand-blue text-white rounded-2xl text-[11px] font-black inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all"
             >
-              <Plus size={14} /> 
+              <Plus size={14} />
               {publishing ? 'Publicando...' : 'Publicar Pregunta'}
             </button>
           </div>
@@ -1278,27 +1294,27 @@ const ModuleForum = () => {
               <p className="text-xs font-bold text-slate-400">Moderación del Foro • Caso de: {reportTarget?.name}</p>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Motivo detallado</label>
-            <textarea 
-              value={reportReason} 
-              onChange={(e) => setReportReason(e.target.value)} 
-              placeholder="Describe por qué este contenido es inapropiado o sospechoso..." 
-              className="w-full h-32 border border-slate-200 rounded-2xl p-4 text-base focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all resize-none bg-slate-50/50" 
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Describe por qué este contenido es inapropiado o sospechoso..."
+              className="w-full h-32 border border-slate-200 rounded-2xl p-4 text-base focus:border-amber-500 outline-none transition-all resize-none bg-slate-50/50"
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <button 
-              disabled={reporting || !reportReason.trim()} 
-              onClick={handleReport} 
-              className="w-full py-4 rounded-2xl bg-amber-600 text-white text-xs font-black shadow-xl shadow-amber-200 hover:bg-amber-700 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest"
+            <button
+              disabled={reporting || !reportReason.trim()}
+              onClick={handleReport}
+              className="w-full py-4 rounded-2xl bg-amber-600 text-white text-xs font-black hover:bg-amber-700 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest"
             >
               {reporting ? 'Enviando...' : 'Enviar Reporte'}
             </button>
-            <button 
-              onClick={() => setReportTarget(null)} 
+            <button
+              onClick={() => setReportTarget(null)}
               className="w-full py-4 rounded-2xl text-slate-400 text-xs font-bold hover:bg-slate-50 transition-all uppercase tracking-widest"
             >
               Cancelar
@@ -1308,10 +1324,10 @@ const ModuleForum = () => {
       </Modal>
       <div className={`fixed inset-0 z-[120] ${confirmDelete ? 'flex' : 'hidden'} items-center justify-center p-4`}>
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setConfirmDelete(null)}></div>
-        <div className="relative bg-white rounded-2xl border border-gray-100 p-6 w-full max-w-sm space-y-4 shadow-2xl animate-scale-in">
+        <div className="relative bg-white rounded-2xl border border-gray-100 p-6 w-full max-w-sm space-y-4 animate-scale-in">
           <div className="p-3 bg-red-50 rounded-full w-fit mx-auto text-red-600"><AlertOctagon size={24} /></div>
           <div className="text-center"><h3 className="text-lg font-black text-gray-900">¿Estás seguro?</h3><p className="text-sm text-gray-500 mt-1">Esta acción es permanente y no se puede deshacer.</p></div>
-          <div className="flex gap-2 justify-center pt-2"><button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-all">No, cancelar</button><button onClick={handleDeleteRecord} className="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-black hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95">Sí, eliminar</button></div>
+          <div className="flex gap-2 justify-center pt-2"><button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-all">No, cancelar</button><button onClick={handleDeleteRecord} className="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-black hover:bg-red-700 transition-all active:scale-95">Sí, eliminar</button></div>
         </div>
       </div>
       <FloatingToolbar />

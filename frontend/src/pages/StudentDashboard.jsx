@@ -102,12 +102,12 @@ const StudentDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-blue-50/30 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-blue-50/30 py-2 sm:py-8 px-0 sm:px-4">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-8">
         
         {/* Header Section */}
         {/* Header Section */}
-        <div className="bg-blue-600 rounded-[32px] p-6 md:p-8 text-white flex flex-col items-center justify-between gap-6">
+        <div className="bg-blue-600 rounded-none sm:rounded-[32px] p-4 sm:p-8 text-white flex flex-col items-center justify-between gap-6">
           <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white font-black bg-blue-500 border border-blue-400 text-blue-50">
@@ -130,7 +130,7 @@ const StudentDashboard = () => {
         </div>
 
         {/* Main Content Card */}
-        <section className="bg-white rounded-[2rem] shadow-xl border border-blue-100 overflow-hidden min-h-[600px] flex flex-col">
+        <section className="bg-white rounded-none sm:rounded-[2rem] border border-blue-100 overflow-hidden min-h-[600px] flex flex-col">
           {/* Tabs Navigation */}
           <div className="flex flex-wrap border-b border-blue-50 bg-blue-50/30 p-2">
             <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<ClipboardList />} label="Mis Monitorías" />
@@ -139,7 +139,7 @@ const StudentDashboard = () => {
             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History />} label="Mi Historial" />
           </div>
 
-          <div className="p-6 flex-grow overflow-y-auto">
+          <div className="p-4 sm:p-6 flex-grow overflow-y-auto">
             <AnimatePresence mode="wait">
               {activeTab === 'overview' && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key="overview" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -204,7 +204,7 @@ const StudentDashboard = () => {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key="history" className="space-y-4">
                   <h3 className="text-xl font-black text-brand-blue mb-4">Mi Historial de Participación</h3>
                   {history.map(item => (
-                    <div key={item.id} className="bg-white border-l-4 border-l-brand-blue p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                    <div key={item.id} className="bg-white border-l-4 border-l-brand-blue p-6 rounded-2xl border border-gray-100 flex justify-between items-center">
                       <div>
                         <p className="font-black text-gray-900">{item.title}</p>
                         <p className="text-xs text-blue-400 font-extrabold uppercase tracking-widest mt-1">{item.module_name}</p>
@@ -250,7 +250,7 @@ const StudentDashboard = () => {
 };
 
 const ModuleCard = ({ module, actionLabel, onAction, isEnrollable = true }) => (
-  <div className="bg-white rounded-[2rem] overflow-hidden border border-blue-100 shadow-sm hover:shadow-xl transition-all flex flex-col group">
+  <div className="bg-white rounded-[2rem] overflow-hidden border border-blue-100 transition-all flex flex-col group">
     <div className="p-8 pb-4 flex-grow">
       <div className="bg-blue-50 w-16 h-16 rounded-2xl flex items-center justify-center text-brand-blue mb-6 group-hover:scale-110 transition-transform">
         <BookOpen size={32} />
@@ -283,7 +283,7 @@ const ModuleCard = ({ module, actionLabel, onAction, isEnrollable = true }) => (
 );
 
 const QuestionItem = ({ question, currentUserId, onReply }) => (
-  <div className="bg-white border border-blue-100 rounded-[2.5rem] p-8 shadow-sm">
+  <div className="bg-white border border-blue-100 rounded-[2.5rem] p-8">
     <div className="flex justify-between items-start mb-4">
       <div className="flex gap-4 items-center">
         <UserAvatar user={{ nombre: question.author_name }} size="md" />

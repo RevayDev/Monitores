@@ -101,9 +101,9 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
 
   const getRoleColors = (r) => {
     switch (r?.toLowerCase()) {
-      case 'dev': return { bg: 'bg-purple-600', ring: 'focus-within:ring-purple-600/10 focus-within:border-purple-600' };
-      case 'admin': return { bg: 'bg-indigo-600', ring: 'focus-within:ring-indigo-600/10 focus-within:border-indigo-600' };
-      default: return { bg: 'bg-emerald-600', ring: 'focus-within:ring-emerald-600/10 focus-within:border-emerald-600' };
+      case 'dev': return { bg: 'bg-purple-600', border: 'focus-within:border-purple-600' };
+      case 'admin': return { bg: 'bg-indigo-600', border: 'focus-within:border-indigo-600' };
+      default: return { bg: 'bg-emerald-600', border: 'focus-within:border-emerald-600' };
     }
   };
   const activeColor = getRoleColors(role);
@@ -113,7 +113,7 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
       <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] ml-2 block pointer-events-none">
         {label}
       </label>
-      <div className={`flex gap-3 items-center bg-white border border-slate-200 hover:border-slate-300 rounded-2xl p-2.5 transition-all shadow-sm focus-within:border-emerald-600 focus-within:ring-4 ${activeColor.ring}`}>
+      <div className={`flex gap-3 items-center bg-white border border-slate-200 rounded-2xl p-2.5 transition-all ${activeColor.border}`}>
         <div className="flex-1 flex items-center gap-1.5 pl-2">
           <input
             type="text"
@@ -130,7 +130,7 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
             onClick={() => handleAmpmToggle('AM')}
             className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${
               ampm === 'AM' 
-                ? `${activeColor.bg} text-white shadow-sm` 
+                ? `${activeColor.bg} text-white` 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
@@ -141,7 +141,7 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
             onClick={() => handleAmpmToggle('PM')}
             className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${
               ampm === 'PM' 
-                ? `${activeColor.bg} text-white shadow-sm` 
+                ? `${activeColor.bg} text-white` 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
@@ -737,7 +737,7 @@ const MonitorDashboard = () => {
               }
             }}
             className={`px-3 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border-2 ${selected.includes(dia)
-              ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200'
+              ? 'bg-emerald-600 border-emerald-600 text-white'
               : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
               }`}
           >
@@ -1121,9 +1121,9 @@ const MonitorDashboard = () => {
                     return (
                       <>
                         {paginatedModules.map(mod => (
-                          <div key={mod.id} className="rounded-2xl shadow-sm overflow-hidden border border-gray-100 bg-white transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 group">
+                          <div key={mod.id} className="rounded-2xl overflow-hidden border border-gray-100 bg-white transition-all duration-300 group">
                             {/* Card header */}
-                            <div className="bg-emerald-600 group-hover:bg-emerald-700 px-4 py-3 flex items-center justify-between text-white transition-colors duration-300">
+                            <div className="bg-emerald-600 px-4 py-3 flex items-center justify-between text-white transition-colors duration-300">
                               <div className="flex items-center gap-2.5">
                                 <BookOpen size={16} className="text-emerald-200" />
                                 <span className="font-black text-[12px] uppercase tracking-tight truncate">{mod.modulo}</span>
@@ -1147,7 +1147,7 @@ const MonitorDashboard = () => {
                               </div>
                               {/* Action buttons */}
                               <div className="pt-2 border-t border-gray-100 grid grid-cols-5 gap-1.5">
-                                <button onClick={() => setFilterModulo(mod.modulo)} title="Ver alumnos" className={`p-2 rounded-xl transition-all flex items-center justify-center ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-50 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-100'}`}><Users size={14} /></button>
+                                <button onClick={() => setFilterModulo(mod.modulo)} title="Ver alumnos" className={`p-2 rounded-xl transition-all flex items-center justify-center ${filterModulo === mod.modulo ? 'bg-emerald-600 text-white' : 'bg-gray-50 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-100'}`}><Users size={14} /></button>
                                 <button onClick={() => navigate(`/modules/${mod.id}/forum`)} title="Foro del Módulo" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><MessageSquare size={14} /></button>
                                 <button onClick={() => handleCopyTemplate(mod)} title="Asistencia" className="p-2 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center border border-blue-100"><ClipboardList size={14} /></button>
                                 <button onClick={() => handleOpenEdit(mod)} title="Editar" className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-brand-blue transition-all flex items-center justify-center border border-gray-100"><Edit3 size={14} /></button>
@@ -1163,7 +1163,7 @@ const MonitorDashboard = () => {
                               <button
                                 key={num}
                                 onClick={() => setModulesPage(num)}
-                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${modulesPage === num ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200 scale-110' : 'bg-white border border-gray-100 text-gray-400 hover:border-emerald-200 hover:text-emerald-600'}`}
+                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${modulesPage === num ? 'bg-emerald-600 text-white' : 'bg-white border border-gray-100 text-gray-400 hover:border-emerald-200 hover:text-emerald-600'}`}
                               >
                                 {num}
                               </button>

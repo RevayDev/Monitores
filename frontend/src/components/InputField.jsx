@@ -22,34 +22,26 @@ const InputField = ({
         text: 'text-purple-600',
         border: 'border-purple-600',
         ring: 'ring-purple-600/10',
-        shadow: 'shadow-purple-600/5',
-        themeVar: 'var(--color-dev)',
-        glow: 'from-purple-600/20 via-purple-600/5 to-purple-600/20'
+        themeVar: 'var(--color-dev)'
       };
       case 'admin': return {
         text: 'text-indigo-600',
         border: 'border-indigo-600',
         ring: 'ring-indigo-600/10',
-        shadow: 'shadow-indigo-600/5',
-        themeVar: 'var(--color-admin)',
-        glow: 'from-indigo-600/20 via-indigo-600/5 to-indigo-600/20'
+        themeVar: 'var(--color-admin)'
       };
       case 'monitor':
       case 'monitor_academico': return {
         text: 'text-emerald-600',
         border: 'border-emerald-600',
         ring: 'ring-emerald-600/10',
-        shadow: 'shadow-emerald-600/5',
-        themeVar: 'var(--color-monitor)',
-        glow: 'from-emerald-600/20 via-emerald-600/5 to-emerald-600/20'
+        themeVar: 'var(--color-monitor)'
       };
       default: return {
         text: 'text-brand-blue',
         border: 'border-brand-blue',
         ring: 'ring-brand-blue/10',
-        shadow: 'shadow-brand-blue/5',
-        themeVar: 'var(--color-student)',
-        glow: 'from-brand-blue/20 via-brand-blue/5 to-brand-blue/20'
+        themeVar: 'var(--color-student)'
       };
     }
   };
@@ -78,9 +70,7 @@ const InputField = ({
       : "bg-white text-slate-900"}
     ${error 
       ? "border-rose-400" 
-      : isFocused 
-        ? `${roleColor.border}` 
-        : "border-slate-200 hover:border-slate-300"}
+      : `${roleColor.border} ${isFocused ? 'opacity-100 ring-4 ' + roleColor.ring : 'opacity-75 hover:opacity-100'}`}
     ${icon ? 'pl-12' : 'pl-4'}
   `;
  

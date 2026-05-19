@@ -46,7 +46,7 @@ function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
             onClick={async () => {
               const { logout } = await import('./services/api');
               await logout();
-              window.location.reload();
+              window.dispatchEvent(new Event('profile-updated'));
             }}
             className="px-8 py-4 bg-gray-100 text-gray-600 font-black rounded-2xl hover:bg-gray-200 transition-all uppercase tracking-widest text-sm"
           >

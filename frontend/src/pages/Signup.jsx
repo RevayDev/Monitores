@@ -102,7 +102,7 @@ const Signup = () => {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full md:min-h-[640px] bg-white rounded-[32px] shadow-2xl overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
+      <div className="max-w-4xl w-full md:min-h-[640px] bg-white rounded-[32px] overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
 
         {/* Left Side: Branding */}
         <div className="md:w-5/12 bg-brand-blue p-8 text-white flex flex-col justify-between relative overflow-hidden">
@@ -113,7 +113,7 @@ const Signup = () => {
               <LogIn size={14} /> Volver
             </Link>
             
-            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20 shadow-xl">
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20">
               <GraduationCap size={28} />
             </div>
             
@@ -160,7 +160,7 @@ const Signup = () => {
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-xl text-[11px] font-bold border border-red-100 mb-6 flex items-center gap-2 shadow-sm animate-shake">
+              <div className="bg-red-50 text-red-500 p-3 rounded-xl text-[11px] font-bold border border-red-100 mb-6 flex items-center gap-2 animate-shake">
                 <span>⚠️</span> {error}
               </div>
             )}

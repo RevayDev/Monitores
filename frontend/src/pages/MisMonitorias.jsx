@@ -275,7 +275,7 @@ const MisMonitorias = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <header className="relative py-12 px-8 overflow-hidden rounded-[40px] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center space-y-4">
+        <header className="relative py-12 px-8 overflow-hidden rounded-[40px] bg-white border border-gray-100 flex flex-col items-center text-center space-y-4">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-brand-blue" />
           <div className="w-20 h-20 rounded-3xl bg-blue-50 flex items-center justify-center text-brand-blue mb-2">
             <Book size={40} />
@@ -288,7 +288,7 @@ const MisMonitorias = () => {
           </div>
         </header>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl border border-gray-100">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -334,7 +334,7 @@ const MisMonitorias = () => {
                 <p className="text-2xl text-gray-800 font-extrabold">No tienes monitorias</p>
                 <p className="text-gray-500 font-medium">Registrate para habilitar asistencia y foro.</p>
               </div>
-              <button onClick={() => navigate('/monitorias')} className="px-10 py-4 bg-brand-blue text-white font-extrabold rounded-2xl shadow-xl flex items-center gap-2"><Book size={20} /> Registrar Monitoria</button>
+              <button onClick={() => navigate('/monitorias')} className="px-10 py-4 bg-brand-blue text-white font-extrabold rounded-2xl flex items-center gap-2"><Book size={20} /> Registrar Monitoria</button>
             </div>
           )
         ) : (
@@ -342,7 +342,7 @@ const MisMonitorias = () => {
             <div className="bg-white rounded-3xl border border-gray-100 p-5">
               <div className="flex flex-wrap gap-2">
                 {monitorias.map((m) => (
-                  <button key={m.id} onClick={() => setActiveModuleId(m.moduleId)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.moduleId) ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
+                  <button key={m.id} onClick={() => setActiveModuleId(m.moduleId)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.moduleId) ? 'bg-brand-blue text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
                     {m.modulo}
                   </button>
                 ))}
@@ -350,8 +350,8 @@ const MisMonitorias = () => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-2 flex gap-2 w-full sm:w-fit">
-              <button onClick={() => setForumPanel('questions')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'questions' ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'text-gray-400 hover:bg-gray-50'}`}>Preguntas</button>
-              <button onClick={() => setForumPanel('create')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'create' ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'text-gray-400 hover:bg-gray-50'}`}>Crear foro</button>
+              <button onClick={() => setForumPanel('questions')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'questions' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:bg-gray-50'}`}>Preguntas</button>
+              <button onClick={() => setForumPanel('create')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'create' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:bg-gray-50'}`}>Crear foro</button>
               {!!activeModuleId && (
                 <button
                   onClick={() => navigate(`/modules/${activeModuleId}/forum`)}

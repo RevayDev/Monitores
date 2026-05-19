@@ -151,19 +151,19 @@ const Navbar = () => {
     const newUser = await switchRole(role, user?.nombre ? { nombre: user.nombre, email: user.email } : {});
     setUser(newUser);
     if (shouldNavigate) {
+      window.dispatchEvent(new Event('profile-updated'));
       navigate('/');
-      window.location.reload();
     }
   };
 
   const handleLogout = async () => {
     try {
       await apiLogout();
+      setUser(null);
+      window.dispatchEvent(new Event('profile-updated'));
       setProfileOpen(false);
       setIsLogoutConfirmOpen(false);
       navigate('/login');
-      // Force a full reload to clear any remaining app state
-      window.location.reload();
     } catch (error) {
       showToast('Error al cerrar sesión', 'error');
     }
@@ -251,7 +251,7 @@ const Navbar = () => {
       >
         <Bell size={20} />
         {unreadCount > 0 && (
-          <span className={`absolute top-2 right-2 min-w-4 h-4 px-1 rounded-full ${roleColor.bg} text-white text-[9px] font-bold grid place-items-center shadow-sm`}>
+          <span className={`absolute top-2 right-2 min-w-4 h-4 px-1 rounded-full ${roleColor.bg} text-white text-[9px] font-bold grid place-items-center`}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -259,7 +259,7 @@ const Navbar = () => {
       {notificationsOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right max-sm:fixed max-sm:top-24 max-sm:right-4 max-sm:left-4 max-sm:w-auto max-sm:max-h-[360px]"
+          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right max-sm:fixed max-sm:top-20 max-sm:right-4 max-sm:left-4 max-sm:w-auto max-sm:max-h-[360px]"
         >
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Notificaciones</span>
@@ -311,7 +311,7 @@ const Navbar = () => {
         <div className="flex justify-between h-20">
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-3 group min-w-max">
-              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl text-white group-hover:rotate-6 group-hover:scale-110 transition-all shadow-lg shadow-blue-200 shrink-0">
+              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl text-white group-hover:rotate-6 group-hover:scale-110 transition-all shrink-0">
                 <GraduationCap size={24} />
               </div>
               <span className="text-xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap">
@@ -342,7 +342,7 @@ const Navbar = () => {
               {!isGuest && (user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/monitor-dashboard')}
-                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-100 transition-all"
+                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-emerald-700 transition-all"
                 >
                   <Users size={12} className="opacity-90" /> Monitor
                 </button>
@@ -351,7 +351,7 @@ const Navbar = () => {
               {!isGuest && (user.role === 'admin' || user.baseRole === 'admin') && (
                 <button
                   onClick={() => navigate('/admin-dashboard')}
-                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-100 transition-all"
+                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-indigo-700 transition-all"
                 >
                   <ShieldCheck size={12} className="opacity-90" /> Admin
                 </button>
@@ -360,7 +360,7 @@ const Navbar = () => {
               {!isGuest && (user.role === 'dev' || user.baseRole === 'dev') && (
                 <button
                   onClick={() => navigate('/dev-dashboard')}
-                  className="px-4 py-1.5 bg-violet-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-violet-700 hover:shadow-lg hover:shadow-violet-100 transition-all"
+                  className="px-4 py-1.5 bg-violet-600 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-2 hover:bg-violet-700 transition-all"
                 >
                   <Wrench size={12} className="opacity-90" /> Dev
                 </button>
@@ -376,7 +376,7 @@ const Navbar = () => {
                   </button>
                   <button
                     onClick={() => navigate('/signup')}
-                    className="px-6 py-2.5  bg-brand-blue text-white text-[11px] font-extrabold rounded-xl shadow-xl shadow-slate-200 hover:bg-black hover:-translate-y-0.5 active:translate-y-0 transition-all uppercase tracking-wider"
+                    className="px-6 py-2.5  bg-brand-blue text-white text-[11px] font-extrabold rounded-xl hover:bg-black hover:-translate-y-0.5 active:translate-y-0 transition-all uppercase tracking-wider"
                   >
                     Registrarse
                   </button>
@@ -385,9 +385,9 @@ const Navbar = () => {
                 <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => setProfileOpen(!profileOpen)}
-                    className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border ${profileOpen ? 'border-slate-200 bg-white shadow-lg' : 'border-transparent hover:bg-slate-50 hover:shadow-sm'} group relative overflow-hidden`}
+                    className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border ${profileOpen ? 'border-slate-200 bg-white' : 'border-transparent hover:bg-slate-50'} group relative overflow-hidden`}
                   >
-                    <UserAvatar user={user} size="md" className="shadow-sm group-hover:scale-105 transition-transform" />
+                    <UserAvatar user={user} size="md" className="group-hover:scale-105 transition-transform" />
                     <div className="text-left hidden sm:block relative z-10">
                       <p className="text-[11px] font-black text-gray-900 leading-tight tracking-tight">{user.nombre || 'Usuario'}</p>
                       <p className={`text-[8px] font-black uppercase leading-none mt-1 tracking-[0.1em] ${roleColor.text} opacity-70`}>
@@ -406,7 +406,7 @@ const Navbar = () => {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-xl rounded-[24px] shadow-2xl border border-slate-100 py-3 z-50 overflow-hidden ring-1 ring-black/5"
+                        className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-xl rounded-[24px] border border-slate-100 py-3 z-50 overflow-hidden ring-1 ring-black/5"
                       >
                         <div className="px-5 py-3 mb-2 border-b border-slate-50/50 bg-slate-50/30">
                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Sesión Activa</p>
@@ -435,7 +435,7 @@ const Navbar = () => {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all group/item"
                           >
-                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover/item:bg-white group-hover/item:text-slate-600 transition-colors shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover/item:bg-white group-hover/item:text-slate-600 transition-colors">
                               <HelpCircle size={16} />
                             </div>
                             <span className="flex-1 text-left">Ayuda & Soporte</span>
@@ -475,7 +475,7 @@ const Navbar = () => {
                 <X size={20} />
               </button>
 
-              <div className="w-20 h-20 bg-rose-50 rounded-[24px] flex items-center justify-center mx-auto text-rose-500 shadow-inner">
+              <div className="w-20 h-20 bg-rose-50 rounded-[24px] flex items-center justify-center mx-auto text-rose-500">
                 <AlertCircle size={40} />
               </div>
 
@@ -489,7 +489,7 @@ const Navbar = () => {
               <div className="flex flex-col gap-3 pt-2">
                 <button
                   onClick={handleLogout}
-                  className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-200 hover:bg-rose-700 active:scale-95 transition-all uppercase tracking-widest text-[11px]"
+                  className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 active:scale-95 transition-all uppercase tracking-widest text-[11px]"
                 >
                   Sí, cerrar sesión
                 </button>
@@ -539,7 +539,7 @@ const Navbar = () => {
               <div className="flex flex-col gap-2 pt-1">
                 <button
                   onClick={() => { setIsOpen(false); navigate('/signup'); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all uppercase tracking-wider"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:scale-95 transition-all uppercase tracking-wider"
                 >
                   <UserPlus size={18} /> Crear Cuenta
                 </button>
@@ -583,7 +583,7 @@ const Navbar = () => {
                   {(user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/monitor-dashboard'); }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-all shadow-sm uppercase tracking-wider"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-all uppercase tracking-wider"
                     >
                       <Users size={18} /> Monitor
                     </button>
@@ -592,7 +592,7 @@ const Navbar = () => {
                   {(user.role === 'admin' || user.baseRole === 'admin') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/admin-dashboard'); }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm uppercase tracking-wider"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all uppercase tracking-wider"
                     >
                       <ShieldCheck size={18} /> Admin
                     </button>
@@ -601,7 +601,7 @@ const Navbar = () => {
                   {(user.role === 'dev' || user.baseRole === 'dev') && (
                     <button
                       onClick={() => { setIsOpen(false); navigate('/dev-dashboard'); }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 text-white text-sm font-semibold rounded-lg hover:bg-violet-700 transition-all shadow-sm uppercase tracking-wider"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition-all uppercase tracking-wider"
                     >
                       <Wrench size={18} /> Dev
                     </button>
@@ -610,7 +610,7 @@ const Navbar = () => {
 
                 <div className="h-px bg-slate-100 my-2"></div>
                 <button
-                  onClick={() => { handleLogout(); setIsOpen(false); }}
+                  onClick={() => { setIsOpen(false); setIsLogoutConfirmOpen(true); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all"
                 >
                   <LogOut size={18} /> Cerrar Sesión

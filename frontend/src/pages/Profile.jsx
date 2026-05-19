@@ -225,13 +225,7 @@ const Profile = () => {
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
 
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-400 hover:text-brand-blue font-bold transition-all group"
-        >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          Volver
-        </button>
+
 
         {/* Account Status / Restrictions Alert - ONLY show if there are active restrictions */}
         {(() => {
@@ -391,8 +385,8 @@ const Profile = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 text-[11px] font-extrabold uppercase tracking-widest transition-all relative group ${activeTab === tab.id
-                    ? 'text-brand-blue font-black'
-                    : 'text-gray-400 hover:text-gray-600'
+                  ? 'text-brand-blue font-black'
+                  : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
                 {tab.label}
@@ -600,7 +594,7 @@ const Profile = () => {
             <p className="text-xl font-black text-gray-900 leading-tight">Estás por borrar tu cuenta</p>
             <p className="text-gray-400 font-medium text-xs leading-relaxed">Esta acción no se puede deshacer. Se perderán todos tus registros de monitorías y asistencia permanentemente.</p>
           </div>
-          
+
           <div className="px-4 space-y-4">
             <div className="text-left">
               <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest px-1">Confirma con tu Contraseña</label>
@@ -608,7 +602,7 @@ const Profile = () => {
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-red-500 transition-colors">
                   <Lock size={16} />
                 </div>
-                <input 
+                <input
                   type="password"
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}

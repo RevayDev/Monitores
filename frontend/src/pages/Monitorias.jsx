@@ -126,7 +126,7 @@ const Monitorias = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <header className="relative py-12 px-8 overflow-hidden rounded-[40px] bg-white border border-gray-100 shadow-sm flex flex-col items-center text-center space-y-4">
+        <header className="relative py-12 px-8 overflow-hidden rounded-[40px] bg-white border border-gray-100 flex flex-col items-center text-center space-y-4">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-brand-blue" />
           <div className="w-20 h-20 rounded-3xl bg-blue-50 flex items-center justify-center text-brand-blue mb-2">
             <BookOpen size={40} />
@@ -139,7 +139,7 @@ const Monitorias = () => {
           </div>
         </header>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-white p-5 rounded-2xl border border-gray-100">
           <SearchBar
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -173,7 +173,7 @@ const Monitorias = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-300">
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
             <Info size={48} className="mx-auto text-gray-400 mb-4" />
             <p className="text-xl text-gray-500 font-medium">No se encontraron monitorías.</p>
           </div>

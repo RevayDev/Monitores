@@ -32,8 +32,8 @@ const Login = () => {
     setLoading(true);
     try {
       await login(formData.identifier, formData.role, formData.password);
+      window.dispatchEvent(new Event('profile-updated'));
       navigate('/');
-      window.location.reload();
     } catch (error) {
       showToast(error?.message || 'Credenciales incorrectas. Intenta de nuevo.', 'error');
     } finally {
@@ -53,29 +53,25 @@ const Login = () => {
       bg: 'bg-brand-blue',
       text: 'text-brand-blue',
       border: 'border-brand-blue',
-      lightBg: 'bg-blue-50',
-      shadow: 'shadow-blue-200'
+      lightBg: 'bg-blue-50'
     },
     monitor: {
       bg: 'bg-emerald-600',
       text: 'text-emerald-600',
       border: 'border-emerald-600',
-      lightBg: 'bg-emerald-50',
-      shadow: 'shadow-emerald-200'
+      lightBg: 'bg-emerald-50'
     },
     admin: {
       bg: 'bg-indigo-600',
       text: 'text-indigo-600',
       border: 'border-indigo-600',
-      lightBg: 'bg-indigo-50',
-      shadow: 'shadow-indigo-200'
+      lightBg: 'bg-indigo-50'
     },
     dev: {
       bg: 'bg-purple-600',
       text: 'text-purple-600',
       border: 'border-purple-600',
-      lightBg: 'bg-purple-50',
-      shadow: 'shadow-purple-200'
+      lightBg: 'bg-purple-50'
     }
   };
 
@@ -83,14 +79,14 @@ const Login = () => {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray flex items-center justify-center p-3 font-sans">
-      <div className="max-w-4xl w-full bg-white rounded-[32px] shadow-xl overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
+      <div className="max-w-4xl w-full bg-white rounded-[32px] overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
 
         {/* Left Side: Branding - Dynamic Background */}
         <div className={`hidden md:flex md:w-5/12 ${currentStyle.bg} p-8 text-white flex-col justify-between relative overflow-hidden`}>
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
           <div className="relative z-10 space-y-8">
             <div className="space-y-4">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/30 shadow-inner">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/30">
                 <LogIn size={24} className="text-white" />
               </div>
               <div>
@@ -146,7 +142,7 @@ const Login = () => {
                       type="button"
                       onClick={() => setFormData({ ...formData, role: r.id })}
                       className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${formData.role === r.id
-                          ? `${rStyle.border} ${rStyle.lightBg} shadow-sm ${rStyle.shadow}`
+                          ? `${rStyle.border} ${rStyle.lightBg}`
                           : 'border-gray-50 bg-gray-50 hover:bg-gray-100'
                         }`}
                     >
@@ -185,7 +181,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-4 ${currentStyle.bg} text-white font-black rounded-2xl shadow-xl ${currentStyle.shadow} hover:brightness-95 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm`}
+                className={`w-full py-4 ${currentStyle.bg} text-white font-black rounded-2xl hover:brightness-95 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm`}
               >
                 {loading ? 'Firma...' : <>Entrar <ArrowRight size={18} /></>}
               </button>

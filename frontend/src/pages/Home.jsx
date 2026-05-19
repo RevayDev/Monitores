@@ -88,7 +88,7 @@ const Home = () => {
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   onClick={() => navigate('/signup')}
-                  className="px-6 py-3 sm:px-8 sm:py-4 bg-white text-brand-blue font-black rounded-2xl shadow-xl hover:bg-gray-100 hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all text-sm sm:text-base text-center"
+                  className="px-6 py-3 sm:px-8 sm:py-4 bg-white text-brand-blue font-black rounded-2xl hover:bg-gray-100 hover:scale-[1.02] active:scale-95 transition-all text-sm sm:text-base text-center"
                 >
                   Crear Mi Cuenta
                 </button>
@@ -149,13 +149,13 @@ const Home = () => {
                 >
                   <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} rounded-[40px] blur-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
 
-                  <div className="relative bg-white p-8 rounded-[40px] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-full flex flex-col gap-6 overflow-hidden">
+                  <div className="relative bg-white p-8 rounded-[40px] border border-gray-100 h-full flex flex-col gap-6 overflow-hidden">
                     {/* Background number accent */}
                     <div className="absolute -top-6 -right-6 text-[120px] font-black text-gray-50 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity select-none italic pointer-events-none">
                       {i + 1}
                     </div>
 
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-white shadow-xl shadow-blue-500/10 group-hover:rotate-12 transition-transform duration-500`}>
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-white group-hover:rotate-12 transition-transform duration-500`}>
                       {item.icon}
                     </div>
 
@@ -190,21 +190,21 @@ const Home = () => {
                 <div className="flex flex-wrap gap-2 p-1 bg-gray-50 rounded-2xl w-full sm:w-fit mt-2">
                   <button
                     onClick={() => setActiveTab('monitor')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-brand-blue text-white hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     MONITORES
                   </button>
                   <button
                     onClick={() => setActiveTab('admin')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'admin' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'admin' ? 'bg-brand-blue text-white hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     ADMINS
                   </button>
                   <button
                     onClick={() => setActiveTab('dev')}
-                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'dev' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20 hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                    className={`flex-grow sm:flex-initial px-4 sm:px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeTab === 'dev' ? 'bg-brand-blue text-white hover:bg-brand-dark-blue' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     DEVS
@@ -221,7 +221,7 @@ const Home = () => {
                   }
                   navigate('/monitorias');
                 }}
-                className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-black rounded-2xl border border-gray-100 hover:bg-gray-900 hover:text-white hover:border-gray-900 hover:shadow-xl active:scale-95 transition-all text-xs sm:text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-black rounded-2xl border border-gray-100 hover:bg-gray-900 hover:text-white hover:border-gray-900 active:scale-95 transition-all text-xs sm:text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 Ver Monitorías <PlusCircle size={16} />
               </button>

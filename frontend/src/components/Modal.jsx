@@ -24,23 +24,38 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
   }, [isOpen]);
 
   const backdropVariants = {
-    hidden: { opacity: 0, transition: { duration: 0.1, ease: 'easeIn' } },
-    visible: { opacity: 1, transition: { duration: 0.12, ease: 'easeOut' } }
+    hidden: { opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } },
+    visible: { opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }
   };
 
   const modalVariants = {
-    hidden: { opacity: 0, scale: 0.97, y: 8 },
+    hidden: { 
+      opacity: 0, 
+      y: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : 15, 
+      scale: typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 0.95 
+    },
     visible: { 
       opacity: 1, 
-      scale: 1, 
-      y: 0,
-      transition: { duration: 0.12, ease: 'easeOut' }
+      y: 0, 
+      scale: 1,
+      transition: { type: 'spring', damping: 25, stiffness: 350 }
     },
     exit: { 
-      opacity: 0, 
-      scale: 0.98, 
-      y: 4,
-      transition: { duration: 0.08, ease: 'easeIn' }
+      opacity: typeof window !== 'undefined' && window.innerWidth < 768 ? 0.9 : 0, 
+      y: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : 15, 
+      scale: typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 0.95,
+      transition: { duration: 0.18, ease: 'easeInOut' }
+    }
+  };
+
+  const handleClose = (e) => {
+    if (e) e.stopPropagation();
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      if (window.confirm('¿Estás seguro de que deseas cerrar esta ventana?')) {
+        onClose();
+      }
+    } else {
+      onClose();
     }
   };
 
@@ -55,7 +70,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
             exit="hidden"
             variants={backdropVariants}
             className="fixed inset-0 bg-slate-950/45 backdrop-blur-[6px] z-0" 
-            onClick={onClose}
+            onClick={handleClose}
           />
           
           {/* Modal Content */}
@@ -64,16 +79,16 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
             animate="visible"
             exit="exit"
             variants={modalVariants}
-            className={`bg-white rounded-t-[24px] sm:rounded-[32px] shadow-[0_32px_100px_rgba(0,0,0,0.25)] w-full ${maxWidth} relative z-10 overflow-hidden border border-white/40 flex flex-col max-h-[92vh] sm:max-h-[90vh]`}
+            className={`bg-white rounded-t-[24px] sm:rounded-[32px] w-full ${maxWidth} relative z-10 overflow-hidden border border-white/40 flex flex-col max-h-[92vh] sm:max-h-[90vh]`}
           >
             {title && (
               <div className="px-5 py-4 sm:px-8 sm:py-6 flex justify-between items-center bg-white border-b border-slate-50 shrink-0">
                 <div className="space-y-1">
                   <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase tracking-[0.1em]">{title}</h3>
-                  <div className={`h-1 w-10 sm:h-1.5 sm:w-12 ${getRoleColor(role)} rounded-full shadow-sm`}></div>
+                  <div className={`h-1 w-10 sm:h-1.5 sm:w-12 ${getRoleColor(role)} rounded-full`}></div>
                 </div>
                 <button 
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="p-1.5 sm:p-2 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-xl transition-all active:scale-90 border border-transparent hover:border-slate-100"
                 >
                   <X size={18} className="sm:w-5 sm:h-5" />
