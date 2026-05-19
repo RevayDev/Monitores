@@ -23,14 +23,16 @@ const InputField = ({
         border: 'border-purple-600',
         ring: 'ring-purple-600/10',
         shadow: 'shadow-purple-600/5',
-        themeVar: 'var(--color-dev)'
+        themeVar: 'var(--color-dev)',
+        glow: 'from-purple-600/20 via-purple-600/5 to-purple-600/20'
       };
       case 'admin': return {
         text: 'text-indigo-600',
         border: 'border-indigo-600',
         ring: 'ring-indigo-600/10',
         shadow: 'shadow-indigo-600/5',
-        themeVar: 'var(--color-admin)'
+        themeVar: 'var(--color-admin)',
+        glow: 'from-indigo-600/20 via-indigo-600/5 to-indigo-600/20'
       };
       case 'monitor':
       case 'monitor_academico': return {
@@ -38,14 +40,16 @@ const InputField = ({
         border: 'border-emerald-600',
         ring: 'ring-emerald-600/10',
         shadow: 'shadow-emerald-600/5',
-        themeVar: 'var(--color-monitor)'
+        themeVar: 'var(--color-monitor)',
+        glow: 'from-emerald-600/20 via-emerald-600/5 to-emerald-600/20'
       };
       default: return {
         text: 'text-brand-blue',
         border: 'border-brand-blue',
         ring: 'ring-brand-blue/10',
         shadow: 'shadow-brand-blue/5',
-        themeVar: 'var(--color-student)'
+        themeVar: 'var(--color-student)',
+        glow: 'from-brand-blue/20 via-brand-blue/5 to-brand-blue/20'
       };
     }
   };
@@ -68,7 +72,7 @@ const InputField = ({
   };
  
   const inputBaseClasses = `
-    w-full rounded-2xl text-sm font-semibold transition-all duration-300 outline-none border
+    w-full rounded-2xl text-base font-semibold transition-all duration-300 outline-none border
     ${disabled 
       ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-100 opacity-80" 
       : "bg-white border-slate-200 text-slate-900 hover:border-slate-300"}
@@ -122,7 +126,7 @@ const InputField = ({
                 </option>
               ))}
             </select>
-            <div className={`absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none transition-colors duration-300 ${isFocused ? `text-${roleColor}` : 'text-slate-400'}`}>
+            <div className={`absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none transition-colors duration-300 ${isFocused ? roleColor.text : 'text-slate-400'}`}>
               <ChevronDown size={18} strokeWidth={3} className={isFocused ? 'scale-110' : ''} />
             </div>
           </div>
@@ -175,7 +179,7 @@ const InputField = ({
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className={`absolute -inset-[1px] rounded-[17px] bg-gradient-to-r from-${roleColor}/20 via-${roleColor}/5 to-${roleColor}/20 -z-10 blur-[2px]`}
+              className={`absolute -inset-[1px] rounded-[17px] bg-gradient-to-r ${roleColor.glow} -z-10 blur-[2px]`}
             />
           )}
         </AnimatePresence>

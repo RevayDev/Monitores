@@ -125,7 +125,7 @@ const MisMonitorias = () => {
   const fileVideoRef = React.useRef(null);
 
   const activeModule = useMemo(
-    () => monitorias.find((m) => Number(m.id) === Number(activeModuleId)) || null,
+    () => monitorias.find((m) => Number(m.moduleId) === Number(activeModuleId)) || null,
     [monitorias, activeModuleId]
   );
   const selectedThread = useMemo(
@@ -140,7 +140,7 @@ const MisMonitorias = () => {
       const myRegistrations = await getMisMonitorias(email);
       const modules = myRegistrations || [];
       setMonitorias(modules);
-      if (modules.length && !activeModuleId) setActiveModuleId(modules[0].id || modules[0].monitorId);
+      if (modules.length && !activeModuleId) setActiveModuleId(modules[0].moduleId);
     } catch (error) {
       showToast(error.message || 'Error cargando tus monitorias.', 'error');
     } finally {
@@ -254,7 +254,7 @@ const MisMonitorias = () => {
   };
 
   const goToForum = (m) => {
-    navigate(`/modules/${m.id}/forum`);
+    navigate(`/modules/${m.moduleId}/forum`);
   };
 
   const startDrop = () => {
@@ -322,7 +322,7 @@ const MisMonitorias = () => {
                   onSecondaryAction={() => goToForum(m)}
                   secondaryActionLabel="Foro de Módulo"
                   actionLabel="Ver detalles"
-                  registrationCount={allRegistrations.filter((r) => Number(r.moduleId) === Number(m.id)).length}
+                  registrationCount={allRegistrations.filter((r) => Number(r.moduleId) === Number(m.moduleId)).length}
                   isRegistered
                 />
               ))}
@@ -342,7 +342,7 @@ const MisMonitorias = () => {
             <div className="bg-white rounded-3xl border border-gray-100 p-5">
               <div className="flex flex-wrap gap-2">
                 {monitorias.map((m) => (
-                  <button key={m.id} onClick={() => setActiveModuleId(m.id)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.id) ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
+                  <button key={m.id} onClick={() => setActiveModuleId(m.moduleId)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.moduleId) ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
                     {m.modulo}
                   </button>
                 ))}
@@ -525,7 +525,7 @@ const MisMonitorias = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
               <button
                 onClick={() => {
-                  navigate(`/modules/${selectedMonitoria.id}/forum`);
+                  navigate(`/modules/${selectedMonitoria.moduleId}/forum`);
                   setIsDetailOpen(false);
                 }}
                 className="w-full py-3 rounded-xl bg-brand-blue text-white font-bold"

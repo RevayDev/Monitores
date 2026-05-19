@@ -336,26 +336,21 @@ const LiveTerminal = ({
                 <div className="flex flex-col md:flex-row gap-6 p-5 bg-slate-50 text-slate-800 rounded-2xl font-mono text-[11px] leading-relaxed w-full border border-slate-200 shadow-sm select-text">
                   {/* Left Column: Ubuntu Logo ASCII */}
                   <div className="text-[#e95420] font-bold shrink-0 whitespace-pre selection:bg-orange-500/20 text-[10px] md:text-[11px]">
-{`         .-/+oossssoo+/-.
-     \`:+ssssssssssssssssss+:\`
-   -+ssssssssssssssssssyyyssss+-
- .ossssssssssssssssssdMMMNysssso.
-/ssssssssssshdmmNNmmyNMMMMhssssss/
-+ssssssssshmydMMMMMMNddddyssssssss+
-/ssssssssshdMMMyhhyyyhdNMMMNssssss/
-.osssssssssdMMMNyssssohNMMMdssssss.
- +sssshhhyNMMNysssssssyNMMMyssssss+
-  osyyNMMNMMhsssssssssshmmmhssssso
-  osyyNMMNMMhsssssssssshmmmhssssso
- +sssshhhyNMMNysssssssyNMMMyssssss+
-.osssssssssdMMMNyssssohNMMMdssssss.
-/ssssssssshdMMMyhhyyyhdNMMMNssssss/
-+ssssssssshmydMMMMMMNddddyssssssss+
-/ssssssssssshdmmNNmmyNMMMMhssssss/
- .ossssssssssssssssssdMMMNysssso.
-   -+ssssssssssssssssssyyyssss+-
-     \`:+ssssssssssssssssss+:\`
-         .-/+oossssoo+/-.`}
+                    {`⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠋⠉⠁⠀⠀⠀⠀⠈⠉⠙⠛⠿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⠿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠿⣿⣿⣿⣿⣿
+⣿⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⣦⠀⠀⠀⠈⢻⣿⣿⣿
+⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀⠀⢠⣶⣶⣾⣷⣶⣆⠸⣿⣿⡟⠀⠀⠀⠀⠀⠹⣿⣿
+⣿⠃⠀⠀⠀⠀⠀⠀⣠⣾⣷⡈⠻⠿⠟⠻⠿⢿⣷⣤⣤⣄⠀⠀⠀⠀⠀⠀⠘⣿
+⡏⠀⠀⠀⠀⠀⠀⣴⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣦⠀⠀⠀⠀⠀⠀⢹
+⠁⠀⠀⢀⣤⣤⡘⢿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⣿⣿⡇⠀⠀⠀⠀⠀⠈
+⠀⠀⠀⣿⣿⣿⡇⢸⣿⡁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢈⣉⣉⡁⠀⠀⠀⠀⠀⠀
+⡀⠀⠀⠈⠛⠛⢡⣾⣿⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⡇⠀⠀⠀⠀⠀⢀
+⣇⠀⠀⠀⠀⠀⠀⠻⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣿⠟⠀⠀⠀⠀⠀⠀⣸
+⣿⡄⠀⠀⠀⠀⠀⠀⠙⢿⡿⢁⣴⣶⣦⣴⣶⣾⡿⠛⠛⠋⠀⠀⠀⠀⠀⠀⢠⣿
+⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠘⠿⠿⢿⡿⠿⠏⢰⣿⣿⣧⠀⠀⠀⠀⠀⣰⣿⣿
+⣿⣿⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢿⣿⠟⠀⠀⠀⢀⣼⣿⣿⣿
+⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣶⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣄⣀⡀⠀⠀⠀⠀⢀⣀⣠⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿`}
                   </div>
                   {/* Right Column: Dynamic System Info */}
                   <div className="space-y-1 py-1 flex-grow">
@@ -375,7 +370,7 @@ const LiveTerminal = ({
                     <div><span className="text-[#e95420] font-bold">Terminal:</span> <span className="text-slate-600">{log.data?.terminal}</span></div>
                     <div><span className="text-[#e95420] font-bold">CPU:</span> <span className="text-slate-600">{log.data?.cpu}</span></div>
                     <div><span className="text-[#e95420] font-bold">Memory:</span> <span className="text-slate-600">{log.data?.memory}</span></div>
-                    
+
                     {/* Colored Blocks Block */}
                     <div className="flex flex-col gap-0.5 pt-4">
                       <div className="flex">
@@ -879,11 +874,10 @@ const DevDashboard = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${
-                        isActive
-                          ? 'bg-white text-violet-700 shadow-md scale-105'
-                          : 'text-white/80 hover:text-white hover:bg-white/5'
-                      }`}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${isActive
+                        ? 'bg-white text-violet-700 shadow-md scale-105'
+                        : 'text-white/80 hover:text-white hover:bg-white/5'
+                        }`}
                     >
                       <span className="hidden sm:inline-block shrink-0">{tab.icon}</span>
                       <span>{tab.label}</span>

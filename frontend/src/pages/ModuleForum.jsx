@@ -129,7 +129,7 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
       <div
         ref={scrollRef}
         className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-white text-gray-900 select-none px-3 py-2 leading-[1.5]`}
-        style={{ fontSize: '14px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
+        style={{ fontSize: '16px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
         aria-hidden="true"
       >
         {renderHighlights(value)}
@@ -145,7 +145,7 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
         onScroll={handleScroll}
         placeholder={placeholder}
         className={`w-full bg-transparent relative z-10 caret-black leading-[1.5] resize-none px-3 py-2 outline-none border-none`}
-        style={{ minHeight, fontSize: '14px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
+        style={{ minHeight, fontSize: '16px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
       />
     </div>
   );
@@ -993,7 +993,7 @@ const ModuleForum = () => {
                     value={searchTerm} 
                     onChange={(e) => setSearchTerm(e.target.value)} 
                     placeholder="Buscar por título o contenido..." 
-                    className="w-full pl-9 pr-8 py-2.5 text-[11px] font-bold border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/10 focus:border-brand-blue/30 transition-all bg-gray-50/50 hover:bg-white" 
+                    className="w-full pl-9 pr-8 py-2.5 text-base font-bold border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/10 focus:border-brand-blue/30 transition-all bg-gray-50/50 hover:bg-white" 
                   />
                   {searchTerm && (
                     <button 
@@ -1240,12 +1240,12 @@ const ModuleForum = () => {
         <div className="space-y-4">
           <div>
             <label className="text-xs font-black uppercase text-gray-500">Modulo</label>
-            <select value={selectedCreateModuleId || ''} onChange={(e) => setSelectedCreateModuleId(Number(e.target.value))} className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            <select value={selectedCreateModuleId || ''} onChange={(e) => setSelectedCreateModuleId(Number(e.target.value))} className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-base">
               <option value="">Selecciona un modulo</option>
               {myModules.map((mod) => <option key={mod.id} value={mod.id}>{mod.modulo || `Modulo #${mod.id}`}</option>)}
             </select>
           </div>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Titulo de la pregunta" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-base" placeholder="Titulo de la pregunta" />
           <div className="relative">
             <MentionHighlighter textareaRef={threadTextRef} scrollRef={threadScrollRef} value={content} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('thread', e.target.value)} onKeyDown={(e) => handleInputKeyDown('thread', e)} placeholder="Describe tu duda... usa @ para mencionar" minHeight="120px" onSelect={() => handleEditorSelection('thread')} />
             {renderMentionDropdown('thread')}
@@ -1285,7 +1285,7 @@ const ModuleForum = () => {
               value={reportReason} 
               onChange={(e) => setReportReason(e.target.value)} 
               placeholder="Describe por qué este contenido es inapropiado o sospechoso..." 
-              className="w-full h-32 border border-slate-200 rounded-2xl p-4 text-sm focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all resize-none bg-slate-50/50" 
+              className="w-full h-32 border border-slate-200 rounded-2xl p-4 text-base focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all resize-none bg-slate-50/50" 
             />
           </div>
 
