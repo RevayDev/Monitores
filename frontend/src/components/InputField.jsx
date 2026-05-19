@@ -127,7 +127,7 @@ const InputField = ({
               ))}
             </select>
             <div className={`absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none transition-colors duration-300 ${isFocused ? roleColor.text : 'text-slate-400'}`}>
-              <ChevronDown size={18} strokeWidth={3} className={isFocused ? 'scale-110' : ''} />
+              <ChevronDown size={18} strokeWidth={3} />
             </div>
           </div>
         ) : type === 'textarea' ? (
