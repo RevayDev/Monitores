@@ -963,6 +963,28 @@ class EngagementService {
     return { success: true };
   }
 
+  async deleteForumReply(userId, replyId) {
+    const reply = await engagementRepository.getForumReplyById(Number(replyId));
+    if (!reply) throw new Error('Respuesta no encontrada.');
+    const forum = await engagementRepository.getForumById(Number(reply.forum_id));
+    const user = await engagementRepository.getUserById(userId);
+    const isModerator = ['admin', 'dev'].includes(String(user?.role || '').toLowerCase());
+
+    const moduleId = Number(forum?.modulo_id || forum?.subject_id);
+    const canAccess = await engagementRepository.canAccessModule(userId, moduleId, user?.email);
+
+    if (Number(reply.user_id) !== Number(userId) && !isModerator) {
+      throw new Error('No autorizado para eliminar esta respuesta.');
+    }
+
+    if (!canAccess && !isModerator) {
+      throw new Error('No puedes eliminar respuestas si ya no perteneces al modulo.');
+    }
+
+    await engagementRepository.deleteForumReply(Number(replyId));
+    return { success: true };
+  }
+
   async createForumComment(forumId, userId, payload, context = {}) {
     return this.createForumReply(forumId, userId, payload, context);
   }

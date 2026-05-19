@@ -34,7 +34,7 @@ const Toaster = ({ message, type = 'info', onClose, duration = 5000 }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10, scale: 0.95 }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
-      className={`fixed top-24 right-4 left-4 sm:top-4 sm:left-auto z-[9999] flex items-start gap-2.5 p-3 rounded-xl border shadow-lg backdrop-blur-md sm:min-w-[280px] sm:max-w-sm ${colors[type] || colors.info}`}
+      className={`fixed top-24 right-4 left-4 sm:top-[88px] sm:right-6 sm:left-auto z-[9999] flex items-start gap-2.5 p-3 rounded-xl border shadow-lg backdrop-blur-md sm:min-w-[280px] sm:max-w-sm ${colors[type] || colors.info}`}
     >
       <div className="mt-0.5 shrink-0">
         {icons[type] || icons.info}

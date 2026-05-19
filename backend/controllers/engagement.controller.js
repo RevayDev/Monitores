@@ -154,7 +154,7 @@ const deleteThread = async (req, res) => {
 
 const deleteMessage = async (req, res) => {
   try {
-    const result = await engagementService.deleteMessage(Number(req.params.id), req.userContext.userId);
+    const result = await engagementService.deleteMessage(req.userContext.userId, Number(req.params.id));
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -377,6 +377,15 @@ const updateForumReply = async (req, res) => {
   }
 };
 
+const deleteForumReply = async (req, res) => {
+  try {
+    const data = await engagementService.deleteForumReply(req.userContext.userId, req.params.id);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const updateForumPresence = async (req, res) => {
   try {
     const { forumId } = req.params;
@@ -482,6 +491,7 @@ export default {
   getAdminStats,
   updateForum,
   updateForumReply,
+  deleteForumReply,
   getMyStats,
   updateForumPresence,
   getForumPresence,

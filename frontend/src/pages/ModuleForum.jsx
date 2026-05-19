@@ -11,7 +11,7 @@ import {
   createForum,
   createForumReply,
   deleteForum,
-  deleteForumMessage,
+  deleteForumReply,
   getForumById,
   getForumMembers,
   getForumsByModule,
@@ -91,7 +91,24 @@ const roleMentionStyle = (vRole) => {
   return 'bg-blue-100 text-blue-900';
 };
 
-const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, onSelect, onKeyUp, textareaRef, scrollRef, placeholder, className, minHeight }) => {
+const bubbleByVisualRole = (vRole, isMine = false) => {
+  if (vRole === 'admin') return isMine ? 'bg-indigo-100 border-indigo-300 text-slate-900' : 'bg-indigo-50 border-indigo-200 text-slate-800';
+  if (vRole === 'monitor' || vRole === 'monitor_academico') return isMine ? 'bg-emerald-100 border-emerald-300 text-slate-900' : 'bg-emerald-50 border-emerald-200 text-slate-800';
+  if (vRole === 'monitor_administrativo') return isMine ? 'bg-teal-100 border-teal-300 text-slate-900' : 'bg-teal-50 border-teal-200 text-slate-800';
+  return isMine ? 'bg-blue-100 border-blue-300 text-slate-900' : 'bg-white/95 border-blue-100 text-slate-800';
+};
+
+const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, onSelect, onKeyUp, textareaRef, scrollRef, placeholder, className, minHeight, disabled = false, maxHeight = 260 }) => {
+  useEffect(() => {
+    if (!textareaRef?.current) return;
+    const el = textareaRef.current;
+    el.style.height = 'auto';
+    const floor = Number(String(minHeight || '0').replace('px', '')) || 0;
+    const nextHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${Math.max(nextHeight, floor)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [value, textareaRef, minHeight, maxHeight]);
+
   const handleScroll = (e) => {
     if (scrollRef && scrollRef.current) {
       scrollRef.current.scrollTop = e.target.scrollTop;
@@ -144,7 +161,9 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
         onKeyUp={onKeyUp}
         onScroll={handleScroll}
         placeholder={placeholder}
-        className={`w-full bg-transparent relative z-10 caret-black leading-[1.5] resize-none px-3 py-2 outline-none border-none`}
+        disabled={disabled}
+        readOnly={disabled}
+        className={`w-full bg-transparent relative z-10 caret-black leading-[1.5] resize-none px-3 py-2 outline-none border-none ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         style={{ minHeight, fontSize: '16px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
       />
     </div>
@@ -323,6 +342,8 @@ const ModuleForum = () => {
   const replyImageRef = useRef(null);
   const threadScrollRef = useRef(null);
   const replyScrollRef = useRef(null);
+  const editTextRef = useRef(null);
+  const editScrollRef = useRef(null);
   const repliesEndRef = useRef(null);
 
   const [toolbar, setToolbar] = useState({ isVisible: false, x: 0, y: 0, target: null });
@@ -758,7 +779,7 @@ const ModuleForum = () => {
     if (target === 'thread') setContent(value);
     else if (target === 'edit') setEditContent(value);
     else setReplyText(value);
-    const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? null : replyTextRef.current);
+    const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? editTextRef.current : replyTextRef.current);
     if (ref) setCursorPos((prev) => ({ ...prev, [target]: ref.selectionStart }));
     const query = getMentionQuery(value);
     if (query === null) { setMentionTarget(null); setMentionQuery(''); return; }
@@ -767,7 +788,7 @@ const ModuleForum = () => {
   };
 
   const handleEditorSelection = (target) => {
-    const ref = target === 'thread' ? threadTextRef.current : replyTextRef.current;
+    const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? editTextRef.current : replyTextRef.current);
     if (!ref) return;
     const start = ref.selectionStart;
     const end = ref.selectionEnd;
@@ -819,7 +840,7 @@ const ModuleForum = () => {
     else setReplyText(replaced);
     setMentionTarget(null);
     setMentionQuery('');
-    const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? null : replyTextRef.current);
+    const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? editTextRef.current : replyTextRef.current);
     if (ref) { setTimeout(() => { ref.focus(); const newPos = replaced.length; ref.setSelectionRange(newPos, newPos); }, 0); }
   };
 
@@ -832,7 +853,6 @@ const ModuleForum = () => {
       const response = await createForum({ modulo_id: Number(selectedCreateModuleId), title: title.trim(), content: content.trim(), attachments });
       if (response?.success === false) return showToast('No se pudo publicar', 'error');
 
-      showToast('Pregunta publicada correctamente', 'success');
       setTitle('');
       setContent('');
       setAttachments([]);
@@ -886,7 +906,6 @@ const ModuleForum = () => {
       setReplyText(''); setReplyAttachments([]); setMentionTarget(null); setMentionQuery('');
       localStorage.removeItem(`forum_draft_reply_${selectedId}`);
       updateForumPresence(selectedId, false).catch(() => { });
-      showToast('Respuesta publicada correctamente', 'success');
     } catch (error) { showToast(error?.message || 'No se pudo publicar', 'error'); }
     finally { setReplying(false); }
   };
@@ -900,22 +919,44 @@ const ModuleForum = () => {
 
   const handleDeleteRecord = async () => {
     if (!confirmDelete) return;
+    const target = confirmDelete;
+    setConfirmDelete(null);
     try {
-      if (confirmDelete.type === 'forum') {
-        await deleteForum(confirmDelete.id);
-        if (Number(selectedId) === Number(confirmDelete.id)) setSelectedId(null);
-        showToast('Foro eliminado.', 'success');
-      } else { await deleteForumMessage(confirmDelete.id); showToast('Respuesta eliminada.', 'success'); }
-      await loadThreads();
-      if (selectedId) await loadDetail(selectedId);
-    } catch (error) { showToast(error.message || 'Error al eliminar', 'error'); }
+      if (target.type === 'forum') {
+        await deleteForum(target.id);
+        if (Number(selectedId) === Number(target.id)) setSelectedId(null);
+        await loadThreads();
+        if (selectedId) await loadDetail(selectedId);
+      } else {
+        await deleteForumReply(target.id);
+        setDetail((prev) => {
+          if (!prev) return prev;
+          const replies = (prev.replies || prev.comments || []).filter((r) => Number(r.id) !== Number(target.id));
+          return { ...prev, replies, comments: replies };
+        });
+        await loadThreads({ silent: true });
+      }
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      const isAlreadyDeleted = target?.type === 'reply' && (message.includes('no encontrado') || message.includes('not found'));
+      if (isAlreadyDeleted) {
+        setDetail((prev) => {
+          if (!prev) return prev;
+          const replies = (prev.replies || prev.comments || []).filter((r) => Number(r.id) !== Number(target.id));
+          return { ...prev, replies, comments: replies };
+        });
+        await loadThreads({ silent: true });
+        return;
+      }
+      showToast(error.message || 'Error al eliminar', 'error');
+    }
   };
 
   const renderMentionDropdown = (target) => {
     if (mentionTarget !== target) return null;
     if (!mentionCandidates.length) return null;
     return (
-      <div className="absolute left-0 bottom-full mb-1 z-20 w-[320px] max-h-44 overflow-auto rounded-xl border border-gray-200 bg-white p-1 space-y-1">
+      <div className="absolute left-0 top-full mt-1 z-[220] w-full max-w-[360px] max-h-44 overflow-auto rounded-xl border border-gray-200 bg-white p-1 space-y-1 shadow-lg">
         {mentionCandidates.map((member) => (
           <button key={member.id} type="button" onClick={() => insertMention(target, member)} className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <UserAvatar photo={member.foto} name={member.nombre} userId={member.id} userRole={member.role} monitorId={moduleMonitorId} size="w-8 h-8" />
@@ -986,7 +1027,7 @@ const ModuleForum = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-2 sm:py-8 px-0 sm:px-4">
       <div className="max-w-7xl mx-auto space-y-2 sm:space-y-4">
-        <button onClick={handleTopBack} className="flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold px-4 sm:px-0">
+        <button onClick={handleTopBack} className={`flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold px-4 sm:px-0 ${selectedId ? 'hidden sm:flex' : 'flex'}`}>
           <ArrowLeft size={18} /> {selectedId ? 'Volver a la lista' : 'Volver'}
         </button>
         <div className="bg-white p-4 sm:p-6 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 flex flex-wrap items-center justify-between gap-3">
@@ -1000,7 +1041,7 @@ const ModuleForum = () => {
         </div>
         <div className={`grid grid-cols-1 ${isReadOnly ? '' : 'lg:grid-cols-3'} gap-0 sm:gap-4`}>
           {!isReadOnly && (
-            <section className={`lg:col-span-1 bg-white p-3 sm:p-4 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 space-y-4 ${selectedId ? 'hidden lg:block' : 'block'}`}>
+            <section className={`lg:col-span-1 bg-white p-3 sm:p-4 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 space-y-4 lg:h-[calc(100vh-170px)] lg:overflow-hidden ${selectedId ? 'hidden lg:block' : 'block'}`}>
               <div className="flex flex-col gap-3">
                 <h2 className="font-black text-gray-900 text-xs uppercase tracking-widest px-1">Preguntas</h2>
                 <div className="relative w-full group">
@@ -1024,7 +1065,7 @@ const ModuleForum = () => {
                   )}
                 </div>
               </div>
-              <div className="space-y-2 max-h-[58vh] overflow-auto pr-1 mt-2">
+              <div className="space-y-2 max-h-[58vh] lg:max-h-none lg:h-[calc(100vh-270px)] overflow-auto pr-1 mt-2">
                 {filteredThreads.map((thread) => (
                   <div key={thread.id} className={`w-full text-left rounded-xl sm:rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
                     <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
@@ -1042,34 +1083,37 @@ const ModuleForum = () => {
               </div>
             </section>
           )}
-          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-[#efeae2] sm:bg-white p-0 sm:p-5 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 flex flex-col h-[calc(100vh-80px)] sm:h-auto overflow-hidden ${!selectedId ? 'hidden lg:block' : 'block'}`}>
+          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-white p-0 sm:p-5 rounded-none sm:rounded-3xl border-b sm:border ${isReadOnly ? 'border-gray-300 border-dashed' : 'border-gray-100'} flex flex-col h-[calc(100vh-80px)] sm:h-[calc(100vh-170px)] overflow-hidden ${!selectedId ? 'hidden lg:block' : 'block'}`}>
             {!detail ? <p className="text-sm text-gray-500 p-4">Selecciona una pregunta para ver el detalle.</p> : (
               <>
                 {/* Mobile WhatsApp-like Header */}
-                <div className="flex items-center justify-between p-3 bg-slate-900 text-white sm:hidden sticky top-0 z-30 shrink-0">
-                  <button onClick={handleTopBack} className="p-1 text-white hover:bg-slate-800 rounded-lg transition-colors">
+                <div className="flex items-center justify-between p-3 bg-white/95 backdrop-blur-md border-b border-slate-100 text-slate-900 sm:hidden sticky top-0 z-30 shrink-0">
+                  <button onClick={handleTopBack} className="p-1 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                     <ArrowLeft size={22} />
                   </button>
                   <div className="min-w-0 flex-grow ml-2">
                     <h1 className="text-sm font-black truncate">{detail.title}</h1>
-                    <p className="text-[10px] text-slate-400 truncate">por {detail.author_name}</p>
+                    <p className="text-[10px] text-slate-500 truncate">por {detail.author_name}</p>
                   </div>
-                  <button onClick={loadThreads} className="p-2 text-slate-400 hover:text-white rounded-lg transition-all text-xs font-black">
+                  <button onClick={loadThreads} className="p-2 text-brand-blue hover:bg-blue-50 rounded-lg transition-all text-xs font-black">
                     Actualizar
                   </button>
                 </div>
 
-                <div className="relative flex-1 min-h-0 flex flex-col p-3 sm:p-0">
+                <div className="relative flex-1 min-h-0 flex flex-col p-3 sm:p-0 overflow-visible">
                   <div
                     ref={messagesScrollRef}
                     onScroll={handleScrollTracking}
-                    className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-0"
+                    className="forum-chat-surface flex-1 overflow-y-auto pr-1 space-y-3 min-h-0 rounded-none p-0 border-0"
                   >
                     {/* Main original post question inside scrollable area */}
-                    <div className={`rounded-xl sm:rounded-2xl border transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 bg-white ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'border-rose-300 bg-rose-50/50' :
-                        isMeMentioned(detail.content, currentUser?.id) ? 'border-blue-200 animate-pulse-blue bg-blue-50/30' :
-                          (Number(detail.user_id) === Number(currentUser?.id) ? 'border-brand-blue/30 bg-blue-50/10' : 'border-gray-100 bg-white')
+                    <div className={`rounded-xl sm:rounded-2xl border shadow-sm transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 bg-white ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'border-rose-300 bg-rose-50/50' :
+                      isMeMentioned(detail.content, currentUser?.id) ? 'border-blue-300 animate-pulse-blue bg-blue-50/50' :
+                        (Number(detail.user_id) === Number(currentUser?.id) ? 'border-brand-blue/40 bg-blue-50/40' : 'border-blue-100 bg-blue-50/30')
                       }`}>
+                      <div className="mb-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
+                        Pregunta principal
+                      </div>
                       {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Origen del reporte</div>}
                       {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Te mencionaron</div>}
                       <div className="flex items-start justify-between gap-3">
@@ -1099,7 +1143,7 @@ const ModuleForum = () => {
                           <div className="relative group">
                             <button onClick={() => setActiveMenuId(activeMenuId === 'thread' ? null : 'thread')} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={16} /></button>
                             {activeMenuId === 'thread' && (
-                              <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                              <div className="absolute right-0 top-9 w-40 bg-white rounded-xl border border-gray-100 py-1 z-[140] shadow-xl animate-scale-in">
                                 {Number(detail.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'thread', id: detail.id, name: detail.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
                                 {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { handleStartEdit(detail, false); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
                                 {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: detail.id, type: 'forum' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
@@ -1110,7 +1154,8 @@ const ModuleForum = () => {
                       </div>
                       {editingId?.id === detail.id && !editingId.isReply ? (
                         <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 mt-2">
-                          <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu publicación..." minHeight="100px" onSelect={() => handleEditorSelection('edit')} />
+                          <MentionHighlighter textareaRef={editTextRef} scrollRef={editScrollRef} value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu publicación..." minHeight="100px" maxHeight={999} onSelect={() => handleEditorSelection('edit')} />
+                          {renderMentionDropdown('edit')}
                           <div className="flex justify-end gap-2 text-xs"><button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
                         </div>
                       ) : (
@@ -1121,12 +1166,9 @@ const ModuleForum = () => {
                       )}
                     </div>
                     {unreadWhileBrowsing > 0 && !isAtBottom && (
-                      <button
-                        onClick={scrollToBottom}
-                        className="scroll-bottom-btn animate-bounce-slow"
-                      >
-                        <Plus className="rotate-45 text-black" size={20} />
-                        <span className="unread-bubble">{unreadWhileBrowsing}</span>
+                      <button onClick={scrollToBottom} className="new-message-fab">
+                        <ChevronDown size={16} />
+                        <span className="text-[10px] font-black uppercase">Nuevos ({unreadWhileBrowsing})</span>
                       </button>
                     )}
                     {(() => {
@@ -1142,31 +1184,23 @@ const ModuleForum = () => {
 
                       displayedReplies.forEach((reply, idx) => {
                         if (!reply || !reply.id) return;
-                        if (!bannerShown && showBanner && !hasEnteredThread && lastSeen > 0 && Number(reply.id) > lastSeen) {
-                          result.push(
-                            <div key="new-banner" className="flex items-center gap-4 py-4 animate-fade-in">
-                              <div className="flex-1 h-px bg-emerald-100" />
-                              <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 select-none">
-                                - {newMessages.length || 1} mensajes nuevos -
-                              </span>
-                              <div className="flex-1 h-px bg-emerald-100" />
-                            </div>
-                          );
-                          bannerShown = true;
-                        }
+                        // Hidden by UX request: no "mensajes nuevos" banner while inside chat
                         const isMentioned = isMeMentioned(reply.content, currentUser?.id);
                         const isNewlyMentioned = isMentioned && isNewlyCreated(reply.created_at);
                         const isMeSender = Number(reply.user_id) === Number(currentUser?.id);
+                        const myVisualRole = getVisualRole(currentUser?.id, currentUser?.role, moduleMonitorId, members);
+                        const replyVisualRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
+                        const roleBubbleClass = isMeSender ? bubbleByVisualRole(myVisualRole, true) : bubbleByVisualRole(replyVisualRole, false);
 
                         result.push(
                           <div key={reply.id} className={`flex w-full ${isMeSender ? 'justify-end' : 'justify-start'} mb-1`}>
-                            <div 
-                              id={`reply-${reply.id}`} 
-                              className={`rounded-2xl border transition-all duration-500 p-3 relative max-w-[85%] sm:max-w-[75%] ${(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300' :
-                                  highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300' :
-                                    isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
-                                      isMentioned ? 'bg-blue-50/50 border-blue-100' :
-                                        isMeSender ? 'bg-[#d9fdd3] border-[#b7e4b2] text-slate-800 rounded-tr-none' : 'bg-white border-slate-100 text-slate-800 rounded-tl-none'
+                            <div
+                              id={`reply-${reply.id}`}
+                              className={`group/msg rounded-2xl border shadow-sm transition-all duration-500 p-3 relative max-w-[85%] sm:max-w-[75%] overflow-visible ${(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300' :
+                                highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300' :
+                                  isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
+                                    isMentioned ? 'bg-blue-50/50 border-blue-100' :
+                                      isMeSender ? `${roleBubbleClass} rounded-tr-none` : `${roleBubbleClass} rounded-tl-none`
                                 }`}
                             >
                               {(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) && (
@@ -1174,38 +1208,40 @@ const ModuleForum = () => {
                                   OBJETO DEL REPORTE
                                 </div>
                               )}
-                              <div className="flex justify-between items-start mb-2 text-xs">
-                                <div className="flex items-center gap-2 text-gray-500">
-                                  <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
-                                  <div className="flex flex-col">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
-                                      {(() => {
-                                        const vRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
-                                        const isEnrolledAdmin = ['admin', 'dev'].includes(String(reply.author_role || '').toLowerCase()) &&
-                                          members.some(m => Number(m.id) === Number(reply.user_id));
+                              <div className={`flex ${isMeSender ? 'justify-end' : 'justify-between'} items-start mb-2 text-xs`}>
+                                {!isMeSender ? (
+                                  <div className="flex items-center gap-2 text-gray-500">
+                                    <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
+                                        {(() => {
+                                          const vRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
+                                          const isEnrolledAdmin = ['admin', 'dev'].includes(String(reply.author_role || '').toLowerCase()) &&
+                                            members.some(m => Number(m.id) === Number(reply.user_id));
 
-                                        if (isEnrolledAdmin) return null;
+                                          if (isEnrolledAdmin) return null;
 
-                                        const isAuthorOfThread = Number(reply.user_id) === Number(detail?.user_id);
-                                        if (vRole === 'admin' || vRole === 'monitor' || isAuthorOfThread) {
-                                          return (
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
-                                              {isAuthorOfThread && vRole !== 'admin' && vRole !== 'monitor' ? 'Autor' : roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId, members)}
-                                            </span>
-                                          );
-                                        }
-                                        return null;
-                                      })()}
+                                          const isAuthorOfThread = Number(reply.user_id) === Number(detail?.user_id);
+                                          if (vRole === 'admin' || vRole === 'monitor' || isAuthorOfThread) {
+                                            return (
+                                              <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
+                                                {isAuthorOfThread && vRole !== 'admin' && vRole !== 'monitor' ? 'Autor' : roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId, members)}
+                                              </span>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                      </div>
+                                      <span className="text-[9px]">{new Date(reply.created_at).toLocaleString()}</span>
                                     </div>
-                                    <span className="text-[9px]">{new Date(reply.created_at).toLocaleString()}</span>
                                   </div>
-                                </div>
-                                <div className="flex gap-1 h-fit relative">
-                                  {!isReadOnly && <button onClick={() => quickReply(reply)} className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"><CornerUpLeft size={14} /></button>}
-                                  <button onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={14} /></button>
+                                ) : null}
+                                <div className={`flex gap-1 h-fit ${isMeSender ? 'absolute top-1.5 right-1.5' : 'ml-auto'}`}>
+                                  {!isReadOnly && !isMeSender && <button onClick={() => quickReply(reply)} className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"><CornerUpLeft size={14} /></button>}
+                                  <button onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90 opacity-0 group-hover/msg:opacity-100 max-sm:opacity-100"><MoreVertical size={14} /></button>
                                   {activeMenuId === `reply-${reply.id}` && (
-                                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                                    <div className="absolute right-0 bottom-full mb-1 w-40 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-gray-100 py-1 z-[160] shadow-xl animate-scale-in">
                                       {Number(reply.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
                                       {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && <button onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
                                       {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
@@ -1214,11 +1250,19 @@ const ModuleForum = () => {
                                 </div>
                               </div>
                               {editingId?.id === reply.id && editingId.isReply ? (
-                                <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
-                                  <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu respuesta..." minHeight="60px" onSelect={() => handleEditorSelection('edit')} />
+                                <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2 max-w-full overflow-hidden">
+                                  <MentionHighlighter textareaRef={editTextRef} scrollRef={editScrollRef} value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu respuesta..." minHeight="60px" maxHeight={999} onSelect={() => handleEditorSelection('edit')} />
+                                  {renderMentionDropdown('edit')}
                                   <div className="flex justify-end gap-2 text-[10px]"><button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
                                 </div>
-                              ) : <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">{renderRichText(reply.content, members, moduleMonitorId, currentUser?.id)}</div>}
+                              ) : (
+                                <>
+                                  <div className={`text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed ${isMeSender ? 'mt-1 pr-7' : 'mt-2 pr-2'}`}>{renderRichText(reply.content, members, moduleMonitorId, currentUser?.id)}</div>
+                                  <div className="mt-2 flex justify-end">
+                                    <span className="text-[10px] text-gray-500 font-medium">{new Date(reply.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' }).toLowerCase()}</span>
+                                  </div>
+                                </>
+                              )}
                               {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
                             </div>
                           </div>
@@ -1249,23 +1293,39 @@ const ModuleForum = () => {
                     <div ref={repliesEndRef} />
                   </div>
                 </div>
-                {!isReadOnly && (
-                  <div className={`rounded-xl sm:rounded-2xl border transition-all duration-300 p-3 space-y-2 relative ${editingId ? 'bg-gray-50' : 'border-gray-100'}`}>
-                    <TypingIndicator users={typingUsers} monitorId={moduleMonitorId} />
-                    <div className="relative">
-                      <MentionHighlighter textareaRef={replyTextRef} scrollRef={replyScrollRef} value={replyText} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('reply', e.target.value)} onKeyDown={(e) => handleInputKeyDown('reply', e)} placeholder="Escribe una respuesta... usa @ para mencionar" minHeight="100px" onSelect={() => handleEditorSelection('reply')} />
-                      {renderMentionDropdown('reply')}
-                    </div>
-                    <LiveImagePreview text={replyText} cursorPosition={cursorPos.reply} />
-                    {attachmentGrid(replyAttachments, 'reply')}
-                    <div className="flex flex-wrap gap-2 items-center">
-                      {insertMenu('reply')}
-                      <input ref={replyFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'reply')} />
-                      <input ref={replyImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'reply')} />
-                      <button disabled={replying || !!editingId} onClick={handleReply} className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50"><Send size={14} /> {replying ? 'Publicando...' : 'Responder'}</button>
-                    </div>
+                <div className={`rounded-xl sm:rounded-2xl border transition-all duration-300 p-3 space-y-2 relative ${(isReadOnly || !!editingId) ? 'border-2 border-dashed border-gray-400 bg-gray-50/80' : 'border-gray-100'}`}>
+                  <TypingIndicator users={typingUsers} monitorId={moduleMonitorId} />
+                  <div className="relative">
+                    <MentionHighlighter textareaRef={replyTextRef} scrollRef={replyScrollRef} value={replyText} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('reply', e.target.value)} onKeyDown={(e) => handleInputKeyDown('reply', e)} placeholder={isReadOnly ? "Foro en modo lectura: no puedes escribir." : (editingId ? "Modo edición activo" : "Escribe una respuesta... usa @ para mencionar")} minHeight="100px" onSelect={() => handleEditorSelection('reply')} disabled={isReadOnly || !!editingId} />
+                    {!isReadOnly && !editingId && renderMentionDropdown('reply')}
                   </div>
-                )}
+                  {!isReadOnly && !editingId && <LiveImagePreview text={replyText} cursorPosition={cursorPos.reply} />}
+                  {!isReadOnly && !editingId && attachmentGrid(replyAttachments, 'reply')}
+                  <div className={`flex flex-wrap gap-2 items-center ${(isReadOnly || !!editingId) ? 'opacity-90' : ''}`}>
+                    {(isReadOnly || !!editingId) ? (
+                      <div className="px-3 py-2 rounded-lg border border-dashed border-gray-400 text-[10px] font-bold text-gray-600 bg-white">
+                        {editingId ? 'Modo edición activo' : 'Insertar deshabilitado'}
+                      </div>
+                    ) : (
+                      <>
+                        {insertMenu('reply')}
+                        <input ref={replyFileRef} type="file" className="hidden" onChange={(e) => uploadAsAttachment(e.target.files?.[0], 'reply')} />
+                        <input ref={replyImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'reply')} />
+                      </>
+                    )}
+                    <button disabled={isReadOnly || replying || !!editingId} onClick={handleReply} className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50"><Send size={14} /> {isReadOnly ? 'Bloqueado' : (replying ? 'Publicando...' : 'Responder')}</button>
+                  </div>
+                  {(isReadOnly || !!editingId) && (
+                    <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-transparent cursor-not-allowed" aria-hidden="true" />
+                  )}
+                  {!!editingId && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="px-4 py-2 rounded-full border border-dashed border-gray-400 bg-white/95 text-xs font-black text-gray-600 uppercase tracking-wide">
+                        Modo edición activo
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </section>

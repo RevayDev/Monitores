@@ -720,6 +720,12 @@ class EngagementRepositoryMySQL {
     return true;
   }
 
+  async deleteForumReply(id) {
+    await pool.query('DELETE FROM attachments WHERE reply_id = ?', [id]);
+    const [result] = await pool.query('DELETE FROM replies WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
+
   async findRecentReplyDuplicate({ forumId, userId, content }) {
     const contentHash = hashText(content);
     const [rows] = await pool.query(

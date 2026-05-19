@@ -278,10 +278,11 @@ const Navbar = () => {
         )}
       </button>
       {notificationsOpen && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right max-sm:absolute max-sm:top-full max-sm:left-0 max-sm:right-0 max-sm:w-full max-sm:max-h-[calc(100vh-80px)] max-sm:rounded-none max-sm:border-x-0"
-        >
+        <>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right shadow-xl shadow-slate-900/5 max-sm:fixed max-sm:top-[74px] max-sm:left-3 max-sm:right-3 max-sm:w-auto max-sm:max-h-[min(70vh,520px)] max-sm:rounded-2xl max-sm:border"
+          >
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Notificaciones</span>
             <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">{notifications.length} total</span>
@@ -305,13 +306,13 @@ const Navbar = () => {
                     <p className="text-sm text-slate-600 font-medium leading-relaxed">{n.message}</p>
                     <p className="text-[10px] text-slate-400 mt-2 font-semibold">{new Date(n.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' }).toUpperCase()}</p>
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 opacity-0 group-hover:opacity-100">
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                     <Trash2 size={14} />
                   </button>
                 </div>
               );
             }) : (
-              <div className="px-5 py-12 text-center space-y-3">
+              <div className="px-5 py-10 text-center space-y-3">
                 <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
                   <Bell className="text-slate-200" size={24} />
                 </div>
@@ -319,7 +320,8 @@ const Navbar = () => {
               </div>
             )}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

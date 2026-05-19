@@ -296,6 +296,7 @@ export const createForumComment = (id, payload) => request(`/forums/${id}/commen
 export const createForumReply = (id, payload) => request(`/forums/${id}/reply`, { method: 'POST', body: JSON.stringify(payload) });
 export const updateForum = (id, payload) => request(`/forums/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 export const updateForumReply = (id, payload) => request(`/forums/reply/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+export const deleteForumReply = (id) => request(`/forums/reply/${id}`, { method: 'DELETE' });
 export const toggleForumSave = (id) => request(`/forums/${id}/save`, { method: 'POST', body: JSON.stringify({}) });
 export const deleteForum = (id) => request(`/forums/${id}`, { method: 'DELETE' });
 export const getMonitorAdminStats = () => request('/stats/monitor-admin');
@@ -440,6 +441,5 @@ export const rootSystemRestore = async (file) => {
   }
   return response.json();
 };
-
 
 

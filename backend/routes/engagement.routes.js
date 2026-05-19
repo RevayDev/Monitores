@@ -68,6 +68,7 @@ router.post('/forums/:id/comment', requireUserContext, engagementController.crea
 router.post('/forums/:id/reply', requireUserContext, engagementController.createForumReply);
 router.put('/forums/:id', requireUserContext, engagementController.updateForum);
 router.put('/forums/reply/:id', requireUserContext, engagementController.updateForumReply);
+router.delete('/forums/reply/:id', requireUserContext, engagementController.deleteForumReply);
 
 // Presencia
 router.put('/forums/:forumId/presence', requireUserContext, engagementController.updateForumPresence);
