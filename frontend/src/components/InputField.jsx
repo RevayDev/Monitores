@@ -72,12 +72,15 @@ const InputField = ({
   };
  
   const inputBaseClasses = `
-    w-full rounded-2xl text-base font-semibold transition-all duration-300 outline-none border
+    w-full rounded-2xl text-base font-semibold transition-all duration-300 outline-none border-2
     ${disabled 
       ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-100 opacity-80" 
-      : "bg-white border-slate-200 text-slate-900 hover:border-slate-300"}
-    ${error ? "border-rose-400" : "border-slate-200"}
-    ${isFocused && !error ? `${roleColor.border}` : ""}
+      : "bg-white text-slate-900"}
+    ${error 
+      ? "border-rose-400" 
+      : isFocused 
+        ? `${roleColor.border}` 
+        : "border-slate-200 hover:border-slate-300"}
     ${icon ? 'pl-12' : 'pl-4'}
   `;
  

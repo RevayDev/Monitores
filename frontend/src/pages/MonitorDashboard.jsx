@@ -932,7 +932,7 @@ const MonitorDashboard = () => {
                           if (!res) showToast('No se detectó QR. Intenta enfocar mejor.', 'info');
                         }, 800);
                       }}
-                      className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black shadow-lg shadow-teal-500/20 hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2"
+                      className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2"
                     >
                       <PlusCircle size={14} /> Escanear Ahora
                     </button>
@@ -984,7 +984,7 @@ const MonitorDashboard = () => {
 
               <div className="flex flex-wrap gap-3 max-w-xl mx-auto">
                 <input value={manualQrToken} onChange={(e) => setManualQrToken(e.target.value)} className="flex-1 min-w-[220px] border-2 border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-sm font-bold focus:border-teal-500 focus:bg-white outline-none transition-all placeholder:text-gray-300" placeholder="O escribe el token aquí..." />
-                <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-8 py-4 rounded-2xl bg-teal-600 text-white text-sm font-black shadow-xl shadow-teal-500/30 hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50">
+                <button disabled={isValidatingScan} onClick={() => handleDiningScan(manualQrToken)} className="px-8 py-4 rounded-2xl bg-teal-600 text-white text-sm font-black hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50">
                   {isValidatingScan ? '...' : 'Validar'}
                 </button>
               </div>

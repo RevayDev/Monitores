@@ -242,7 +242,7 @@ const Signup = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 bg-brand-blue text-white font-black text-sm rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-4 bg-brand-blue text-white font-black text-sm rounded-2xl hover:bg-brand-dark-blue active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? 'Procesando...' : step === 1 ? <>Siguiente <ArrowRight size={18} /></> : <>Crear Mi Perfil <ArrowRight size={18} /></>}
                 </button>

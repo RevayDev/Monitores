@@ -201,7 +201,7 @@ const Monitorias = () => {
             <div className="flex flex-col gap-3">
               <button
                 onClick={confirmRegistration}
-                className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all text-sm uppercase tracking-widest"
+                className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl hover:bg-brand-dark-blue active:scale-95 transition-all text-sm uppercase tracking-widest"
               >
                 Sí, Registrarme Ahora
               </button>
@@ -233,7 +233,7 @@ const Monitorias = () => {
             <div className="flex flex-col gap-3 pt-4">
               <button
                 onClick={() => navigate('/mis-monitorias')}
-                className="w-full py-4 rounded-xl bg-brand-blue text-white font-bold text-lg hover:bg-brand-dark-blue shadow-lg transition-all"
+                className="w-full py-4 rounded-xl bg-brand-blue text-white font-bold text-lg hover:bg-brand-dark-blue transition-all"
               >
                 Ir a Mis Monitorías
               </button>

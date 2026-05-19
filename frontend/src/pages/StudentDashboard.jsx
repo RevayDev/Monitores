@@ -239,7 +239,7 @@ const StudentDashboard = () => {
               onChange={e => setQuestionForm({...questionForm, content: e.target.value})}
             />
           </div>
-          <button className="w-full bg-brand-blue text-white font-black py-4 rounded-3xl shadow-xl hover:bg-brand-dark-blue transition-all">
+          <button className="w-full bg-brand-blue text-white font-black py-4 rounded-3xl hover:bg-brand-dark-blue transition-all">
             Publicar Pregunta
           </button>
         </form>
@@ -273,7 +273,7 @@ const ModuleCard = ({ module, actionLabel, onAction, isEnrollable = true }) => (
         disabled={!isEnrollable}
         onClick={onAction}
         className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all ${
-          isEnrollable ? 'bg-brand-blue text-white shadow-lg hover:bg-brand-dark-blue' : 'bg-gray-100 text-gray-400 opacity-50 cursor-not-allowed'
+          isEnrollable ? 'bg-brand-blue text-white hover:bg-brand-dark-blue' : 'bg-gray-100 text-gray-400 opacity-50 cursor-not-allowed'
         }`}
       >
         {isEnrollable ? actionLabel : 'Ya inscrito'}
@@ -325,7 +325,7 @@ const TabButton = ({ active, onClick, icon, label }) => (
   <button 
     onClick={onClick}
     className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
-      active ? 'bg-white text-brand-blue shadow-sm' : 'text-blue-400 hover:text-blue-700'
+      active ? 'bg-white text-brand-blue' : 'text-blue-400 hover:text-blue-700'
     }`}
   >
     {React.cloneElement(icon, { size: 16 })}

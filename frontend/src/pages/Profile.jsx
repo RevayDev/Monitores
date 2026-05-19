@@ -334,7 +334,7 @@ const Profile = () => {
                   transition={{ duration: 0.15 }}
                   onClick={handleDeletePhoto}
                   title="Eliminar foto"
-                  className="pointer-events-auto p-2.5 bg-white text-red-500 rounded-2xl shadow-xl hover:shadow-2xl border border-gray-100 flex items-center justify-center ring-4 ring-red-500/5 -translate-x-3"
+                  className="pointer-events-auto p-2.5 bg-white text-red-500 rounded-2xl border border-gray-100 flex items-center justify-center -translate-x-3"
                 >
                   <Trash2 size={18} />
                 </motion.button>
@@ -349,7 +349,7 @@ const Profile = () => {
                   transition={{ duration: 0.15 }}
                   disabled={isManagementRestricted}
                   title={isManagementRestricted ? "Gestión restringida" : "Cambiar foto"}
-                  className={`relative p-2.5 bg-white rounded-2xl shadow-xl hover:shadow-2xl border border-gray-100 flex items-center justify-center ring-4 ring-brand-blue/5 overflow-hidden ${isManagementRestricted ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-brand-blue'}`}
+                  className={`relative p-2.5 bg-white rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden ${isManagementRestricted ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-brand-blue'}`}
                 >
                   {isManagementRestricted ? <Lock size={18} /> : <Camera size={18} />}
 
@@ -492,7 +492,7 @@ const Profile = () => {
                   {(user?.is_principal || user?.role === 'admin' || user?.role === 'dev') && (
                     <button
                       onClick={handleUpdateInfo}
-                      className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all text-sm flex items-center justify-center gap-2 mt-4"
+                      className="w-full py-4 bg-brand-blue text-white font-black rounded-2xl hover:bg-brand-dark-blue active:scale-95 transition-all text-sm flex items-center justify-center gap-2 mt-4"
                     >
                       <Save size={18} /> Guardar Cambios
                     </button>
@@ -621,7 +621,7 @@ const Profile = () => {
             <div className="flex flex-col gap-3 pt-2">
               <button
                 onClick={handleDeleteAccount}
-                className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg shadow-red-100 hover:bg-red-700 active:scale-95 transition-all uppercase tracking-widest text-[11px]"
+                className="w-full py-4 bg-red-600 text-white font-black rounded-2xl hover:bg-red-700 active:scale-95 transition-all uppercase tracking-widest text-[11px]"
               >
                 Sí, eliminar permanentemente
               </button>
