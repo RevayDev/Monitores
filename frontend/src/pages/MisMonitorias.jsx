@@ -328,7 +328,7 @@ const MisMonitorias = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-6">
+            <div className="text-center py-20 bg-white rounded-3xl border-2 border-solid border-gray-200 flex flex-col items-center gap-6">
               <div className="bg-yellow-100 p-6 rounded-full text-yellow-500 animate-pulse"><Info size={64} strokeWidth={2.5} /></div>
               <div className="space-y-2 max-w-md">
                 <p className="text-2xl text-gray-800 font-extrabold">No tienes monitorias</p>
@@ -340,22 +340,22 @@ const MisMonitorias = () => {
         ) : (
           <div className="space-y-4">
             <div className="bg-white rounded-3xl border border-gray-100 p-5">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                 {monitorias.map((m) => (
-                  <button key={m.id} onClick={() => setActiveModuleId(m.moduleId)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.moduleId) ? 'bg-brand-blue text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
+                  <button key={m.id} onClick={() => setActiveModuleId(m.moduleId)} className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${Number(activeModuleId) === Number(m.moduleId) ? 'bg-brand-blue text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
                     {m.modulo}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-2 flex gap-2 w-full sm:w-fit">
-              <button onClick={() => setForumPanel('questions')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'questions' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:bg-gray-50'}`}>Preguntas</button>
-              <button onClick={() => setForumPanel('create')} className={`px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'create' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:bg-gray-50'}`}>Crear foro</button>
+            <div className="bg-white rounded-2xl border border-gray-100 p-2 flex flex-col sm:flex-row gap-2 w-full sm:w-fit">
+              <button onClick={() => setForumPanel('questions')} className={`w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'questions' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:bg-gray-50'}`}>Preguntas</button>
+              <button onClick={() => setForumPanel('create')} className={`w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black transition-all active:scale-95 ${forumPanel === 'create' ? 'bg-brand-blue text-white' : 'text-gray-400 hover:bg-gray-50'}`}>Crear foro</button>
               {!!activeModuleId && (
                 <button
                   onClick={() => navigate(`/modules/${activeModuleId}/forum`)}
-                  className="px-5 py-2 rounded-xl text-sm font-black bg-gray-900 text-white hover:bg-black hover:shadow-lg active:scale-95 transition-all"
+                  className="w-full sm:w-auto px-5 py-2 rounded-xl text-sm font-black bg-gray-900 text-white hover:bg-black active:scale-95 transition-all"
                 >
                   Foro nuevo
                 </button>
@@ -377,7 +377,7 @@ const MisMonitorias = () => {
                       const isActive = Number(selectedThreadId) === Number(thread.id);
                       const firstMessage = thread.content || '';
                       return (
-                        <article key={thread.id} className={`rounded-2xl border p-4 transition-all ${isActive ? 'border-brand-blue bg-blue-50/40 shadow-sm' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                        <article key={thread.id} className={`rounded-2xl border p-4 transition-all ${isActive ? 'border-brand-blue bg-blue-50/40' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1 min-w-0">
                               <p className="font-black text-gray-900 truncate">{thread.title}</p>
@@ -391,7 +391,7 @@ const MisMonitorias = () => {
 
                           <div className="mt-3 flex items-center justify-between">
                             <span className="inline-flex items-center gap-1 text-xs text-gray-500"><MessageSquare size={13} /> {thread.responses_count || 0} respuestas</span>
-                            <button onClick={() => openThread(thread.id)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-blue text-white text-xs font-black shadow-md shadow-brand-blue/20 hover:bg-brand-dark-blue active:scale-95 transition-all">
+                            <button onClick={() => openThread(thread.id)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-blue text-white text-xs font-black hover:bg-brand-dark-blue active:scale-95 transition-all">
                               <Eye size={14} /> Entrar <ChevronRight size={14} />
                             </button>
                           </div>
@@ -427,7 +427,7 @@ const MisMonitorias = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <input className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900" placeholder="Responder..." value={replyByThread[selectedThread.id] || ''} onChange={(e) => setReplyByThread((p) => ({ ...p, [selectedThread.id]: e.target.value }))} />
-                        <button onClick={() => handleReply(selectedThread.id)} className="p-2.5 rounded-xl bg-gray-900 text-white hover:bg-black hover:shadow-lg active:scale-90 transition-all"><Send size={16} /></button>
+                        <button onClick={() => handleReply(selectedThread.id)} className="p-2.5 rounded-xl bg-gray-900 text-white hover:bg-black active:scale-90 transition-all"><Send size={16} /></button>
                       </div>
                     </div>
                   ) : (
@@ -485,7 +485,7 @@ const MisMonitorias = () => {
                   </div>
                 )}
 
-                <button onClick={handleCreateThread} disabled={uploading} className="w-full py-5 rounded-2xl bg-brand-blue text-white font-black text-base shadow-xl shadow-brand-blue/20 hover:bg-brand-dark-blue hover:shadow-2xl active:scale-[0.98] transition-all disabled:opacity-50">
+                <button onClick={handleCreateThread} disabled={uploading} className="w-full py-5 rounded-2xl bg-brand-blue text-white font-black text-base hover:bg-brand-dark-blue active:scale-[0.98] transition-all disabled:opacity-50">
                   {uploading ? 'Subiendo...' : 'Publicar foro'}
                 </button>
               </section>

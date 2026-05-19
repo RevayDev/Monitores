@@ -30,7 +30,7 @@ function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
   if (isSuspended && userRole !== 'dev') {
     return (
       <div className="min-h-[calc(100vh-80px)] bg-white flex flex-col items-center justify-center p-6 text-center space-y-6">
-        <div className="w-24 h-24 bg-red-100 text-red-600 rounded-[32px] flex items-center justify-center animate-pulse shadow-xl shadow-red-100/50">
+        <div className="w-24 h-24 bg-red-100 text-red-600 rounded-[32px] flex items-center justify-center animate-pulse">
           <ShieldAlert size={48} />
         </div>
         <div className="space-y-2 max-w-md">
@@ -61,7 +61,7 @@ function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
   if (isMaintenance && userRole !== 'dev') {
     return (
       <div className="min-h-[calc(100vh-80px)] bg-white flex flex-col items-center justify-center p-6 text-center space-y-6">
-        <div className="w-24 h-24 bg-purple-200 text-purple-600 rounded-[32px] flex items-center justify-center animate-pulse shadow-xl shadow-purple-200/50">
+        <div className="w-24 h-24 bg-purple-200 text-purple-600 rounded-[32px] flex items-center justify-center animate-pulse">
           <Wrench size={48} />
         </div>
         <div className="space-y-2 max-w-md">
@@ -75,7 +75,7 @@ function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
         <div className="pt-4">
           <button
             onClick={() => window.location.href = '/'}
-            className="px-8 py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl hover:bg-brand-dark-blue active:scale-95 transition-all uppercase tracking-widest text-sm"
+            className="px-8 py-4 bg-brand-blue text-white font-black rounded-2xl hover:bg-brand-dark-blue active:scale-95 transition-all uppercase tracking-widest text-sm"
           >
             Reintentar Acceso
           </button>
@@ -117,17 +117,48 @@ function App() {
     monitorPanel: false,
     global: false
   });
-  const [userRole, setUserRole] = React.useState('student');
-  const [isSuspended, setIsSuspended] = React.useState(false);
+  const [userRole, setUserRole] = React.useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+      return u.role || 'student';
+    } catch {
+      return 'student';
+    }
+  });
+  const [isSuspended, setIsSuspended] = React.useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+      const restrictions = typeof u.restrictions === 'string' ? JSON.parse(u.restrictions) : (u.restrictions || {});
+      return u.is_active === 0 || u.is_active === false || restrictions.login;
+    } catch {
+      return false;
+    }
+  });
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
   };
 
-
-
   React.useEffect(() => {
     const checkStatus = async () => {
+      // 1. Check local state first to resolve flicker instantly
+      try {
+        const localUser = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+        if (localUser && localUser.role) {
+          setUserRole(localUser.role);
+          const restrictions = typeof localUser.restrictions === 'string'
+            ? JSON.parse(localUser.restrictions)
+            : (localUser.restrictions || {});
+          setIsSuspended(localUser.is_active === 0 || localUser.is_active === false || restrictions.login);
+        } else {
+          setUserRole('student');
+          setIsSuspended(false);
+        }
+      } catch (e) {
+        console.error("Local status check failed:", e);
+      }
+
+      // 2. Fetch fresh status from the server
       try {
         const [config, user] = await Promise.all([
           getMaintenanceConfig(),
@@ -137,7 +168,6 @@ function App() {
         
         if (user) {
           setUserRole(user.role);
-          // Suspension Guard: considers is_active OR granular login restriction
           const restrictions = typeof user.restrictions === 'string' 
             ? JSON.parse(user.restrictions) 
             : (user.restrictions || {});

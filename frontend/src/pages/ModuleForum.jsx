@@ -994,7 +994,7 @@ const ModuleForum = () => {
           <div className="flex items-center gap-2">
             <button onClick={loadThreads} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-black">Actualizar</button>
             {!isReadOnly && <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-brand-blue text-white rounded-xl text-xs font-black inline-flex items-center gap-2"><Plus size={14} /> Crear pregunta</button>}
-            {isReadOnly && <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-xl text-[10px] font-black uppercase text-center border border-dashed border-gray-200">Lectura</div>}
+            {isReadOnly && <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-xl text-[10px] font-black uppercase text-center border border-solid border-gray-200">Lectura</div>}
             {newCount > 0 && <button onClick={markSeen} className="px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black inline-flex items-center gap-1"><BellDot size={14} /> {newCount} nuevas</button>}
           </div>
         </div>
@@ -1042,70 +1042,84 @@ const ModuleForum = () => {
               </div>
             </section>
           )}
-          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-white p-3 sm:p-5 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 space-y-4 ${!selectedId ? 'hidden lg:block' : 'block'}`}>
-            {!detail ? <p className="text-sm text-gray-500">Selecciona una pregunta para ver el detalle.</p> : (
+          <section className={`${isReadOnly ? 'lg:col-span-3 w-full' : 'lg:col-span-2'} bg-[#efeae2] sm:bg-white p-0 sm:p-5 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 flex flex-col h-[calc(100vh-80px)] sm:h-auto overflow-hidden ${!selectedId ? 'hidden lg:block' : 'block'}`}>
+            {!detail ? <p className="text-sm text-gray-500 p-4">Selecciona una pregunta para ver el detalle.</p> : (
               <>
-                <div className={`rounded-xl sm:rounded-2xl border transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'bg-blue-50 border-blue-300' :
-                    isMeMentioned(detail.content, currentUser?.id) ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
-                      (Number(detail.user_id) === Number(currentUser?.id) ? 'is-me-card' : 'bg-gray-50 border-gray-100')
-                  }`}>
-                  {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Origen del reporte</div>}
-                  {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Te mencionaron</div>}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <UserAvatar user={{ nombre: detail.author_name, foto: detail.author_photo, role: detail.author_role }} size="md" />
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="font-bold text-gray-900 leading-tight">{detail.title}</p>
-                          {(() => {
-                            const vRole = getVisualRole(detail.user_id, detail.author_role, moduleMonitorId, members);
-                            if (vRole === 'admin' || vRole === 'monitor') {
-                              return (
-                                <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
-                                  {roleBadgeLabel(detail.user_id, detail.author_role, moduleMonitorId, members)}
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
-                          <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border bg-gray-100 text-gray-700 border-gray-200">Autor</span>
-                        </div>
-                        <p className="text-[10px] text-gray-500 line-clamp-1">por {detail.author_name} · {new Date(detail.created_at).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 h-fit relative">
-                      <button onClick={() => handleSaveToggle(detail.id)} className={`p-2 rounded-xl text-[11px] inline-flex items-center gap-1 transition-all hover:bg-opacity-80 active:scale-90 ${detail.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-white border border-gray-100 text-gray-400 hover:bg-gray-50'}`}><Bookmark size={14} fill={detail.is_saved ? 'currentColor' : 'none'} /></button>
-                      <div className="relative group">
-                        <button onClick={() => setActiveMenuId(activeMenuId === 'thread' ? null : 'thread')} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={16} /></button>
-                        {activeMenuId === 'thread' && (
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
-                            {Number(detail.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'thread', id: detail.id, name: detail.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
-                            {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { handleStartEdit(detail, false); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
-                            {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: detail.id, type: 'forum' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                {/* Mobile WhatsApp-like Header */}
+                <div className="flex items-center justify-between p-3 bg-slate-900 text-white sm:hidden sticky top-0 z-30 shrink-0">
+                  <button onClick={handleTopBack} className="p-1 text-white hover:bg-slate-800 rounded-lg transition-colors">
+                    <ArrowLeft size={22} />
+                  </button>
+                  <div className="min-w-0 flex-grow ml-2">
+                    <h1 className="text-sm font-black truncate">{detail.title}</h1>
+                    <p className="text-[10px] text-slate-400 truncate">por {detail.author_name}</p>
                   </div>
-                  {editingId?.id === detail.id && !editingId.isReply ? (
-                    <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 mt-2">
-                      <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu publicación..." minHeight="100px" onSelect={() => handleEditorSelection('edit')} />
-                      <div className="flex justify-end gap-2 text-xs"><button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed py-2">{renderRichText(detail.content, members, moduleMonitorId, currentUser?.id)}</div>
-                      {!!detail.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{detail.attachments.map((item) => <div key={item.id} className="rounded-xl overflow-hidden border border-gray-100">{renderAttachment(item)}</div>)}</div>}
-                    </>
-                  )}
+                  <button onClick={loadThreads} className="p-2 text-slate-400 hover:text-white rounded-lg transition-all text-xs font-black">
+                    Actualizar
+                  </button>
                 </div>
 
-                <div className="relative flex-1 min-h-0 flex flex-col">
+                <div className="relative flex-1 min-h-0 flex flex-col p-3 sm:p-0">
                   <div
                     ref={messagesScrollRef}
                     onScroll={handleScrollTracking}
-                    className="flex-1 overflow-auto pr-1 space-y-3 max-h-[50vh] sm:max-h-[60vh]"
+                    className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-0"
                   >
+                    {/* Main original post question inside scrollable area */}
+                    <div className={`rounded-xl sm:rounded-2xl border transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 bg-white ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'border-rose-300 bg-rose-50/50' :
+                        isMeMentioned(detail.content, currentUser?.id) ? 'border-blue-200 animate-pulse-blue bg-blue-50/30' :
+                          (Number(detail.user_id) === Number(currentUser?.id) ? 'border-brand-blue/30 bg-blue-50/10' : 'border-gray-100 bg-white')
+                      }`}>
+                      {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Origen del reporte</div>}
+                      {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Te mencionaron</div>}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <UserAvatar user={{ nombre: detail.author_name, foto: detail.author_photo, role: detail.author_role }} size="md" />
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="font-bold text-gray-900 leading-tight">{detail.title}</p>
+                              {(() => {
+                                const vRole = getVisualRole(detail.user_id, detail.author_role, moduleMonitorId, members);
+                                if (vRole === 'admin' || vRole === 'monitor') {
+                                  return (
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
+                                      {roleBadgeLabel(detail.user_id, detail.author_role, moduleMonitorId, members)}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border bg-gray-100 text-gray-700 border-gray-200">Autor</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 line-clamp-1">por {detail.author_name} · {new Date(detail.created_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 h-fit relative">
+                          <button onClick={() => handleSaveToggle(detail.id)} className={`p-2 rounded-xl text-[11px] inline-flex items-center gap-1 transition-all hover:bg-opacity-80 active:scale-90 ${detail.is_saved ? 'bg-amber-100 text-amber-700' : 'bg-white border border-gray-100 text-gray-400 hover:bg-gray-50'}`}><Bookmark size={14} fill={detail.is_saved ? 'currentColor' : 'none'} /></button>
+                          <div className="relative group">
+                            <button onClick={() => setActiveMenuId(activeMenuId === 'thread' ? null : 'thread')} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={16} /></button>
+                            {activeMenuId === 'thread' && (
+                              <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                                {Number(detail.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'thread', id: detail.id, name: detail.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
+                                {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { handleStartEdit(detail, false); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
+                                {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: detail.id, type: 'forum' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {editingId?.id === detail.id && !editingId.isReply ? (
+                        <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 mt-2">
+                          <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu publicación..." minHeight="100px" onSelect={() => handleEditorSelection('edit')} />
+                          <div className="flex justify-end gap-2 text-xs"><button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed py-2">{renderRichText(detail.content, members, moduleMonitorId, currentUser?.id)}</div>
+                          {!!detail.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{detail.attachments.map((item) => <div key={item.id} className="rounded-xl overflow-hidden border border-gray-100">{renderAttachment(item)}</div>)}</div>}
+                        </>
+                      )}
+                    </div>
                     {unreadWhileBrowsing > 0 && !isAtBottom && (
                       <button
                         onClick={scrollToBottom}
@@ -1145,63 +1159,68 @@ const ModuleForum = () => {
                         const isMeSender = Number(reply.user_id) === Number(currentUser?.id);
 
                         result.push(
-                          <div key={reply.id} id={`reply-${reply.id}`} className={`rounded-xl sm:rounded-2xl border transition-all duration-500 p-3 sm:p-4 relative ${(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300' :
-                              highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300' :
-                                isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
-                                  (isMentioned ? 'bg-blue-50/50 border-blue-100' :
-                                    (isMeSender ? 'is-me-card' : 'bg-white border-gray-100'))
-                            }`}>
-                            {(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) && (
-                              <div className="absolute -top-2 -right-2 px-3 py-1 bg-rose-600 text-white text-[9px] font-black rounded-full border-2 border-white z-20 animate-bounce-slow">
-                                OBJETO DEL REPORTE
-                              </div>
-                            )}
-                            <div className="flex justify-between items-start mb-2 text-xs">
-                              <div className="flex items-center gap-2 text-gray-500">
-                                <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
-                                <div className="flex flex-col">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
-                                    {(() => {
-                                      const vRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
-                                      const isEnrolledAdmin = ['admin', 'dev'].includes(String(reply.author_role || '').toLowerCase()) &&
-                                        members.some(m => Number(m.id) === Number(reply.user_id));
+                          <div key={reply.id} className={`flex w-full ${isMeSender ? 'justify-end' : 'justify-start'} mb-1`}>
+                            <div 
+                              id={`reply-${reply.id}`} 
+                              className={`rounded-2xl border transition-all duration-500 p-3 relative max-w-[85%] sm:max-w-[75%] ${(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) ? 'bg-rose-50 border-rose-300' :
+                                  highlightedReplyId === Number(reply.id) ? 'bg-blue-50 border-blue-300' :
+                                    isNewlyMentioned ? 'bg-blue-50 border-blue-200 animate-pulse-blue' :
+                                      isMentioned ? 'bg-blue-50/50 border-blue-100' :
+                                        isMeSender ? 'bg-[#d9fdd3] border-[#b7e4b2] text-slate-800 rounded-tr-none' : 'bg-white border-slate-100 text-slate-800 rounded-tl-none'
+                                }`}
+                            >
+                              {(isReportReplyTarget && Number(reply.id) === reportTargetIdParam) && (
+                                <div className="absolute -top-2 -right-2 px-3 py-1 bg-rose-600 text-white text-[9px] font-black rounded-full border-2 border-white z-20 animate-bounce-slow">
+                                  OBJETO DEL REPORTE
+                                </div>
+                              )}
+                              <div className="flex justify-between items-start mb-2 text-xs">
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <UserAvatar user={{ nombre: reply.author_name, foto: reply.author_photo, role: reply.author_role }} size="xs" />
+                                  <div className="flex flex-col">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-black text-gray-900">{reply.author_name || 'Usuario'}</span>
+                                      {(() => {
+                                        const vRole = getVisualRole(reply.user_id, reply.author_role, moduleMonitorId, members);
+                                        const isEnrolledAdmin = ['admin', 'dev'].includes(String(reply.author_role || '').toLowerCase()) &&
+                                          members.some(m => Number(m.id) === Number(reply.user_id));
 
-                                      if (isEnrolledAdmin) return null;
+                                        if (isEnrolledAdmin) return null;
 
-                                      const isAuthorOfThread = Number(reply.user_id) === Number(detail?.user_id);
-                                      if (vRole === 'admin' || vRole === 'monitor' || isAuthorOfThread) {
-                                        return (
-                                          <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
-                                            {isAuthorOfThread && vRole !== 'admin' && vRole !== 'monitor' ? 'Autor' : roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId, members)}
-                                          </span>
-                                        );
-                                      }
-                                      return null;
-                                    })()}
+                                        const isAuthorOfThread = Number(reply.user_id) === Number(detail?.user_id);
+                                        if (vRole === 'admin' || vRole === 'monitor' || isAuthorOfThread) {
+                                          return (
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border ${roleChip(vRole)}`}>
+                                              {isAuthorOfThread && vRole !== 'admin' && vRole !== 'monitor' ? 'Autor' : roleBadgeLabel(reply.user_id, reply.author_role, moduleMonitorId, members)}
+                                            </span>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+                                    </div>
+                                    <span className="text-[9px]">{new Date(reply.created_at).toLocaleString()}</span>
                                   </div>
-                                  <span className="text-[9px]">{new Date(reply.created_at).toLocaleString()}</span>
+                                </div>
+                                <div className="flex gap-1 h-fit relative">
+                                  {!isReadOnly && <button onClick={() => quickReply(reply)} className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"><CornerUpLeft size={14} /></button>}
+                                  <button onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={14} /></button>
+                                  {activeMenuId === `reply-${reply.id}` && (
+                                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
+                                      {Number(reply.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
+                                      {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && <button onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
+                                      {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex gap-1 h-fit relative">
-                                {!isReadOnly && <button onClick={() => quickReply(reply)} className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all active:scale-90"><CornerUpLeft size={14} /></button>}
-                                <button onClick={() => setActiveMenuId(activeMenuId === `reply-${reply.id}` ? null : `reply-${reply.id}`)} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={14} /></button>
-                                {activeMenuId === `reply-${reply.id}` && (
-                                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl border border-gray-100 py-1 z-30 animate-scale-in">
-                                    {Number(reply.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
-                                    {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && <button onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
-                                    {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
-                                  </div>
-                                )}
-                              </div>
+                              {editingId?.id === reply.id && editingId.isReply ? (
+                                <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
+                                  <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu respuesta..." minHeight="60px" onSelect={() => handleEditorSelection('edit')} />
+                                  <div className="flex justify-end gap-2 text-[10px]"><button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
+                                </div>
+                              ) : <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">{renderRichText(reply.content, members, moduleMonitorId, currentUser?.id)}</div>}
+                              {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
                             </div>
-                            {editingId?.id === reply.id && editingId.isReply ? (
-                              <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-200 mt-2">
-                                <MentionHighlighter value={editContent} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('edit', e.target.value)} onKeyDown={(e) => handleInputKeyDown('edit', e)} placeholder="Edita tu respuesta..." minHeight="60px" onSelect={() => handleEditorSelection('edit')} />
-                                <div className="flex justify-end gap-2 text-[10px]"><button onClick={() => setEditingId(null)} className="px-2 py-1 rounded-md text-gray-500">Cancelar</button><button onClick={handleSaveEdit} className="px-3 py-1 rounded-md font-black bg-brand-blue text-white">Guardar</button></div>
-                              </div>
-                            ) : <div className="text-sm text-gray-700 whitespace-pre-wrap mt-2 leading-relaxed">{renderRichText(reply.content, members, moduleMonitorId, currentUser?.id)}</div>}
-                            {!!reply.attachments?.length && <div className="grid grid-cols-2 gap-2 mt-4">{reply.attachments.map((item) => <div key={item.id} className="rounded-xl border border-gray-100 overflow-hidden">{renderAttachment(item)}</div>)}</div>}
                           </div>
                         );
                       });
@@ -1212,7 +1231,7 @@ const ModuleForum = () => {
                             <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                             <button
                               onClick={() => setVisibleRepliesCount(prev => prev + 10)}
-                              className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-xs font-black text-gray-400 hover:border-brand-blue/30 hover:text-brand-blue hover:bg-blue-50/30 transition-all flex flex-col items-center gap-2 group"
+                              className="w-full py-4 border-2 border-solid border-gray-200 rounded-2xl text-xs font-black text-gray-400 hover:border-brand-blue/30 hover:text-brand-blue hover:bg-blue-50/30 transition-all flex flex-col items-center gap-2 group"
                             >
                               <div className="flex items-center gap-2">
                                 <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />

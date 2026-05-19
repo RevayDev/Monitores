@@ -37,9 +37,17 @@ const Navbar = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('monitores_current_role') || 'null');
+      return u && u.id ? u : null;
+    } catch {
+      return null;
+    }
+  });
   const notificationRef = React.useRef(null);
   const profileRef = React.useRef(null);
+  const navRef = React.useRef(null);
   const prevUnreadRef = React.useRef(0);
   const [bellAnimating, setBellAnimating] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
@@ -53,6 +61,9 @@ const Navbar = () => {
       }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setProfileOpen(false);
+      }
+      if (navRef.current && !navRef.current.contains(event.target)) {
+        setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -143,6 +154,16 @@ const Navbar = () => {
 
 
   async function fetchUser() {
+    try {
+      const localUser = JSON.parse(localStorage.getItem('monitores_current_role') || 'null');
+      if (localUser && localUser.id) {
+        setUser(localUser);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    }
     const data = await getCurrentUser();
     setUser(data);
   }
@@ -259,7 +280,7 @@ const Navbar = () => {
       {notificationsOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right max-sm:fixed max-sm:top-20 max-sm:right-4 max-sm:left-4 max-sm:w-auto max-sm:max-h-[360px]"
+          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right max-sm:absolute max-sm:top-full max-sm:left-0 max-sm:right-0 max-sm:w-full max-sm:max-h-[calc(100vh-80px)] max-sm:rounded-none max-sm:border-x-0"
         >
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Notificaciones</span>
@@ -306,7 +327,7 @@ const Navbar = () => {
   const currentLinks = isGuest ? navLinks.guest : navLinks.student;
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-[1000]">
+    <nav ref={navRef} className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-[1000]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20">
           <div className="flex items-center">
@@ -518,7 +539,7 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       {isOpen && (
-        <div className="md:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-lg animate-fade-in z-50">
+        <div className="md:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 animate-fade-in z-50">
           <div className="px-4 pt-3 pb-6 space-y-1">
             {/* Nav links */}
             {currentLinks.map((link) => (

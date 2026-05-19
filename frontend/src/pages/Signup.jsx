@@ -102,21 +102,21 @@ const Signup = () => {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full md:min-h-[640px] bg-white rounded-[32px] overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
+      <div className="max-w-4xl w-full md:min-h-[500px] bg-white rounded-[32px] overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
 
         {/* Left Side: Branding */}
-        <div className="md:w-5/12 bg-brand-blue p-8 text-white flex flex-col justify-between relative overflow-hidden">
+        <div className="hidden md:flex md:w-5/12 bg-brand-blue p-8 text-white flex-col justify-between relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-          
+
           <div className="relative z-10 space-y-6">
             <Link to="/" className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest backdrop-blur-md hover:bg-white/20 transition-all border border-white/10">
               <LogIn size={14} /> Volver
             </Link>
-            
+
             <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20">
               <GraduationCap size={28} />
             </div>
-            
+
             <div>
               <h1 className="text-3xl font-black leading-none tracking-tighter italic mb-3">Únete a la Red</h1>
               <p className="text-blue-100 text-xs font-medium opacity-80 leading-relaxed max-w-[200px]">
@@ -138,8 +138,8 @@ const Signup = () => {
 
           <div className="relative z-10">
             <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-[9px] font-bold backdrop-blur-sm">
-                <p className="opacity-40 uppercase tracking-widest mb-1">Paso {step} de 2</p>
-                {step === 1 ? 'Configura tu acceso' : 'Añade tu info académica'}
+              <p className="opacity-40 uppercase tracking-widest mb-1">Paso {step} de 2</p>
+              {step === 1 ? 'Configura tu acceso' : 'Añade tu info académica'}
             </div>
           </div>
         </div>
@@ -149,9 +149,9 @@ const Signup = () => {
           <div>
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-2">
-                 {[1, 2].map((i) => (
-                   <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${step === i ? 'w-8 bg-brand-blue' : 'w-2 bg-gray-100'}`}></div>
-                 ))}
+                {[1, 2].map((i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${step === i ? 'w-8 bg-brand-blue' : 'w-2 bg-gray-100'}`}></div>
+                ))}
               </div>
               <h2 className="text-2xl font-black text-gray-900 tracking-tight">Registro de Estudiante</h2>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
@@ -176,26 +176,26 @@ const Signup = () => {
                     transition={{ duration: 0.2 }}
                     className="space-y-5"
                   >
-                    <InputField 
-                      label="Nombre de Usuario" 
-                      icon={<UserCheck />} 
-                      value={formData.username} 
-                      onChange={e => setFormData({ ...formData, username: e.target.value })} 
+                    <InputField
+                      label="Nombre de Usuario"
+                      icon={<UserCheck />}
+                      value={formData.username}
+                      onChange={e => setFormData({ ...formData, username: e.target.value })}
                       placeholder="Ej. jdoe"
                     />
-                    <InputField 
-                      label="Nombre Completo" 
-                      icon={<User />} 
-                      value={formData.nombre} 
-                      onChange={e => setFormData({ ...formData, nombre: e.target.value })} 
+                    <InputField
+                      label="Nombre Completo"
+                      icon={<User />}
+                      value={formData.nombre}
+                      onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                       placeholder="Tu nombre completo"
                     />
-                    <InputField 
-                      label="Contraseña" 
-                      icon={<Lock />} 
-                      type="password" 
-                      value={formData.password} 
-                      onChange={e => setFormData({ ...formData, password: e.target.value })} 
+                    <InputField
+                      label="Contraseña"
+                      icon={<Lock />}
+                      type="password"
+                      value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Crea una clave segura"
                     />
                   </motion.div>
@@ -209,29 +209,29 @@ const Signup = () => {
                     className="space-y-5"
                   >
                     <div className="grid grid-cols-2 gap-4">
-                      <InputField 
-                        label="Sede" 
-                        icon={<MapPin />} 
-                        type="select" 
-                        value={formData.sede} 
-                        onChange={e => setFormData({ ...formData, sede: e.target.value })} 
+                      <InputField
+                        label="Sede"
+                        icon={<MapPin />}
+                        type="select"
+                        value={formData.sede}
+                        onChange={e => setFormData({ ...formData, sede: e.target.value })}
                         options={dbSedes}
                       />
-                      <InputField 
-                        label="Cuatrimestre" 
-                        icon={<GraduationCap />} 
-                        type="select" 
-                        value={formData.cuatrimestre} 
-                        onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })} 
+                      <InputField
+                        label="Cuatrimestre"
+                        icon={<GraduationCap />}
+                        type="select"
+                        value={formData.cuatrimestre}
+                        onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
                         options={dbCuatrimestres}
                       />
                     </div>
-                    <InputField 
-                      label="Email Institucional" 
-                      icon={<Mail />} 
-                      type="email" 
-                      value={formData.email} 
-                      onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                    <InputField
+                      label="Email Institucional"
+                      icon={<Mail />}
+                      type="email"
+                      value={formData.email}
+                      onChange={e => setFormData({ ...formData, email: e.target.value })}
                       placeholder="tu@u.edu"
                     />
                   </motion.div>

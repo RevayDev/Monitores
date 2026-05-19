@@ -173,7 +173,7 @@ const Monitorias = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+          <div className="text-center py-20 bg-white rounded-2xl border border-solid border-gray-200">
             <Info size={48} className="mx-auto text-gray-400 mb-4" />
             <p className="text-xl text-gray-500 font-medium">No se encontraron monitorías.</p>
           </div>

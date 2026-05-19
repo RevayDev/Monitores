@@ -90,7 +90,7 @@ const QrCard = () => {
                 <img src={qrImageSrc} alt="QR dinamico" className="w-52 h-52 sm:w-64 sm:h-64 object-contain" />
               ) : (
                 <div className="text-center space-y-2 p-8">
-                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-gray-200">
+                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-solid border-gray-200">
                     <QrCode className="text-gray-300" size={32} />
                   </div>
                   <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">QR No Disponible</p>

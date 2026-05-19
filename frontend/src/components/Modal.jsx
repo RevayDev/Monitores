@@ -24,15 +24,15 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
   }, [isOpen]);
 
   const backdropVariants = {
-    hidden: { opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } },
-    visible: { opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }
+    hidden: { opacity: 0, transition: { duration: 0.12, ease: 'easeIn' } },
+    visible: { opacity: 1, transition: { duration: 0.15, ease: 'easeOut' } }
   };
 
   const modalVariants = {
     hidden: { 
       opacity: 0, 
-      y: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : 15, 
-      scale: typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 0.95 
+      scale: 0.95,
+      y: 10
     },
     visible: { 
       opacity: 1, 
@@ -41,10 +41,10 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
       transition: { type: 'spring', damping: 25, stiffness: 350 }
     },
     exit: { 
-      opacity: typeof window !== 'undefined' && window.innerWidth < 768 ? 0.9 : 0, 
-      y: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : 15, 
-      scale: typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : 0.95,
-      transition: { duration: 0.18, ease: 'easeInOut' }
+      opacity: 0, 
+      scale: 0.95,
+      y: 10,
+      transition: { duration: 0.12, ease: 'easeOut' }
     }
   };
 

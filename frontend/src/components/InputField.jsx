@@ -70,7 +70,7 @@ const InputField = ({
       : "bg-white text-slate-900"}
     ${error 
       ? "border-rose-400" 
-      : `${roleColor.border} ${isFocused ? 'opacity-100 ring-4 ' + roleColor.ring : 'opacity-75 hover:opacity-100'}`}
+      : (isFocused ? `${roleColor.border} opacity-100` : "border-slate-200 opacity-75 hover:opacity-100")}
     ${icon ? 'pl-12' : 'pl-4'}
   `;
  

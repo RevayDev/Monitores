@@ -221,7 +221,7 @@ const Home = () => {
                   }
                   navigate('/monitorias');
                 }}
-                className="self-start sm:self-auto px-5 py-3 bg-gray-50 text-gray-900 font-black rounded-2xl border border-gray-100 hover:bg-gray-900 hover:text-white hover:border-gray-900 active:scale-95 transition-all text-xs sm:text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                className="w-full sm:w-auto px-5 py-3 bg-gray-50 text-gray-900 font-black rounded-2xl border border-gray-100 hover:bg-gray-900 hover:text-white hover:border-gray-900 active:scale-95 transition-all text-xs sm:text-sm flex items-center justify-center sm:justify-start gap-2 cursor-pointer whitespace-nowrap"
               >
                 Ver Monitorías <PlusCircle size={16} />
               </button>

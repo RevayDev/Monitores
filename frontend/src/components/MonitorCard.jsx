@@ -19,13 +19,13 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
   return (
     <div
       onClick={handleAction}
-      className={`rounded-2xl shadow-sm overflow-hidden border transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col h-full relative group ${hasNoMonitor
+      className={`rounded-2xl overflow-hidden border transition-all duration-500 hover:-translate-y-1 flex flex-col h-full relative group ${hasNoMonitor
         ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
         : isRegistered
-          ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5 shadow-amber-100 shadow-lg'
+          ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5'
           : isFull
-            ? 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
-            : 'bg-white border-slate-100 hover:border-brand-blue/30 shadow-md hover:shadow-2xl'
+            ? 'bg-white border-slate-100 hover:border-brand-blue/30'
+            : 'bg-white border-slate-100 hover:border-brand-blue/30'
         }`}>
       <div className={`${hasNoMonitor
         ? 'bg-gray-500'
@@ -117,7 +117,7 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
           {isRegistered && onSecondaryAction && secondaryActionLabel && (
             <button
               onClick={(e) => { e.stopPropagation(); onSecondaryAction(data); }}
-              className="w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 bg-gray-900 text-white hover:bg-black"
+              className="w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 bg-gray-900 text-white hover:bg-black"
             >
               <MessageSquare size={14} />
               {secondaryActionLabel}
@@ -126,13 +126,13 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
           <button
             onClick={handleAction}
             disabled={(isFull && !isRegistered) || hasNoMonitor}
-            className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${hasNoMonitor
+            className={`w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${hasNoMonitor
               ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
               : isRegistered
                 ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
                 : isFull
                   ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-brand-blue text-white hover:bg-brand-dark-blue active:scale-[0.98] cursor-pointer shadow-lg shadow-brand-blue/20'
+                  : 'bg-brand-blue text-white hover:bg-brand-dark-blue active:scale-[0.98] cursor-pointer'
               }`}
           >
             {isRegistered && <ExternalLink size={14} />}

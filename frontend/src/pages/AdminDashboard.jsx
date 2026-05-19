@@ -775,7 +775,7 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl py-8 text-center">
+                  <div className="bg-gray-50 border border-solid border-gray-200 rounded-2xl py-8 text-center">
                     <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">Selecciona un módulo para iniciar la auditoría de rendimiento</p>
                   </div>
                 )}
@@ -997,7 +997,7 @@ const AdminDashboard = () => {
                           </div>
 
                           {reports.length === 0 ? (
-                            <div className="bg-white border border-dashed border-gray-200 rounded-3xl py-16 text-center shadow-sm">
+                            <div className="bg-white border border-solid border-gray-200 rounded-3xl py-16 text-center">
                               <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Check size={32} />
                               </div>
@@ -1128,7 +1128,7 @@ const AdminDashboard = () => {
                           </div>
 
                           {reportHistoryLogs.length === 0 ? (
-                            <div className="bg-white border border-dashed border-gray-200 rounded-3xl py-16 text-center shadow-sm">
+                            <div className="bg-white border border-solid border-gray-200 rounded-3xl py-16 text-center">
                               <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <FileTextIcon size={32} />
                               </div>
@@ -1212,7 +1212,7 @@ const AdminDashboard = () => {
                                           <p className="text-[11px] text-gray-600 leading-relaxed">{meta.resolution_note}</p>
                                         </div>
                                       ) : (
-                                        <div className="bg-gray-50/50 p-2.5 rounded-xl border border-dashed border-gray-200">
+                                        <div className="bg-gray-50/50 p-2.5 rounded-xl border border-solid border-gray-200">
                                           <p className="text-[10px] text-gray-400 italic text-center">Sin nota de resolución</p>
                                         </div>
                                       )}

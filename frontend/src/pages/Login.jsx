@@ -78,7 +78,7 @@ const Login = () => {
   const currentStyle = roleStyles[formData.role] || roleStyles.student;
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-brand-gray flex items-center justify-center p-3 font-sans">
+    <div className="min-h-[calc(100vh-50px)] bg-brand-gray flex items-center justify-center p-3 font-sans">
       <div className="max-w-4xl w-full bg-white rounded-[32px] overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
 
         {/* Left Side: Branding - Dynamic Background */}
@@ -142,8 +142,8 @@ const Login = () => {
                       type="button"
                       onClick={() => setFormData({ ...formData, role: r.id })}
                       className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${formData.role === r.id
-                          ? `${rStyle.border} ${rStyle.lightBg}`
-                          : 'border-gray-50 bg-gray-50 hover:bg-gray-100'
+                        ? `${rStyle.border} ${rStyle.lightBg}`
+                        : 'border-gray-50 bg-gray-50 hover:bg-gray-100'
                         }`}
                     >
                       <div className={`${formData.role === r.id ? rStyle.bg : 'bg-gray-100'} ${formData.role === r.id ? 'text-white' : 'text-gray-400'} p-2 rounded-xl transition-colors`}>
@@ -160,20 +160,22 @@ const Login = () => {
             </div>
 
             <div className="space-y-4">
-              <InputField 
-                label="Email o Usuario" 
-                icon={<UserCheck />} 
-                value={formData.identifier} 
-                onChange={e => setFormData({ ...formData, identifier: e.target.value })} 
+              <InputField
+                label="Email o Usuario"
+                icon={<UserCheck />}
+                value={formData.identifier}
+                onChange={e => setFormData({ ...formData, identifier: e.target.value })}
                 placeholder="correo@u.edu o usuario"
+                role={formData.role}
               />
-              <InputField 
-                label="Contraseña" 
-                icon={<Lock />} 
+              <InputField
+                label="Contraseña"
+                icon={<Lock />}
                 type="password"
-                value={formData.password} 
-                onChange={e => setFormData({ ...formData, password: e.target.value })} 
+                value={formData.password}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
                 placeholder="••••••••"
+                role={formData.role}
               />
             </div>
 
