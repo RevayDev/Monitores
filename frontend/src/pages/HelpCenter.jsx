@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { LifeBuoy, Mail, Send, MessageCircle, Globe, ChevronRight, ChevronDown } from 'lucide-react';
+import { LifeBuoy, Mail, Send, MessageCircle, ChevronRight, ChevronDown, User, Instagram } from 'lucide-react';
 import { submitSupportRequest } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
+import InputField from '../components/InputField';
 
 const HelpCenter = () => {
   const { showToast } = React.useContext(ToastContext);
@@ -53,66 +54,59 @@ const HelpCenter = () => {
         <section className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 shadow-sm">
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700">Nombre</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Tu nombre"
-                  className={inputClass}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700">Correo de respuesta</label>
-                <input
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="tu@correo.com"
-                  type="email"
-                  className={inputClass}
-                />
-              </div>
+              <InputField
+                label="Nombre"
+                icon={<User />}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Tu nombre"
+                role={session?.role || 'student'}
+              />
+              <InputField
+                label="Correo de respuesta"
+                icon={<Mail />}
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="tu@correo.com"
+                role={session?.role || 'student'}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700">Tipo de caso</label>
-                <div className="relative">
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className={`${inputClass} appearance-none pr-10`}
-                  >
-                    <option value="tecnico">Tecnico</option>
-                    <option value="cuenta">Cuenta y acceso</option>
-                    <option value="modulo">Modulo o registro</option>
-                    <option value="sugerencia">Sugerencia / mejora</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700">Asunto</label>
-                <input
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  placeholder="Resumen breve"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-700">Detalle</label>
-              <textarea
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                placeholder="Describe el problema y pasos para reproducirlo"
-                rows={6}
-                className={inputClass}
+              <InputField
+                type="select"
+                label="Tipo de caso"
+                icon={<LifeBuoy />}
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                options={[
+                  { value: 'tecnico', label: 'Tecnico' },
+                  { value: 'cuenta', label: 'Cuenta y acceso' },
+                  { value: 'modulo', label: 'Modulo o registro' },
+                  { value: 'sugerencia', label: 'Sugerencia / mejora' },
+                  { value: 'otro', label: 'Otro' }
+                ]}
+                role={session?.role || 'student'}
+              />
+              <InputField
+                label="Asunto"
+                icon={<MessageCircle />}
+                value={form.subject}
+                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                placeholder="Resumen breve"
+                role={session?.role || 'student'}
               />
             </div>
+
+            <InputField
+              type="textarea"
+              label="Detalle"
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+              placeholder="Describe el problema y pasos para reproducirlo"
+              role={session?.role || 'student'}
+            />
 
             <button
               type="submit"
@@ -126,16 +120,13 @@ const HelpCenter = () => {
         </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <a href="mailto:soporte@monitores.com" className="bg-white border-2 border-gray-200 hover:border-brand-blue rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors">
+          <a href="mailto:monitoreshub@gmail.com" className="bg-white border-2 border-gray-200 hover:border-brand-blue rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors">
             <span className="flex items-center gap-3"><Mail size={18} className="text-brand-blue" /><span className="font-bold text-sm text-gray-700">Correo</span></span>
             <ChevronRight size={16} className="text-gray-400" />
           </a>
-          <a href="https://wa.me/" target="_blank" rel="noreferrer" className="bg-white border-2 border-gray-200 hover:border-brand-blue rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors">
-            <span className="flex items-center gap-3"><MessageCircle size={18} className="text-brand-blue" /><span className="font-bold text-sm text-gray-700">WhatsApp</span></span>
-            <ChevronRight size={16} className="text-gray-400" />
-          </a>
-          <a href="https://www.linkedin.com" target="_blank" rel="noreferrer" className="bg-white border-2 border-gray-200 hover:border-brand-blue rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors">
-            <span className="flex items-center gap-3"><Globe size={18} className="text-brand-blue" /><span className="font-bold text-sm text-gray-700">Redes</span></span>
+
+          <a href="https://www.instagram.com/revaydev/" target="_blank" rel="noreferrer" className="bg-white border-2 border-gray-200 hover:border-brand-blue rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors">
+            <span className="flex items-center gap-3"><Instagram size={18} className="text-brand-blue" /><span className="font-bold text-sm text-gray-700">Instagram</span></span>
             <ChevronRight size={16} className="text-gray-400" />
           </a>
         </section>

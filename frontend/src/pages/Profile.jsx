@@ -483,28 +483,26 @@ const Profile = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
-                      <select
-                        className={`w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none text-gray-900 font-bold transition-all ${(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') ? 'opacity-50 cursor-not-allowed' : 'focus:border-brand-blue/30'}`}
-                        value={formData.sede}
-                        onChange={e => setFormData({ ...formData, sede: e.target.value })}
-                        disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
-                      >
-                        {dbSedes.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cuatrimestre</label>
-                      <select
-                        className={`w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none text-gray-900 font-bold transition-all ${(!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev') ? 'opacity-50 cursor-not-allowed' : 'focus:border-brand-blue/30'}`}
-                        value={formData.cuatrimestre}
-                        onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
-                        disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
-                      >
-                        {dbCuatrimestres.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
+                    <InputField
+                      type="select"
+                      label="Sede"
+                      icon={<MapPin />}
+                      value={formData.sede}
+                      onChange={e => setFormData({ ...formData, sede: e.target.value })}
+                      options={dbSedes}
+                      disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
+                      role={user.role}
+                    />
+                    <InputField
+                      type="select"
+                      label="Cuatrimestre"
+                      icon={<BookOpen />}
+                      value={formData.cuatrimestre}
+                      onChange={e => setFormData({ ...formData, cuatrimestre: e.target.value })}
+                      options={dbCuatrimestres}
+                      disabled={!user?.is_principal && user?.role !== 'admin' && user?.role !== 'dev'}
+                      role={user.role}
+                    />
                   </div>
 
                   {(user?.is_principal || user?.role === 'admin' || user?.role === 'dev') && (
