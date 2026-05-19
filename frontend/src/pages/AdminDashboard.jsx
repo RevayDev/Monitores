@@ -595,21 +595,21 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-brand-gray p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-8">
-        <header className="bg-[#4f46e5] rounded-[1.5rem] p-6 md:p-8 text-white shadow-xl shadow-indigo-900/10 relative overflow-hidden group">
+        <header className="bg-[#4f46e5] rounded-[1.5rem] p-4 sm:p-6 md:p-8 text-white shadow-xl shadow-indigo-900/10 relative overflow-hidden group">
           {/* Subtle decorative background elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
 
           <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-3 transition-transform">
-                <ShieldCheck size={40} className="text-white" />
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+              <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-3 transition-transform shrink-0">
+                <ShieldCheck className="text-white w-6 h-6 sm:w-10 sm:h-10" />
               </div>
-              <div className="space-y-2 pt-1">
+              <div className="space-y-1.5 pt-0.5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/5">
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/90">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/90">Bienvenido(a), {JSON.parse(localStorage.getItem('monitores_current_role') || '{}')?.nombre || 'Administrador'}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-none">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-none">
                   Panel Administrativo
                 </h1>
                 <p className="text-white/80 text-xs font-medium max-w-md leading-relaxed">
@@ -618,29 +618,30 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-center md:items-end gap-3">
-              <div className="flex flex-wrap items-center justify-center gap-1">
+            <div className="flex flex-col items-center md:items-end gap-3 w-full md:w-auto">
+              <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center gap-0.5 w-full md:w-auto overflow-x-auto justify-between md:justify-start">
                 {[
-                  { id: 'users', label: 'Miembros', icon: <Users size={16} /> },
-                  { id: 'modules', label: 'Monitorías', icon: <BookOpen size={16} /> },
-                  { id: 'reports', label: 'Reportes', icon: <MessageSquare size={16} /> },
-                  { id: 'log', label: 'Log', icon: <FileTextIcon size={16} /> }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 relative group/btn ${activeTab === tab.id
-                      ? 'text-white'
-                      : 'text-white/60 hover:text-white'
+                  { id: 'users', label: 'Miembros', icon: <Users size={14} /> },
+                  { id: 'modules', label: 'Monitorías', icon: <BookOpen size={14} /> },
+                  { id: 'reports', label: 'Reportes', icon: <MessageSquare size={14} /> },
+                  { id: 'log', label: 'Log', icon: <FileTextIcon size={14} /> }
+                ].map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${
+                        isActive
+                          ? 'bg-white text-indigo-700 shadow-md scale-105'
+                          : 'text-white/80 hover:text-white hover:bg-white/5'
                       }`}
-                  >
-                    {tab.icon}
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    {activeTab === tab.id && (
-                      <motion.div layoutId="adminTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-full" />
-                    )}
-                  </button>
-                ))}
+                    >
+                      <span className="hidden sm:inline-block shrink-0">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="selector-profile text-[10px] font-bold text-white/50 uppercase tracking-[0.2em] flex items-center gap-2">
                 <Clock size={12} /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

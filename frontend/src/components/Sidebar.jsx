@@ -16,9 +16,9 @@ const Sidebar = ({ items = [], activeId, onSelect, collapsed, onToggle, brandLab
         className={`
           fixed top-0 left-0 h-screen z-50 flex flex-col
           bg-sidebar-bg border-r border-sidebar-border
-          transition-all duration-300 ease-in-out
-          ${collapsed ? 'w-[68px]' : 'w-[250px]'}
-          max-lg:${collapsed ? '-translate-x-full' : 'translate-x-0'}
+          transition-all duration-200 ease-out
+          max-lg:w-[260px] max-lg:${collapsed ? '-translate-x-full' : 'translate-x-0'}
+          lg:${collapsed ? 'w-[68px]' : 'w-[250px]'}
           lg:translate-x-0 lg:relative
         `}
       >

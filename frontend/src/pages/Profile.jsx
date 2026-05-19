@@ -203,7 +203,7 @@ const Profile = () => {
     try {
       await deleteUser(user.id);
       showToast("Cuenta eliminada correctamente", "success");
-      apiLogout();
+      await logout();
       navigate('/login');
     } catch (error) {
       showToast("Error al eliminar la cuenta. Verifica tu contraseña.", "error");
@@ -382,7 +382,7 @@ const Profile = () => {
             </p>
           </div>
 
-          <div className="bg-white/50 backdrop-blur-sm p-2 rounded-2xl border border-gray-100 flex gap-2 selector-profile">
+          <div className="bg-white/50 backdrop-blur-sm p-1.5 rounded-2xl border border-gray-100 flex gap-2 sm:absolute sm:top-6 sm:right-6 max-sm:w-full max-sm:justify-center max-sm:mt-4 z-10">
             {[
               { id: 'info', label: 'Información' },
               { id: 'stats', label: 'Estadísticas' }
@@ -391,7 +391,7 @@ const Profile = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 text-[11px] font-extrabold uppercase tracking-widest transition-all relative group ${activeTab === tab.id
-                    ? 'text-brand-blue'
+                    ? 'text-brand-blue font-black'
                     : 'text-gray-400 hover:text-gray-600'
                   }`}
               >

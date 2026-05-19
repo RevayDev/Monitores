@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
 
 @theme {
   --color-brand-blue: #2563eb;
@@ -77,11 +77,11 @@
 
 
   .animate-fade-in {
-    animation: fadeIn 0.2s ease-out forwards;
+    animation: fadeIn 0.12s ease-out forwards;
   }
 
   .animate-scale-in {
-    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: scaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   @keyframes fadeIn {
@@ -96,7 +96,7 @@
 
   @keyframes scaleIn {
     from {
-      transform: scale(0.95);
+      transform: scale(0.96);
       opacity: 0;
     }
 

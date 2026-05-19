@@ -28,7 +28,7 @@ import InputField from '../components/InputField';
 const COMMANDS_BASE = [
   'help', 'clear', 'ping', 'diagnostics',
   'populate', 'fix_users', 'wipe_db', 'ensure_db',
-  'ls', 'tree', 'pwd', 'sysinfo', 'cd', 'enable', 'exit'
+  'ls', 'tree', 'pwd', 'sysinfo', 'cd', 'enable', 'exit', 'neofetch'
 ];
 const COMMANDS_ROOT = ['userlist', 'useradd', 'userdel', 'userrole', 'suspenduser', 'touch', 'rm', 'read', 'write', 'backup', 'restore'];
 
@@ -217,7 +217,7 @@ const LiveTerminal = ({
         setIsPromptingPassword(true);
         addLog('Password:', 'warn');
         break;
-      case 'help': addLog('Comandos: enable, exit, clear, ping, diagnostics, populate, fix_users, wipe_db, ensure_db, ls, tree, cd, pwd, sysinfo', 'success'); break;
+      case 'help': addLog('Comandos: enable, exit, clear, ping, diagnostics, populate, fix_users, wipe_db, ensure_db, ls, tree, cd, pwd, sysinfo, neofetch', 'success'); break;
       case 'exit':
         if (isRoot) {
           setIsRoot(false);
@@ -233,12 +233,13 @@ const LiveTerminal = ({
       case 'fix_users': runUtility(fixUsernames, setIsFixing, 'Usernames corregidos', 'Reparación de Usernames'); break;
       case 'ensure_db': runUtility(dbEnsure, setIsFixing, 'Base de datos verificada', 'Verificacion DB'); break;
       case 'wipe_db': setIsResetModalOpen(true); addLog('Confirmación requerida en la interfaz.', 'warn'); break;
-      case 'cd': case 'ls': case 'tree': case 'pwd': case 'cwd': case 'sysinfo':
+      case 'cd': case 'ls': case 'tree': case 'pwd': case 'cwd': case 'sysinfo': case 'neofetch':
         try {
           const res = await executeTerminalCommand(fullCommand, terminalCwd);
           if (res.newCwd) setTerminalCwd(res.newCwd);
           if (res.result) {
             if (res.type === 'ls_output') addLog('LS_DATA', 'ls', { data: res.result });
+            else if (res.type === 'neofetch_output') addLog('NEOFETCH_DATA', 'neofetch', { data: res.result });
             else addLog(res.result, 'info');
           }
         } catch (err) { addLog(`Error: ${err.message}`, 'error'); }
@@ -310,7 +311,7 @@ const LiveTerminal = ({
             <div key={log.id} className="flex gap-3 items-start border-b border-gray-100 pb-1.5 last:border-0 hover:bg-gray-50 rounded-lg p-1 transition-colors">
               <div className="flex items-center gap-2 shrink-0 select-none">
                 <span className="text-gray-500 text-[11px]">[{log.timestamp}]</span>
-                <div className={`w-[2px] h-3 ml-1 ${log.type === 'error' ? 'bg-red-500' : log.type === 'success' ? 'bg-emerald-500' : log.type === 'ls' ? 'bg-violet-500' : 'bg-blue-400'}`} />
+                <div className={`w-[2px] h-3 ml-1 ${log.type === 'error' ? 'bg-red-500' : log.type === 'success' ? 'bg-emerald-500' : log.type === 'ls' ? 'bg-violet-500' : log.type === 'neofetch' ? 'bg-red-500' : 'bg-blue-400'}`} />
               </div>
               {log.type === 'ls' ? (
                 <div className="flex flex-wrap gap-x-6 gap-y-2 py-1">
@@ -330,6 +331,75 @@ const LiveTerminal = ({
                       </div>
                     );
                   })}
+                </div>
+              ) : log.type === 'neofetch' ? (
+                <div className="flex flex-col md:flex-row gap-6 p-4 bg-gray-950 text-gray-100 rounded-2xl font-mono text-[11px] leading-relaxed w-full border border-gray-800 shadow-inner select-text">
+                  {/* Left Column: Ubuntu Logo ASCII */}
+                  <div className="text-red-500 font-bold shrink-0 whitespace-pre selection:bg-red-500/20 text-[10px] md:text-[11px]">
+{`         .-/+oossssoo+/-.
+     \`:+ssssssssssssssssss+:\`
+   -+ssssssssssssssssssyyyssss+-
+ .ossssssssssssssssssdMMMNysssso.
+/ssssssssssshdmmNNmmyNMMMMhssssss/
++ssssssssshmydMMMMMMNddddyssssssss+
+/ssssssssshdMMMyhhyyyhdNMMMNssssss/
+.osssssssssdMMMNyssssohNMMMdssssss.
+ +sssshhhyNMMNysssssssyNMMMyssssss+
+  osyyNMMNMMhsssssssssshmmmhssssso
+  osyyNMMNMMhsssssssssshmmmhssssso
+ +sssshhhyNMMNysssssssyNMMMyssssss+
+.osssssssssdMMMNyssssohNMMMdssssss.
+/ssssssssshdMMMyhhyyyhdNMMMNssssss/
++ssssssssshmydMMMMMMNddddyssssssss+
+/ssssssssssshdmmNNmmyNMMMMhssssss/
+ .ossssssssssssssssssdMMMNysssso.
+   -+ssssssssssssssssssyyyssss+-
+     \`:+ssssssssssssssssss+:\`
+         .-/+oossssoo+/-.`}
+                  </div>
+                  {/* Right Column: Dynamic System Info */}
+                  <div className="space-y-1 py-1 flex-grow">
+                    <div className="text-[12px] font-black tracking-tight">
+                      <span className="text-red-400">{log.data?.username}</span>
+                      <span className="text-gray-400">@</span>
+                      <span className="text-red-400">{log.data?.hostname}</span>
+                    </div>
+                    <div className="text-gray-600 font-black">- - - - - - - - - - - - - - - - - - - - -</div>
+                    <div><span className="text-red-400 font-bold">OS:</span> <span className="text-gray-300">{log.data?.os}</span></div>
+                    <div><span className="text-red-400 font-bold">Host:</span> <span className="text-gray-300">{log.data?.host}</span></div>
+                    <div><span className="text-red-400 font-bold">Kernel:</span> <span className="text-gray-300">{log.data?.kernel}</span></div>
+                    <div><span className="text-red-400 font-bold">Uptime:</span> <span className="text-gray-300">{log.data?.uptime}</span></div>
+                    <div><span className="text-red-400 font-bold">Packages:</span> <span className="text-gray-300">{log.data?.packages}</span></div>
+                    <div><span className="text-red-400 font-bold">Shell:</span> <span className="text-gray-300">{log.data?.shell}</span></div>
+                    <div><span className="text-red-400 font-bold">Resolution:</span> <span className="text-gray-300">{log.data?.resolution}</span></div>
+                    <div><span className="text-red-400 font-bold">Terminal:</span> <span className="text-gray-300">{log.data?.terminal}</span></div>
+                    <div><span className="text-red-400 font-bold">CPU:</span> <span className="text-gray-300">{log.data?.cpu}</span></div>
+                    <div><span className="text-red-400 font-bold">Memory:</span> <span className="text-gray-300">{log.data?.memory}</span></div>
+                    
+                    {/* Colored Blocks Block */}
+                    <div className="flex flex-col gap-0.5 pt-4">
+                      <div className="flex">
+                        <span className="w-5 h-4 bg-black"></span>
+                        <span className="w-5 h-4 bg-red-600"></span>
+                        <span className="w-5 h-4 bg-green-600"></span>
+                        <span className="w-5 h-4 bg-yellow-500"></span>
+                        <span className="w-5 h-4 bg-blue-600"></span>
+                        <span className="w-5 h-4 bg-purple-600"></span>
+                        <span className="w-5 h-4 bg-cyan-600"></span>
+                        <span className="w-5 h-4 bg-gray-300"></span>
+                      </div>
+                      <div className="flex">
+                        <span className="w-5 h-4 bg-gray-600"></span>
+                        <span className="w-5 h-4 bg-red-400"></span>
+                        <span className="w-5 h-4 bg-green-400"></span>
+                        <span className="w-5 h-4 bg-yellow-300"></span>
+                        <span className="w-5 h-4 bg-blue-400"></span>
+                        <span className="w-5 h-4 bg-purple-400"></span>
+                        <span className="w-5 h-4 bg-cyan-400"></span>
+                        <span className="w-5 h-4 bg-white"></span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <pre className={`whitespace-pre-wrap font-mono text-[11px] leading-relaxed break-all flex-grow ${log.type === 'error' ? 'text-red-700 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100' : log.type === 'warn' ? 'text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100' : log.type === 'success' ? 'text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100' : 'text-gray-700 font-medium'}`}>{log.text}</pre>
@@ -443,6 +513,7 @@ const LiveTerminal = ({
             { cmd: 'diagnostics', desc: 'Salud de la BD' },
             { cmd: 'ensure_db', desc: 'Crear/verificar DB' },
             { cmd: 'sysinfo', desc: 'Consumo CPU/RAM' },
+            { cmd: 'neofetch', desc: 'Información del sistema' },
             { cmd: 'clear', desc: 'Limpia la terminal' },
             { cmd: 'userlist', desc: 'Listar DB Usuarios', requireRoot: true },
             { cmd: 'useradd', desc: 'Añadir Usuario', requireRoot: true },
@@ -557,7 +628,7 @@ const DevDashboard = () => {
     console.error = (...args) => { ingestClientLog('error', args); originalConsoleError(...args); };
 
     // Setup Socket Connection for Live Logs
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://158.23.59.208:3000';
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
     const newSocket = io(socketUrl);
     newSocket.emit('join_dev_console');
     newSocket.on('backend_log', (log) => {
@@ -770,21 +841,21 @@ const DevDashboard = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray p-4 sm:p-6 md:p-10 pb-32">
       <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
-        <header className="bg-gradient-to-br from-violet-700 to-indigo-800 rounded-[1.5rem] p-6 md:p-8 text-white shadow-xl shadow-violet-900/20 relative overflow-hidden group">
+        <header className="bg-gradient-to-br from-violet-700 to-indigo-800 rounded-[1.5rem] p-4 sm:p-6 md:p-8 text-white shadow-xl shadow-violet-900/20 relative overflow-hidden group">
           {/* Subtle decorative background elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
 
           <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-6 transition-transform">
-                <Wrench size={40} className="text-white" />
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+              <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 group-hover:rotate-6 transition-transform shrink-0">
+                <Wrench className="text-white w-6 h-6 sm:w-10 sm:h-10" />
               </div>
-              <div className="space-y-2 pt-1">
+              <div className="space-y-1.5 pt-0.5">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/10">
                   <div className="w-2 h-2 bg-violet-300 rounded-full animate-pulse shadow-[0_0_8px_rgba(167,139,250,0.8)]"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-50">ROOT ACCESS / Bienvenido, {currentUser.nombre}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-violet-50">ROOT ACCESS / Bienvenido, {currentUser.nombre}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tighter leading-tight">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tighter leading-tight">
                   Developer Console
                 </h1>
                 <p className="text-violet-50 text-xs font-medium opacity-90 max-w-lg leading-relaxed">
@@ -793,29 +864,30 @@ const DevDashboard = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-center md:items-end gap-3">
-              <div className="flex flex-wrap items-center justify-center gap-1">
+            <div className="flex flex-col items-center md:items-end gap-3 w-full md:w-auto">
+              <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center gap-0.5 w-full md:w-auto overflow-x-auto justify-between md:justify-start">
                 {[
                   { id: 'config', label: 'Mantenimiento', icon: <Globe size={14} /> },
-                  { id: 'devs', label: 'Equipo DEV', icon: <ShieldCheck size={14} /> },
+                  { id: 'devs', label: 'Equipo', icon: <ShieldCheck size={14} /> },
                   { id: 'utils', label: 'Utilidades', icon: <Wrench size={14} /> },
                   { id: 'console', label: 'Terminal', icon: <Activity size={14} /> }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-extrabold uppercase tracking-wider transition-all duration-300 relative group/btn ${activeTab === tab.id
-                      ? 'text-white'
-                      : 'text-white/60 hover:text-white'
+                ].map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${
+                        isActive
+                          ? 'bg-white text-violet-700 shadow-md scale-105'
+                          : 'text-white/80 hover:text-white hover:bg-white/5'
                       }`}
-                  >
-                    {tab.icon}
-                    <span className="hidden lg:inline">{tab.label}</span>
-                    {activeTab === tab.id && (
-                      <motion.div layoutId="devTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-full" />
-                    )}
-                  </button>
-                ))}
+                    >
+                      <span className="hidden sm:inline-block shrink-0">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="selector-profile text-[10px] font-bold text-violet-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
                 <Shield size={12} /> SECURED SYSTEM

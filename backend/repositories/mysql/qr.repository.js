@@ -1,11 +1,19 @@
 import pool from '../../utils/mysql.helper.js';
 
+const toMySQLDatetime = (dateInput) => {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 class QRRepositoryMySQL {
   async createQR(data) {
     const { user_id, token, expiresAt } = data;
+    const formattedExpiresAt = toMySQLDatetime(expiresAt);
     await pool.query(
       'INSERT INTO qrs (user_id, token, expiresAt) VALUES (?, ?, ?)',
-      [user_id, token, expiresAt]
+      [user_id, token, formattedExpiresAt]
     );
     return data;
   }

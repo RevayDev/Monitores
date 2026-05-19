@@ -45,12 +45,12 @@ const UserAvatar = ({
   const badgeSize = size === 'sm' ? 'px-1 py-0.5 text-[8px]' : 'px-2 py-1 text-[10px]';
 
   return (
-    <div className={`relative inline-block ${className}`}>
+    <div className={`relative inline-block ${rounded} ${className}`}>
       <div className={`${sizes[size]} aspect-square ${rounded} flex items-center justify-center text-white font-black overflow-hidden shadow-inner ${getRoleColor(user?.role)}`}>
 
         {user?.foto ? (
           <img
-            src={`${user.foto.startsWith('http') ? user.foto : `${import.meta.env.VITE_API_BASE_URL || 'http://158.23.59.208:3000'}${user.foto}`}?t=${new Date().getTime()}`}
+            src={user.foto.startsWith('http') ? user.foto : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${user.foto}`}
             alt={user.nombre}
             className={`w-full h-full object-cover ${rounded}`}
             onError={(e) => {

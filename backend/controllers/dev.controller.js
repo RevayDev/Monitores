@@ -305,6 +305,43 @@ const devController = {
         const sys = `Plataforma: ${os.platform()} - ${os.arch()}\nCPU Cores: ${os.cpus().length}\nMemoria Libre: ${(os.freemem() / 1024 / 1024).toFixed(2)} MB\nMemoria Total: ${(os.totalmem() / 1024 / 1024).toFixed(2)} MB\nUptime Host: ${os.uptime()}s`;
         return res.json({ result: sys });
       }
+      
+      if (mainCmd === 'neofetch') {
+        const os = await import('os');
+        const uptimeSeconds = os.uptime();
+        const uptimeHours = Math.floor(uptimeSeconds / 3600);
+        const uptimeMins = Math.floor((uptimeSeconds % 3600) / 60);
+        const uptimeStr = uptimeHours > 0 
+          ? `${uptimeHours} hour${uptimeHours > 1 ? 's' : ''}, ${uptimeMins} min${uptimeMins !== 1 ? 's' : ''}`
+          : `${uptimeMins} min${uptimeMins !== 1 ? 's' : ''}`;
+          
+        const totalMem = Math.round(os.totalmem() / (1024 * 1024));
+        const freeMem = Math.round(os.freemem() / (1024 * 1024));
+        const usedMem = totalMem - freeMem;
+        
+        const cpuInfo = os.cpus()[0]?.model || "Intel Xeon Platinum 8370C (2) @ 2.80GHz";
+        const kernel = "6.17.0-1013-azure";
+        const host = "Virtual Machine Hyper-V UEFI R";
+
+        return res.json({
+          type: 'neofetch_output',
+          result: {
+            username: req.user?.username || 'rjesusjimenez',
+            hostname: 'RevayHost',
+            os: 'Ubuntu 24.04.4 LTS x86_64',
+            host: host,
+            kernel: kernel,
+            uptime: uptimeStr,
+            packages: '1289 (dpkg), 4 (snap)',
+            shell: 'bash 5.2.21',
+            resolution: '1024x768',
+            terminal: '/dev/pts/2',
+            cpu: cpuInfo,
+            memory: `${usedMem}MiB / ${totalMem}MiB`
+          }
+        });
+      }
+      
       return res.status(400).json({ error: 'Comando inválido o no autorizado por el sistema restrictivo P2P' });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -327,7 +364,7 @@ const devController = {
       
       // If we are at the beginning, suggest commands
       if (parts.length === 0) {
-        const commands = ['help', 'clear', 'ping', 'diagnostics', 'populate', 'fix_users', 'wipe_db', 'ls', 'tree', 'pwd', 'sysinfo', 'cd', 'ensure_db', 'exit', 'backup', 'restore'];
+        const commands = ['help', 'clear', 'ping', 'diagnostics', 'populate', 'fix_users', 'wipe_db', 'ls', 'tree', 'pwd', 'sysinfo', 'neofetch', 'cd', 'ensure_db', 'exit', 'backup', 'restore'];
         return res.json(commands.filter(c => c.startsWith(lastPart.toLowerCase())));
       }
 

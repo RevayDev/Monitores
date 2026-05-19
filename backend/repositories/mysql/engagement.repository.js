@@ -4,6 +4,13 @@ import pool from '../../utils/mysql.helper.js';
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const hashText = (text) => crypto.createHash('sha256').update(String(text || '')).digest('hex');
 
+const toMySQLDatetime = (dateInput) => {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 class EngagementRepositoryMySQL {
   async getUserById(userId) {
     const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
@@ -96,12 +103,14 @@ class EngagementRepositoryMySQL {
   }
 
   async createQrCode({ userId, token, tokenHash, validFrom, expiresAt }) {
+    const formattedValidFrom = toMySQLDatetime(validFrom);
+    const formattedExpiresAt = toMySQLDatetime(expiresAt);
     const [result] = await pool.query(
       `
       INSERT INTO qr_codes (user_id, token_value, token_hash, code_date, valid_from, expires_at, status, use_count, created_at)
       VALUES (?, ?, ?, DATE(?), ?, ?, 'active', 0, NOW())
       `,
-      [userId, token, tokenHash, validFrom, validFrom, expiresAt]
+      [userId, token, tokenHash, formattedValidFrom, formattedValidFrom, formattedExpiresAt]
     );
     return result.insertId;
   }
@@ -1106,7 +1115,7 @@ class EngagementRepositoryMySQL {
   }
 
   async updateForumPresence(forumId, userId, isTyping) {
-    const expiresAt = new Date(Date.now() + 10000);
+    const expiresAt = toMySQLDatetime(new Date(Date.now() + 10000));
     await pool.query(
       `
       INSERT INTO forum_presence (forum_id, user_id, is_typing, updated_at, expires_at)

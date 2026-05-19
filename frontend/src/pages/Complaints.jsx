@@ -59,13 +59,13 @@ const Complaints = () => {
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Volver
         </button>
 
-        <header className="bg-brand-blue p-8 rounded-[32px] text-white flex items-center gap-6 shadow-xl shadow-brand-blue/10 relative overflow-hidden">
+        <header className="bg-brand-blue p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] text-white flex items-center gap-4 sm:gap-6 shadow-xl shadow-brand-blue/10 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-          <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm shrink-0">
-            <MessageSquare size={32} />
+          <div className="bg-white/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl backdrop-blur-sm shrink-0">
+            <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl font-black tracking-tight">Atención Estudiantil</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">Atención Estudiantil</h1>
             <p className="text-blue-100 text-xs font-medium opacity-80">Mejora continua y soporte académico.</p>
           </div>
         </header>

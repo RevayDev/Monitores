@@ -11,45 +11,45 @@ const Toaster = ({ message, type = 'info', onClose, duration = 5000 }) => {
   }, [onClose, duration]);
 
   const icons = {
-    success: <CheckCircle className="text-emerald-500" size={20} />,
-    error: <AlertCircle className="text-red-500" size={20} />,
-    info: <Info className="text-brand-blue" size={20} />,
-    notification: <Bell className="text-violet-500" size={20} />
+    success: <CheckCircle className="text-emerald-500" size={16} />,
+    error: <AlertCircle className="text-red-500" size={16} />,
+    info: <Info className="text-brand-blue" size={16} />,
+    notification: <Bell className="text-violet-500" size={16} />
   };
 
   const colors = {
-    success: 'border-emerald-100 bg-white/90 shadow-emerald-500/10',
-    error: 'border-red-100 bg-white/90 shadow-red-500/10',
-    info: 'border-blue-100 bg-white/90 shadow-blue-500/10',
-    notification: 'border-violet-100 bg-white/90 shadow-violet-500/10'
+    success: 'border-emerald-100 bg-white/95 shadow-emerald-500/5',
+    error: 'border-red-100 bg-white/95 shadow-red-500/5',
+    info: 'border-blue-100 bg-white/95 shadow-blue-500/5',
+    notification: 'border-violet-100 bg-white/95 shadow-violet-500/5'
   };
 
   const isObjectMessage = typeof message === 'object' && message !== null;
-  const title = isObjectMessage ? message.title : (type === 'success' ? 'Exito' : type === 'error' ? 'Error' : 'Aviso');
+  const title = isObjectMessage ? message.title : (type === 'success' ? 'Éxito' : type === 'error' ? 'Error' : 'Aviso');
   const body = isObjectMessage ? message.body : message;
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 50, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 20, scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`fixed top-20 right-3 z-[9999] flex items-start gap-4 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl min-w-[320px] max-w-md ${colors[type] || colors.info}`}
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className={`fixed top-4 right-4 left-4 sm:left-auto z-[9999] flex items-start gap-2.5 p-3 rounded-xl border shadow-lg backdrop-blur-md sm:min-w-[280px] sm:max-w-sm ${colors[type] || colors.info}`}
     >
       <div className="mt-0.5 shrink-0">
         {icons[type] || icons.info}
       </div>
 
-      <div className="flex-grow space-y-1">
-        <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">{title}</h4>
-        <p className="text-[13px] font-bold text-gray-500 leading-snug">{body}</p>
+      <div className="flex-grow space-y-0.5">
+        <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{title}</h4>
+        <p className="text-xs font-bold text-gray-500 leading-snug">{body}</p>
       </div>
 
       <button
         onClick={onClose}
-        className="shrink-0 p-1 text-gray-300 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-all active:scale-90"
+        className="shrink-0 p-0.5 text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded transition-all active:scale-95"
       >
-        <X size={16} />
+        <X size={14} />
       </button>
 
       <motion.div

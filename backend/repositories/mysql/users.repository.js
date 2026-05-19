@@ -1,5 +1,12 @@
 import pool from '../../utils/mysql.helper.js';
 
+const toMySQLDatetime = (dateInput) => {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 class UsersRepositoryMySQL {
   async getAll(roleFilter = null) {
     let sql = 'SELECT * FROM users';
@@ -49,10 +56,13 @@ class UsersRepositoryMySQL {
 
   async create(userData) {
     const { nombre, username, email, password, role, sede, cuatrimestre, foto, is_principal, restrictions } = userData;
-    const createdAt = new Date().toISOString();
+    const createdAt = toMySQLDatetime(new Date());
+    const serializedRestrictions = restrictions && typeof restrictions === 'object'
+      ? JSON.stringify(restrictions)
+      : (restrictions || null);
     const [result] = await pool.query(
       'INSERT INTO users (nombre, username, email, password, role, sede, cuatrimestre, foto, restrictions, is_principal, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [nombre, username, email, password, role, sede, cuatrimestre, foto || null, restrictions || null, is_principal || false, createdAt]
+      [nombre, username, email, password, role || 'student', sede || null, cuatrimestre || null, foto || null, serializedRestrictions, is_principal || false, createdAt]
     );
     return { id: result.insertId, ...userData, createdAt };
   }
@@ -61,9 +71,12 @@ class UsersRepositoryMySQL {
     const fields = [];
     const values = [];
     
-    for (const [key, value] of Object.entries(userData)) {
+    for (let [key, value] of Object.entries(userData)) {
       if (key !== 'id' && key !== 'currentUserId' && key !== 'baseRole') {
         fields.push(`${key} = ?`);
+        if (key === 'restrictions' && value && typeof value === 'object') {
+          value = JSON.stringify(value);
+        }
         values.push(value);
       }
     }

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import app from './app.js';
 import { createServer } from 'http';
 import { initializeDatabase } from './database/index.js';
@@ -31,6 +32,7 @@ console.error = (...args) => { origErr(...args); emitToSocket('error', args); };
 console.warn = (...args) => { origWarn(...args); emitToSocket('warn', args); };
 console.info = (...args) => { origInfo(...args); emitToSocket('info', args); };
 
+// Trigger nodemon reload for neofetch
 initializeDatabase()
   .then(() => {
     httpServer.listen(PORT, () => {

@@ -39,11 +39,27 @@ const Navbar = () => {
   const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
   const notificationRef = React.useRef(null);
+  const profileRef = React.useRef(null);
   const prevUnreadRef = React.useRef(0);
   const [bellAnimating, setBellAnimating] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     fetchUser();
@@ -60,7 +76,7 @@ const Navbar = () => {
     // Socket connection for notifications (Restored)
     let socket;
     if (user?.id) {
-      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://158.23.59.208:3000';
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
       socket = io(socketUrl);
       socket.emit('join_user', user.id);
       socket.on('new_notification', (data) => {
@@ -223,7 +239,7 @@ const Navbar = () => {
     ]
   };
 
-  const NotificationBell = () => (
+  const renderNotificationBell = () => (
     <div className="relative" ref={notificationRef}>
       <button
         onClick={(e) => {
@@ -243,7 +259,7 @@ const Navbar = () => {
       {notificationsOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right"
+          className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right max-sm:fixed max-sm:top-24 max-sm:right-4 max-sm:left-4 max-sm:w-auto max-sm:max-h-[360px]"
         >
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Notificaciones</span>
@@ -290,7 +306,7 @@ const Navbar = () => {
   const currentLinks = isGuest ? navLinks.guest : navLinks.student;
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
+    <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-[1000]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20">
           <div className="flex items-center">
@@ -320,7 +336,7 @@ const Navbar = () => {
 
 
             <div className="ml-6 pl-6 border-l border-slate-100 flex items-center gap-4">
-              {!isGuest && <NotificationBell />}
+              {!isGuest && renderNotificationBell()}
 
               {/* Dedicated Panel Buttons with Premium Styling */}
               {!isGuest && (user.role === 'monitor' || user.role === 'monitor_academico' || user.role === 'monitor_administrativo' || user.role === 'admin' || user.role === 'dev' || user.baseRole === 'monitor' || user.baseRole === 'monitor_academico' || user.baseRole === 'monitor_administrativo' || user.baseRole === 'admin' || user.baseRole === 'dev') && (
@@ -366,10 +382,9 @@ const Navbar = () => {
                   </button>
                 </div>
               ) : (
-                <div className="relative">
+                <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => setProfileOpen(!profileOpen)}
-                    onBlur={() => setTimeout(() => setProfileOpen(false), 200)}
                     className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border ${profileOpen ? 'border-slate-200 bg-white shadow-lg' : 'border-transparent hover:bg-slate-50 hover:shadow-sm'} group relative overflow-hidden`}
                   >
                     <UserAvatar user={user} size="md" className="shadow-sm group-hover:scale-105 transition-transform" />
@@ -490,7 +505,7 @@ const Navbar = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center gap-2">
-            {!isGuest && <NotificationBell />}
+            {!isGuest && renderNotificationBell()}
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-2 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all"

@@ -1,5 +1,12 @@
 import pool from '../../utils/mysql.helper.js';
 
+const toMySQLDatetime = (dateInput) => {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 class MonitoriasRepositoryMySQL {
   // Modules
   async getAll(filters = {}) {
@@ -36,7 +43,7 @@ class MonitoriasRepositoryMySQL {
       monitorId, monitor, monitorEmail, modulo, cuatrimestre, 
       modalidad, horario, salon, sede, descripcion, whatsapp, teams 
     } = data;
-    const createdAt = new Date();
+    const createdAt = toMySQLDatetime(new Date());
     const [result] = await pool.query(
       'INSERT INTO modules (monitorId, monitor, monitorEmail, modulo, cuatrimestre, modalidad, horario, salon, sede, descripcion, whatsapp, teams, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [monitorId, monitor, monitorEmail, modulo, cuatrimestre, modalidad, horario, salon || null, sede, descripcion, whatsapp || null, teams || null, createdAt]
@@ -107,9 +114,17 @@ class MonitoriasRepositoryMySQL {
   async createRegistration(data) {
     const { studentName, studentEmail, studentId, modulo, moduleId, monitorId, registeredAt } = data;
     const resolvedModuleId = moduleId || monitorId;
+    let resolvedRegisteredAt = new Date();
+    if (registeredAt) {
+      const parsed = new Date(registeredAt);
+      if (!isNaN(parsed.getTime())) {
+        resolvedRegisteredAt = parsed;
+      }
+    }
+    const formattedRegisteredAt = toMySQLDatetime(resolvedRegisteredAt);
     const [result] = await pool.query(
       'INSERT INTO registrations (studentName, studentEmail, modulo, monitorId, registeredAt) VALUES (?, ?, ?, ?, ?)',
-      [studentName, studentEmail, modulo, resolvedModuleId, registeredAt || new Date()]
+      [studentName, studentEmail, modulo, resolvedModuleId, formattedRegisteredAt]
     );
     return { id: result.insertId, ...data };
   }
@@ -156,9 +171,10 @@ class MonitoriasRepositoryMySQL {
 
   async addComplaint(data) {
     const { monitorId, studentName, studentEmail, reason, details, date } = data;
+    const resolvedDate = toMySQLDatetime(date || new Date());
     await pool.query(
       'INSERT INTO complaints (monitorId, studentName, studentEmail, reason, details, date) VALUES (?, ?, ?, ?, ?, ?)',
-      [monitorId, studentName, studentEmail, reason, details, date || new Date()]
+      [monitorId, studentName, studentEmail, reason, details, resolvedDate]
     );
     return data;
   }
