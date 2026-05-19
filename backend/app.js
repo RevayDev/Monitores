@@ -8,6 +8,7 @@ import statsRoutes from './routes/stats.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import devRoutes from './routes/dev.routes.js';
+import supportRoutes from './routes/support.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -50,11 +51,6 @@ const wrapAllAsyncRoutes = (expressApp) => {
 
 // Middleware
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://158.23.59.208:5173',
-  'https://monitoreshub.vercel.app',
-  'https://monitoreshub.vercel.app/',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -125,6 +121,7 @@ app.use('/api', statsRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', devRoutes);
+app.use('/api', supportRoutes);
 wrapAllAsyncRoutes(app);
 
 // Error handling

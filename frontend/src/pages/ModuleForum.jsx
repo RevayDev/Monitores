@@ -1027,9 +1027,6 @@ const ModuleForum = () => {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-brand-gray py-2 sm:py-8 px-0 sm:px-4">
       <div className="max-w-7xl mx-auto space-y-2 sm:space-y-4">
-        <button onClick={handleTopBack} className={`flex items-center gap-2 text-gray-500 hover:text-brand-blue font-bold px-4 sm:px-0 ${selectedId ? 'hidden sm:flex' : 'flex'}`}>
-          <ArrowLeft size={18} /> {selectedId ? 'Volver a la lista' : 'Volver'}
-        </button>
         <div className="bg-white p-4 sm:p-6 rounded-none sm:rounded-3xl border-b sm:border border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <div><h1 className="text-2xl font-black text-gray-900 tracking-tight">Foro del modulo</h1><p className="text-gray-500 text-sm mt-1">{moduleData?.modulo || detail?.module_name || `Modulo #${moduleId}`}</p></div>
           <div className="flex items-center gap-2">

@@ -19,8 +19,12 @@ const QrCard = () => {
   const [showSecurityModal, setShowSecurityModal] = useState(false);
 
   const fetchQr = async () => {
-    const data = await getCurrentQr();
-    setQr(data || null);
+    try {
+      const data = await getCurrentQr();
+      setQr(data || null);
+    } catch {
+      setQr(null);
+    }
   };
 
   useEffect(() => {
@@ -46,6 +50,8 @@ const QrCard = () => {
       const generated = await generateQr();
       setQr(generated);
       setShowSecurityModal(true);
+    } catch {
+      setQr(null);
     } finally {
       setLoading(false);
     }

@@ -29,7 +29,7 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
     const [hStr, mStr] = val.split(':');
     const h24 = parseInt(hStr, 10) || 0;
     const minute = mStr || '00';
-    
+
     let ampm = 'AM';
     let h12 = h24;
     if (h24 >= 12) {
@@ -37,7 +37,7 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
       if (h24 > 12) h12 = h24 - 12;
     }
     if (h12 === 0) h12 = 12;
-    
+
     const hour12 = String(h12).padStart(2, '0');
     return { timeStr: `${hour12}:${minute}`, ampm };
   };
@@ -76,9 +76,9 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
     const formattedH = String(h).padStart(2, '0');
     const formattedM = String(m).padStart(2, '0');
     const newTimeStr = `${formattedH}:${formattedM}`;
-    
+
     setInputValue(newTimeStr);
-    
+
     // Save as 24h
     save24h(formattedH, formattedM, ampm);
   };
@@ -128,22 +128,20 @@ const Time12hPicker = ({ label, value, onChange, role = 'monitor' }) => {
           <button
             type="button"
             onClick={() => handleAmpmToggle('AM')}
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${
-              ampm === 'AM' 
-                ? `${activeColor.bg} text-white` 
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${ampm === 'AM'
+              ? `${activeColor.bg} text-white`
+              : 'text-slate-400 hover:text-slate-600'
+              }`}
           >
             AM
           </button>
           <button
             type="button"
             onClick={() => handleAmpmToggle('PM')}
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${
-              ampm === 'PM' 
-                ? `${activeColor.bg} text-white` 
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider uppercase transition-all ${ampm === 'PM'
+              ? `${activeColor.bg} text-white`
+              : 'text-slate-400 hover:text-slate-600'
+              }`}
           >
             PM
           </button>
@@ -787,20 +785,16 @@ const MonitorDashboard = () => {
                       <button
                         key={tab.id}
                         onClick={() => setTopTab(tab.id)}
-                        className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${
-                          isActive
-                            ? 'bg-white text-teal-700 shadow-md scale-105'
-                            : 'text-white/80 hover:text-white hover:bg-white/5'
-                        }`}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${isActive
+                          ? 'bg-white text-teal-700 shadow-md scale-105'
+                          : 'text-white/80 hover:text-white hover:bg-white/5'
+                          }`}
                       >
                         <span className="hidden sm:inline-block shrink-0">{tab.icon}</span>
                         <span>{tab.label}</span>
                       </button>
                     );
                   })}
-                </div>
-                <div className="selector-profile text-[10px] font-bold text-teal-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Clock3 size={12} /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
             </div>
@@ -1070,20 +1064,16 @@ const MonitorDashboard = () => {
                     <button
                       key={tab.id}
                       onClick={() => setTopTab(tab.id)}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${
-                        isActive
-                          ? 'bg-white text-emerald-700 shadow-md scale-105'
-                          : 'text-white/80 hover:text-white hover:bg-white/5'
-                      }`}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 shrink-0 ${isActive
+                        ? 'bg-white text-emerald-700 shadow-md scale-105'
+                        : 'text-white/80 hover:text-white hover:bg-white/5'
+                        }`}
                     >
                       <span className="hidden sm:inline-block shrink-0">{tab.icon}</span>
                       <span>{tab.label}</span>
                     </button>
                   );
                 })}
-              </div>
-              <div className="text-[10px] font-bold text-emerald-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
-                <Clock3 size={12} /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           </div>

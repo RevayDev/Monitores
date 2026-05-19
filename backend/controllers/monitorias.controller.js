@@ -37,7 +37,8 @@ const registerStudent = async (req, res) => {
 };
 
 const deleteRegistration = async (req, res) => {
-  await monitoriasService.deleteRegistration(req.params.id);
+  const actorUserId = Number(req.headers['x-user-id'] || req.body?.userId || 0) || null;
+  await monitoriasService.deleteRegistration(req.params.id, actorUserId);
   res.json({ success: true });
 };
 

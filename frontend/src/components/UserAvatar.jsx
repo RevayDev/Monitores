@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const UserAvatar = ({
   user,
@@ -7,6 +7,11 @@ const UserAvatar = ({
   showBadge = false,
   rounded = 'rounded-full'
 }) => {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.foto]);
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -48,16 +53,12 @@ const UserAvatar = ({
     <div className={`relative inline-block ${rounded} ${className}`}>
       <div className={`${sizes[size]} aspect-square ${rounded} flex items-center justify-center text-white font-black overflow-hidden shadow-inner ${getRoleColor(user?.role)}`}>
 
-        {user?.foto ? (
+        {user?.foto && !imgError ? (
           <img
             src={user.foto.startsWith('http') ? user.foto : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${user.foto}`}
             alt={user.nombre}
             className={`w-full h-full object-cover ${rounded}`}
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.style.display = 'none';
-              e.target.parentNode.innerHTML = getInitials(user.nombre);
-            }}
+            onError={() => setImgError(true)}
           />
         ) : (
           getInitials(user?.nombre)

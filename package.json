@@ -1,16 +1,17 @@
 {
-  "name": "monitores-workspace",
-  "private": true,
-  "scripts": {
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
-    "dev": "node scripts/dev.mjs",
-    "dev:backend": "npm --prefix backend run dev",
-    "dev:frontend": "npm --prefix frontend run dev",
-    "start": "npm --prefix backend run start",
-    "build": "npm --prefix frontend run build",
-    "lint": "npm --prefix frontend run lint"
-  },
-  "dependencies": {
-    "mysql2": "^3.22.0"
-  }
+    "name":  "monitores-workspace",
+    "private":  true,
+    "scripts":  {
+                    "install:all":  "npm --prefix backend install \u0026\u0026 npm --prefix frontend install",
+                    "dev":  "node scripts/dev.mjs",
+                    "dev:backend":  "npm --prefix backend run dev",
+                    "dev:frontend":  "npm --prefix frontend run dev",
+                    "start":  "npm --prefix backend run start",
+                    "build":  "npm --prefix frontend run build",
+                    "db:init":  "node scripts/db_init.js",
+                    "db:reset":  "node scripts/reset_db.js",
+                    "db:check":  "node scripts/db_check.js",
+                    "db:seed:roots":  "node scripts/db_seed_roots.js"
+                },
+    "type":  "module"
 }

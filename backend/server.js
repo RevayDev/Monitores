@@ -3,8 +3,10 @@ import app from './app.js';
 import { createServer } from 'http';
 import { initializeDatabase } from './database/index.js';
 import { initSocket } from './socket.js';
+import os from 'os';
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const httpServer = createServer(app);
 initSocket(httpServer);
 
@@ -32,11 +34,41 @@ console.error = (...args) => { origErr(...args); emitToSocket('error', args); };
 console.warn = (...args) => { origWarn(...args); emitToSocket('warn', args); };
 console.info = (...args) => { origInfo(...args); emitToSocket('info', args); };
 
-// Trigger nodemon reload for neofetch
+const getNetworkUrls = (port) => {
+  const urls = [];
+  const nets = os.networkInterfaces();
+  Object.values(nets).forEach((entries) => {
+    (entries || []).forEach((net) => {
+      if (net.family === 'IPv4' && !net.internal) {
+        urls.push(`http://${net.address}:${port}`);
+      }
+    });
+  });
+  return [...new Set(urls)];
+};
+
+const logRuntimeInfo = () => {
+  const azureHost = process.env.WEBSITE_HOSTNAME;
+  const isAzure = Boolean(process.env.WEBSITE_INSTANCE_ID || azureHost);
+  const mode = isAzure ? 'AZURE' : 'LOCAL/PRIVATE-NETWORK';
+  console.log(`[runtime] Mode: ${mode}`);
+  console.log(`[runtime] Binding: ${HOST}:${PORT}`);
+  console.log(`[runtime] Local URL: http://localhost:${PORT}`);
+  if (azureHost) {
+    console.log(`[runtime] Azure URL: https://${azureHost}`);
+  } else {
+    const urls = getNetworkUrls(PORT);
+    if (urls.length) {
+      console.log('[runtime] Network URLs:');
+      urls.forEach((url) => console.log(`  - ${url}`));
+    }
+  }
+};
+
 initializeDatabase()
   .then(() => {
-    httpServer.listen(PORT, () => {
-      console.log(`Backend running on http://localhost:${PORT}`);
+    httpServer.listen(PORT, HOST, () => {
+      logRuntimeInfo();
     });
   })
   .catch((error) => {

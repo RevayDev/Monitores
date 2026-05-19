@@ -14,7 +14,7 @@ import {
   resetScans, dbReset, dbEnsure, dbNuke, dbPopulate, dbPopulateVolume, fixUsernames,
   getDiagnostics, executeTerminalCommand, request,
   rootEnable, rootMemberAction, rootFileAction, getRootLogs,
-  rootSystemBackup, rootSystemRestore
+  rootSystemBackup, rootSystemRestore, getSupportTickets, respondSupportTicket
 } from '../services/api';
 import Modal from '../components/Modal';
 import { ToastContext } from '../context/ToastContext';
@@ -542,10 +542,10 @@ const DevDashboard = () => {
   const { showToast } = React.useContext(ToastContext);
   const [config, setConfig] = useState({
     global: false,
-    registro: false,
+    signup: false,
     login: false,
-    panelAdmin: false,
-    panelMonitor: false,
+    adminPanel: false,
+    monitorPanel: false,
     monitorias: false
   });
   const [devs, setDevs] = useState([]);
@@ -591,6 +591,9 @@ const DevDashboard = () => {
   });
 
   const [activeTab, setActiveTab] = useState('config'); // 'config', 'devs', 'utils'
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [ticketResponse, setTicketResponse] = useState({});
+  const [respondingTicketId, setRespondingTicketId] = useState(null);
   const [isResettingDb, setIsResettingDb] = useState(false);
   const [isPopulating, setIsPopulating] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
@@ -650,7 +653,15 @@ const DevDashboard = () => {
         getSedes(),
         getCuatrimestres()
       ]);
-      if (freshConfig) setConfig(freshConfig);
+      if (freshConfig) {
+        const normalizedConfig = {
+          ...freshConfig,
+          signup: Boolean(freshConfig.signup ?? freshConfig.registro),
+          adminPanel: Boolean(freshConfig.adminPanel ?? freshConfig.panelAdmin),
+          monitorPanel: Boolean(freshConfig.monitorPanel ?? freshConfig.panelMonitor)
+        };
+        setConfig(normalizedConfig);
+      }
       setDevs(users.filter(u => u.baseRole === 'dev' || u.role === 'dev'));
       setDbSedes(sedes || []);
       setDbCuatrimestres(cuats || []);
@@ -661,11 +672,45 @@ const DevDashboard = () => {
     }
   };
 
+  const loadSupportTickets = async () => {
+    try {
+      const rows = await getSupportTickets({ limit: 100 });
+      setSupportTickets(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      showToast(error.message || 'No se pudieron cargar tickets.', 'error');
+    }
+  };
+
+  const handleRespondTicket = async (ticketId) => {
+    const responseMessage = String(ticketResponse[ticketId] || '').trim();
+    if (!responseMessage) {
+      showToast('Escribe una respuesta para el ticket.', 'error');
+      return;
+    }
+    try {
+      setRespondingTicketId(ticketId);
+      await respondSupportTicket(ticketId, { responseMessage, status: 'answered' });
+      showToast('Ticket respondido y correo enviado.', 'success');
+      setTicketResponse((prev) => ({ ...prev, [ticketId]: '' }));
+      await loadSupportTickets();
+    } catch (error) {
+      showToast(error.message || 'No se pudo responder el ticket.', 'error');
+    } finally {
+      setRespondingTicketId(null);
+    }
+  };
+
   useEffect(() => {
     if (activeTermTab === 'root_audit') {
       getRootLogs(0, 100).then(setRootLogs).catch(() => { });
     }
   }, [activeTermTab]);
+
+  useEffect(() => {
+    if (activeTab === 'tickets') {
+      loadSupportTickets();
+    }
+  }, [activeTab]);
 
   const addLog = (text, type = 'info', metadata = {}) => {
     setShellLogs(prev => [
@@ -867,6 +912,7 @@ const DevDashboard = () => {
                   { id: 'config', label: 'Mantenimiento', icon: <Globe size={14} /> },
                   { id: 'devs', label: 'Equipo', icon: <ShieldCheck size={14} /> },
                   { id: 'utils', label: 'Utilidades', icon: <Wrench size={14} /> },
+                  { id: 'tickets', label: 'Tickets', icon: <Mail size={14} /> },
                   { id: 'console', label: 'Terminal', icon: <Activity size={14} /> }
                 ].map(tab => {
                   const isActive = activeTab === tab.id;
@@ -885,9 +931,6 @@ const DevDashboard = () => {
                   );
                 })}
               </div>
-              <div className="selector-profile text-[10px] font-bold text-violet-100/60 uppercase tracking-[0.2em] flex items-center gap-2">
-                <Shield size={12} /> SECURED SYSTEM
-              </div>
             </div>
           </div>
         </header>
@@ -897,9 +940,9 @@ const DevDashboard = () => {
             <SwitchCard id="global" label="Mantenimiento Global" description="Cerrar el acceso a toda la plataforma" icon={<Globe size={24} />} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SwitchCard id="login" label="Inicio de Sesión" description="Bloquear acceso a cuentas" icon={<LogIn size={24} />} />
-              <SwitchCard id="registro" label="Registro Estudiantil" description="Suspender creación de cuentas" icon={<UserPlus size={24} />} />
+              <SwitchCard id="signup" label="Registro Estudiantil" description="Suspender creación de cuentas" icon={<UserPlus size={24} />} />
               <SwitchCard id="monitorias" label="Sistema de Monitorías" description="Búsqueda e inscripción a clases" icon={<BookOpen size={24} />} />
-              <SwitchCard id="panelAdmin" label="Panel de Administración" description="Acceso a gestionar reportes y usuarios" icon={<Shield size={24} />} />
+              <SwitchCard id="adminPanel" label="Panel de Administración" description="Acceso a gestionar reportes y usuarios" icon={<Shield size={24} />} />
             </div>
           </div>
         )}
@@ -1115,6 +1158,47 @@ const DevDashboard = () => {
 
           </div>
         )}
+        {activeTab === 'tickets' && (
+          <div className="space-y-4 animate-slide-up">
+            <div className="bg-white rounded-[24px] border border-gray-100 p-6">
+              <h3 className="text-xl font-black text-gray-900">Tickets de soporte</h3>
+              <p className="text-xs text-gray-500 mt-1">Solicitudes creadas desde Ayuda.</p>
+            </div>
+            <div className="space-y-4">
+              {supportTickets.map((ticket) => (
+                <div key={ticket.id} className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-xs font-black text-violet-700">#{ticket.id}</span>
+                    <span className="text-xs font-bold text-gray-700">{ticket.requester_name}</span>
+                    <span className="text-xs text-gray-500">{ticket.requester_email}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-bold uppercase">{ticket.status}</span>
+                  </div>
+                  <p className="text-sm font-black text-gray-900">{ticket.subject}</p>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{ticket.message}</p>
+                  <textarea
+                    value={ticketResponse[ticket.id] || ''}
+                    onChange={(e) => setTicketResponse((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
+                    placeholder="Respuesta para el usuario..."
+                    className="mt-3 w-full min-h-24 rounded-xl border-2 border-gray-300 px-3 py-2 text-sm focus:border-violet-500 outline-none"
+                  />
+                  <button
+                    onClick={() => handleRespondTicket(ticket.id)}
+                    disabled={respondingTicketId === ticket.id}
+                    className="mt-3 px-4 py-2 rounded-xl bg-violet-600 text-white text-xs font-black hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {respondingTicketId === ticket.id ? 'Enviando...' : 'Responder ticket'}
+                  </button>
+                </div>
+              ))}
+              {!supportTickets.length && (
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 text-sm text-gray-500">
+                  No hay tickets registrados.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'console' && (
           <div className="animate-slide-up pb-20">
             <LiveTerminal

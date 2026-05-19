@@ -1,0 +1,38 @@
+import supportService from '../services/support.service.js';
+
+const submitSupportRequest = async (req, res) => {
+  try {
+    const requester = req.user || { id: req.userContext?.userId || null };
+    const result = await supportService.submitTicket(req.body, requester);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const listSupportTickets = async (req, res) => {
+  try {
+    const tickets = await supportService.listTickets({
+      status: req.query.status || '',
+      limit: req.query.limit || 50
+    });
+    res.json(tickets);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const respondSupportTicket = async (req, res) => {
+  try {
+    const result = await supportService.respondTicket(req.params.id, req.body, req.user || null);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export default {
+  submitSupportRequest,
+  listSupportTickets,
+  respondSupportTicket
+};

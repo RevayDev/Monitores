@@ -18,10 +18,20 @@ import Login from './pages/Login';
 import ModuleForum from './pages/ModuleForum';
 import MonitorAttendanceSheet from './pages/MonitorAttendanceSheet';
 import Toaster from './components/Toaster';
+import BetaBanner from './components/BetaBanner';
 import { getMaintenanceConfig, getCurrentUser } from './services/api';
 import { Wrench, ShieldAlert } from 'lucide-react';
+import HelpCenter from './pages/HelpCenter';
 
 import { ToastContext } from './context/ToastContext';
+
+const safeParse = (raw, fallback = {}) => {
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : (raw ?? fallback);
+  } catch {
+    return fallback;
+  }
+};
 
 function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
   const location = useLocation();
@@ -92,6 +102,7 @@ function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/profile" element={<PageTransition><Profile /></PageTransition>} />
         <Route path="/complaints" element={<PageTransition><Complaints /></PageTransition>} />
+        <Route path="/help" element={<PageTransition><HelpCenter /></PageTransition>} />
 
         <Route path="/monitorias" element={<PageTransition><Monitorias /></PageTransition>} />
         <Route path="/mis-monitorias" element={<PageTransition><MisMonitorias /></PageTransition>} />
@@ -119,7 +130,7 @@ function App() {
   });
   const [userRole, setUserRole] = React.useState(() => {
     try {
-      const u = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+      const u = safeParse(localStorage.getItem('monitores_current_role'), {});
       return u.role || 'student';
     } catch {
       return 'student';
@@ -127,8 +138,8 @@ function App() {
   });
   const [isSuspended, setIsSuspended] = React.useState(() => {
     try {
-      const u = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-      const restrictions = typeof u.restrictions === 'string' ? JSON.parse(u.restrictions) : (u.restrictions || {});
+      const u = safeParse(localStorage.getItem('monitores_current_role'), {});
+      const restrictions = safeParse(u.restrictions, {});
       return u.is_active === 0 || u.is_active === false || restrictions.login;
     } catch {
       return false;
@@ -143,12 +154,10 @@ function App() {
     const checkStatus = async () => {
       // 1. Check local state first to resolve flicker instantly
       try {
-        const localUser = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+        const localUser = safeParse(localStorage.getItem('monitores_current_role'), {});
         if (localUser && localUser.role) {
           setUserRole(localUser.role);
-          const restrictions = typeof localUser.restrictions === 'string'
-            ? JSON.parse(localUser.restrictions)
-            : (localUser.restrictions || {});
+          const restrictions = safeParse(localUser.restrictions, {});
           setIsSuspended(localUser.is_active === 0 || localUser.is_active === false || restrictions.login);
         } else {
           setUserRole('student');
@@ -168,9 +177,7 @@ function App() {
         
         if (user) {
           setUserRole(user.role);
-          const restrictions = typeof user.restrictions === 'string' 
-            ? JSON.parse(user.restrictions) 
-            : (user.restrictions || {});
+          const restrictions = safeParse(user.restrictions, {});
             
           if (user.is_active === 0 || user.is_active === false || restrictions.login) {
             setIsSuspended(true);
@@ -199,6 +206,7 @@ function App() {
     <ToastContext.Provider value={{ showToast }}>
       <Router>
         <div className="min-h-screen bg-gray-50 flex flex-col">
+          <BetaBanner />
           <Navbar />
           <main className="flex-grow">
             <AnimatedRoutes 

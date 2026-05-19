@@ -29,6 +29,14 @@ import QrCard from '../components/QrCard';
 import ProfileMedicalHistory from '../components/ProfileMedicalHistory';
 import ProfilePersonalStats from '../components/ProfilePersonalStats';
 
+const safeParse = (raw, fallback = {}) => {
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : (raw ?? fallback);
+  } catch {
+    return fallback;
+  }
+};
+
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', email: '', sede: '', cuatrimestre: '' });
@@ -132,7 +140,7 @@ const Profile = () => {
       await updateUser(user.id, { foto: url });
 
       // Update session user
-      const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+      const currentSession = safeParse(localStorage.getItem('monitores_current_role'), {});
       const updatedSession = { ...currentSession, foto: url };
       localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
       setUser(updatedSession);
@@ -149,7 +157,7 @@ const Profile = () => {
   const handleDeletePhoto = async () => {
     setPhotoPreview(null);
     await updateUser(user.id, { foto: null });
-    const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+    const currentSession = safeParse(localStorage.getItem('monitores_current_role'), {});
     const updatedSession = { ...currentSession };
     delete updatedSession.foto; // Remove foto property
     localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
@@ -160,10 +168,8 @@ const Profile = () => {
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
-    const currentSession = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
-    const restrictions = typeof currentSession?.restrictions === 'string'
-      ? JSON.parse(currentSession.restrictions)
-      : (currentSession?.restrictions || {});
+    const currentSession = safeParse(localStorage.getItem('monitores_current_role'), {});
+    const restrictions = safeParse(currentSession?.restrictions, {});
 
     if (restrictions.management && currentSession?.baseRole !== 'dev' && currentSession?.role !== 'dev' && !currentSession?.is_principal) {
       showToast('Tu capacidad de modificar datos ha sido restringida por seguridad.', 'error');
@@ -210,11 +216,17 @@ const Profile = () => {
     }
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-brand-gray p-6 flex items-center justify-center">
+        <div className="bg-white border border-gray-200 rounded-2xl px-6 py-5 text-sm font-semibold text-gray-600">
+          No se pudo cargar el perfil. Recarga la pagina.
+        </div>
+      </div>
+    );
+  }
 
-  const restrictions = typeof user.restrictions === 'string'
-    ? JSON.parse(user.restrictions)
-    : (user.restrictions || {});
+  const restrictions = safeParse(user.restrictions, {});
 
   const isManagementRestricted = restrictions.management &&
     user.baseRole !== 'dev' &&
@@ -229,35 +241,47 @@ const Profile = () => {
 
         {/* Account Status / Restrictions Alert - ONLY show if there are active restrictions */}
         {(() => {
-          const restrictions = typeof user.restrictions === 'string'
-            ? JSON.parse(user.restrictions)
-            : (user.restrictions || {});
+          const restrictions = safeParse(user.restrictions, {});
 
           const activeRestrictions = Object.entries(restrictions).filter(([_, v]) => v);
 
           if (activeRestrictions.length === 0 && user.is_active !== 0 && user.is_active !== false) return null;
 
           const isBlocked = user.is_active === 0 || user.is_active === false || restrictions.login;
-          const statusColor = isBlocked ? 'red' : 'amber';
+          const tone = isBlocked
+            ? {
+              container: 'border-red-100 shadow-red-500/5',
+              iconWrap: 'bg-red-100 text-red-600',
+              text: 'text-red-500',
+              tile: 'bg-red-50/50 border-red-100',
+              tileIcon: 'text-red-600'
+            }
+            : {
+              container: 'border-amber-100 shadow-amber-500/5',
+              iconWrap: 'bg-amber-100 text-amber-600',
+              text: 'text-amber-500',
+              tile: 'bg-amber-50/50 border-amber-100',
+              tileIcon: 'text-amber-600'
+            };
 
           return (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`bg-white border-2 border-${statusColor}-100 rounded-[32px] p-6 sm:p-8 shadow-xl shadow-${statusColor}-500/5 relative overflow-hidden group`}
+              className={`bg-white border-2 rounded-[32px] p-6 sm:p-8 shadow-xl relative overflow-hidden group ${tone.container}`}
             >
-              <div className={`absolute top-0 right-0 p-8 text-${statusColor}-100/20 rotate-12 group-hover:scale-110 transition-transform`}>
+              <div className="absolute top-0 right-0 p-8 text-gray-200 rotate-12 group-hover:scale-110 transition-transform">
                 <AlertTriangle size={120} />
               </div>
 
               <div className="relative space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 bg-${statusColor}-100 text-${statusColor}-600 rounded-xl`}>
+                  <div className={`p-2 rounded-xl ${tone.iconWrap}`}>
                     <AlertTriangle size={24} />
                   </div>
                   <div>
                     <h2 className="text-xl font-black text-gray-900">Estado de tu Cuenta</h2>
-                    <p className={`text-sm font-bold text-${statusColor}-500 uppercase tracking-widest`}>
+                    <p className={`text-sm font-bold uppercase tracking-widest ${tone.text}`}>
                       {isBlocked ? 'Acceso al Sistema Bloqueado' : 'Restricciones de Acceso Activas'}
                     </p>
                   </div>
@@ -283,8 +307,8 @@ const Profile = () => {
                     </div>
                   )}
                   {restrictions.registrations && (
-                    <div className={`bg-${statusColor}-50/50 p-4 rounded-2xl border border-${statusColor}-100 flex items-center gap-3`}>
-                      <BookOpen size={18} className={`text-${statusColor}-600`} />
+                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${tone.tile}`}>
+                      <BookOpen size={18} className={tone.tileIcon} />
                       <span className="text-xs font-black text-gray-800 uppercase tracking-tighter">Monitorías Restringidas</span>
                     </div>
                   )}

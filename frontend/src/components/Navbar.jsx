@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import Modal from './Modal';
-import { getCurrentUser, switchRole, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
+import { getCurrentUser, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
 import { io } from 'socket.io-client';
 import { ToastContext } from '../context/ToastContext';
 
@@ -53,6 +53,20 @@ const Navbar = () => {
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
+  const fetchUser = useCallback(async () => {
+    try {
+      const localUser = JSON.parse(localStorage.getItem('monitores_current_role') || 'null');
+      if (localUser && localUser.id) {
+        setUser(localUser);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    }
+    const data = await getCurrentUser();
+    setUser(data);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -129,7 +143,7 @@ const Navbar = () => {
       window.removeEventListener('profile-updated', fetchUser);
       window.removeEventListener('notifications-updated', loadNotifications);
     };
-  }, [user?.id]);
+  }, [user?.id, fetchUser, showToast]);
 
   useEffect(() => {
     const currentUnread = notifications.filter((n) => !n.is_read).length;
@@ -152,30 +166,6 @@ const Navbar = () => {
     prevUnreadRef.current = currentUnread;
   }, [notifications]);
 
-
-  async function fetchUser() {
-    try {
-      const localUser = JSON.parse(localStorage.getItem('monitores_current_role') || 'null');
-      if (localUser && localUser.id) {
-        setUser(localUser);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    }
-    const data = await getCurrentUser();
-    setUser(data);
-  }
-
-  const handleRoleChange = async (role, shouldNavigate = true) => {
-    const newUser = await switchRole(role, user?.nombre ? { nombre: user.nombre, email: user.email } : {});
-    setUser(newUser);
-    if (shouldNavigate) {
-      window.dispatchEvent(new Event('profile-updated'));
-      navigate('/');
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -454,7 +444,7 @@ const Navbar = () => {
                           <button
                             onClick={() => {
                               setProfileOpen(false);
-                              showToast("Centro de soporte en desarrollo", "info");
+                              navigate('/help');
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all group/item"
                           >
@@ -595,7 +585,7 @@ const Navbar = () => {
                   <User size={16} /> Mi Perfil
                 </button>
                 <button
-                  onClick={() => { setIsOpen(false); showToast("Estamos trabajando en esta función", "info"); }}
+                  onClick={() => { setIsOpen(false); navigate('/help'); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
                 >
                   <HelpCircle size={16} /> Ayuda

@@ -1,4 +1,5 @@
 import monitoriasRepository from '../repositories/mysql/monitorias.repository.js';
+import engagementRepository from '../repositories/mysql/engagement.repository.js';
 
 class MonitoriasService {
   parseHorarioWindow(horario) {
@@ -73,11 +74,40 @@ class MonitoriasService {
       studentEmail: usuario?.email,
       registeredAt: new Date().toISOString()
     };
-    return await monitoriasRepository.createRegistration(newReg);
+    const registration = await monitoriasRepository.createRegistration(newReg);
+
+    if (usuario?.id) {
+      await engagementRepository.createNotification({
+        userId: usuario.id,
+        type: 'module_registered',
+        title: 'Registro de monitoria',
+        body: `Te registraste en ${currentModule.modulo}.`,
+        metadata: { moduleId: currentModule.id, moduleName: currentModule.modulo }
+      });
+    }
+
+    return registration;
   }
 
-  async deleteRegistration(id) {
-    return await monitoriasRepository.deleteRegistration(id);
+  async deleteRegistration(id, actorUserId = null) {
+    const registrations = await monitoriasRepository.getAllRegistrations();
+    const targetRegistration = registrations.find((r) => Number(r.id) === Number(id));
+
+    const deleted = await monitoriasRepository.deleteRegistration(id);
+
+    if (deleted && actorUserId) {
+      const moduleId = targetRegistration?.moduleId || targetRegistration?.monitorId || null;
+      const moduleName = targetRegistration?.modulo || 'monitoria';
+      await engagementRepository.createNotification({
+        userId: actorUserId,
+        type: 'module_dropped',
+        title: 'Baja de monitoria',
+        body: `Te diste de baja de ${moduleName}.`,
+        metadata: { moduleId, moduleName }
+      });
+    }
+
+    return deleted;
   }
 
   // Maintenance

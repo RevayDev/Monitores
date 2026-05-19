@@ -137,9 +137,13 @@ const MisMonitorias = () => {
     try {
       const email = user?.email;
       if (!email) return;
-      const myRegistrations = await getMisMonitorias(email);
+      const [myRegistrations, registrations] = await Promise.all([
+        getMisMonitorias(email),
+        getAllRegistrations()
+      ]);
       const modules = myRegistrations || [];
       setMonitorias(modules);
+      setAllRegistrations(registrations || []);
       if (modules.length && !activeModuleId) setActiveModuleId(modules[0].moduleId);
     } catch (error) {
       showToast(error.message || 'Error cargando tus monitorias.', 'error');
@@ -265,6 +269,9 @@ const MisMonitorias = () => {
   const confirmDelete = async () => {
     if (!deleteReason || !selectedMonitoria) return;
     await deleteMonitoria(selectedMonitoria.registration_id || selectedMonitoria.id, deleteReason);
+    showToast('Te diste de baja correctamente.', 'success');
+    window.dispatchEvent(new Event('notifications-updated'));
+    window.dispatchEvent(new Event('data-updated'));
     setIsDeleteOpen(false);
     setDeleteReason('');
     await fetchMonitorias();
@@ -314,7 +321,7 @@ const MisMonitorias = () => {
         ) : tab === 'modules' ? (
           monitorias.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {monitorias.filter(m => m.modulo.toLowerCase().includes(searchTerm.toLowerCase()) || m.monitor.toLowerCase().includes(searchTerm.toLowerCase())).map((m) => (
+              {monitorias.filter(m => String(m.modulo || '').toLowerCase().includes(searchTerm.toLowerCase()) || String(m.monitor || '').toLowerCase().includes(searchTerm.toLowerCase())).map((m) => (
                 <MonitorCard
                   key={m.id}
                   data={m}
@@ -559,4 +566,3 @@ const MisMonitorias = () => {
 };
 
 export default MisMonitorias;
-

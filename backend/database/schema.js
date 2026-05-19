@@ -303,6 +303,26 @@ const tables = [
     reported_id INT NULL
   )`,
 
+  `CREATE TABLE IF NOT EXISTS support_tickets (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    requester_user_id INT NULL,
+    requester_name VARCHAR(180) NOT NULL,
+    requester_email VARCHAR(180) NOT NULL,
+    category VARCHAR(60) NOT NULL DEFAULT 'tecnico',
+    subject VARCHAR(180) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('open','in_progress','answered','closed') NOT NULL DEFAULT 'open',
+    assigned_to INT NULL,
+    response_message TEXT NULL,
+    responded_by INT NULL,
+    responded_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_support_status (status, created_at),
+    INDEX idx_support_email (requester_email),
+    INDEX idx_support_requester (requester_user_id)
+  )`,
+
   // ═══════════════════════════════════════════════════════════════════════════
   // NOTIFICATIONS
   // ═══════════════════════════════════════════════════════════════════════════

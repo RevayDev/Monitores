@@ -100,6 +100,8 @@ const Monitorias = () => {
     setIsConfirmOpen(false);
     try {
       await registerMonitoria(pendingMonitoria, user);
+      const registrations = await getAllRegistrations();
+      setAllRegistrations(registrations || []);
       setRegisteredName(pendingMonitoria.modulo);
       setIsSuccessOpen(true);
       setRegisteredIds([...registeredIds, pendingMonitoria.id]);
@@ -168,7 +170,7 @@ const Monitorias = () => {
                 actionLabel={registeredIds.includes(m.id) ? "Ir al Recurso" : "Registrarse"}
                 isRegistered={registeredIds.includes(m.id)}
                 showDescription={false}
-                registrationCount={allRegistrations.filter(r => r.moduleId === m.id).length}
+                registrationCount={allRegistrations.filter(r => Number(r.moduleId) === Number(m.id)).length}
               />
             ))}
           </div>

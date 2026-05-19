@@ -214,6 +214,18 @@ export const getMyStats = () => request('/my-stats');
 export const getNotifications = () => request('/notifications');
 export const markNotificationsRead = () => request('/notifications/read', { method: 'POST', body: JSON.stringify({}) });
 export const deleteNotification = (id) => request(`/notifications/${id}`, { method: 'DELETE' });
+export const submitSupportRequest = (payload) =>
+  request('/support/contact', { method: 'POST', body: JSON.stringify(payload) });
+
+export const getSupportTickets = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/support/tickets${query ? '?' + query : ''}`);
+};
+export const respondSupportTicket = (ticketId, payload) => request(`/support/tickets/${ticketId}/respond`, {
+  method: 'POST',
+  body: JSON.stringify(payload)
+});
+
 
 export const getStudentsByMonitor = (monitorId) => {
   return getAllRegistrations({ monitorUserId: monitorId });
@@ -283,7 +295,6 @@ export const createForumMessage = (threadId, payload) => request(`/threads/${thr
 export const saveForumThread = (threadId) => request(`/threads/${threadId}/save`, { method: 'POST', body: JSON.stringify({}) });
 export const unsaveForumThread = (threadId) => request(`/threads/${threadId}/save`, { method: 'DELETE' });
 export const deleteForumThread = (threadId) => request(`/threads/${threadId}`, { method: 'DELETE' });
-export const deleteForumMessage = (messageId) => request(`/messages/${messageId}`, { method: 'DELETE' });
 export const getForums = (params = {}) => {
   const query = new URLSearchParams(params).toString();
   return request(`/forums${query ? '?' + query : ''}`);
@@ -441,5 +452,4 @@ export const rootSystemRestore = async (file) => {
   }
   return response.json();
 };
-
 
