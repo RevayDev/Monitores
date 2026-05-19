@@ -1,86 +1,54 @@
-# 🎓 MONITORES - Plataforma de Gestión Académica
+# MONITORES
 
-**Monitores** es una plataforma moderna y profesional diseñada para facilitar la conexión entre monitores y estudiantes, optimizando el registro y seguimiento de monitorías académicas.
+Plataforma para gestion de monitorias academicas con frontend React y backend Node/Express.
 
-## 🚀 Características Principales
+## Requisitos
+- Node.js 20+
+- npm 10+
+- MySQL (si usas repositorios SQL)
 
-### 🎓 Para Estudiantes
-- **Exploración de Monitorías**: Buscador inteligente por módulo, monitor o sede.
-- **Registro Simplificado**: Inscripción en un solo clic con sistema de doble confirmación para evitar errores.
-- **Mis Monitorías**: Panel personal para gestionar inscripciones y acceder rápidamente a los recursos de contacto.
-- **Comunicación Directa**: Acceso dinámico a links de WhatsApp, Teams o correo institucional del monitor.
+## Estructura
+- `frontend/`: app React + Vite
+- `backend/`: API Express + Socket.IO
+- `doc/`: documentacion funcional y tecnica
+- `scripts/`: utilidades de desarrollo
 
-### 🧑‍🏫 Para Monitores
-- **Panel de Control**: Gestión centralizada de estudiantes inscritos y módulos asignados.
-- **Administración de Enlaces**: Posibilidad de configurar y editar enlaces de WhatsApp y Teams para sus sesiones.
-- **Gestión de Estudiantes**: Control de asistencia y bajas con retroalimentación personalizada.
-- **Modo Dual**: Los monitores pueden alternar entre su panel de control y la vista de estudiante manteniendo sus privilegios originales.
+## Inicio rapido
+1. Instalar dependencias:
+```bash
+npm run install:all
+```
+2. Ejecutar frontend y backend:
+```bash
+npm run dev
+```
 
-## 🛠️ Stack Tecnológico
+## Scripts (raiz)
+- `npm run dev`: levanta frontend y backend en paralelo
+- `npm run dev:frontend`: solo frontend
+- `npm run dev:backend`: solo backend
+- `npm run build`: build de frontend
+- `npm run lint`: lint de frontend
+- `npm run start`: arranque backend en modo produccion
 
-- **Frontend**: React 19 + Vite (ES Modules).
-- **Backend**: Node.js + Express (ES Modules).
-- **Estilos**: Tailwind CSS 4 (Diseño Premium & Responsive).
-- **Iconografía**: Lucide React.
-- **Enrutamiento**: React Router 7.
-- **Estado/Almacenamiento**: MySQL (Servidor persistente) con persistencia local en `localStorage` para la sesión del Frontend.
+## Variables de entorno
+Configura `backend/.env` segun tu entorno. Ejemplo minimo:
+```env
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=tu_password
+DB_NAME=monitores
+DB_PORT=3306
+PORT=4000
+```
 
-## 📡 Arquitectura del Sistema
+## Documentacion
+- `doc/FRONTEND.md`
+- `doc/BACKEND.md`
+- `doc/DATABASE.md`
+- `doc/GUIA_PROYECTO.md`
+- `doc/APRENDIZAJE.md`
 
-El proyecto utiliza una **Arquitectura por Capas** en el backend para facilitar el mantenimiento y la futura migración a bases de datos relacionales.
-
-### Tecnologías Backend:
-- **Node.js**: Entorno de ejecución en modo ES Modules.
-- **Express**: Framework web.
-- **MySQL2**: Conexión robusta a base de datos relacional.
-
-## 📚 Documentación Detallada
-Para aprender más sobre el funcionamiento interno, revisa:
-- [`FRONTEND.md`](file:///c:/Users/RevayDev/Desktop/Monitores/FRONTEND.md): Arquitectura de la interfaz.
-- [`BACKEND.md`](file:///c:/Users/RevayDev/Desktop/Monitores/BACKEND.md): Lógica del servidor y capas.
-- [`DATABASE.md`](file:///c:/Users/RevayDev/Desktop/Monitores/DATABASE.md): Esquema de tablas y SQL.
-- [`APRENDIZAJE.md`](file:///c:/Users/RevayDev/Desktop/Monitores/APRENDIZAJE.md): Temas recomendados para estudiar.
-- [`GUIA_PROYECTO.md`](file:///c:/Users/RevayDev/Desktop/Monitores/GUIA_PROYECTO.md): Evolución y lecciones del proyecto.
-
-## 📥 Instalación y Desarrollo
-
-1. **Clonar el repositorio**:
-   ```bash
-   git clone <url-del-repositorio>
-   ```
-
-2. **Instalar dependencias**:
-   ```bash
-   npm install
-   ```
-
-3. **Ejecutar en modo desarrollo**:
-   ```bash
-   npm run dev
-   ```
-
-4. **Construir para producción**:
-   ```bash
-   npm run build
-   ```
-
-## ⚖️ Licencia
-Este proyecto es de uso institucional y académico.
-
-## Inicio rapido desde la raiz
-
-Si quieres ejecutar todo desde `Monitores` (sin entrar a `frontend/` y `backend/`):
-
-1. Instala dependencias de ambos proyectos:
-   ```bash
-   npm run install:all
-   ```
-2. Ejecuta frontend y backend en paralelo:
-   ```bash
-   npm run dev
-   ```
-
-Comandos utiles desde raiz:
-- `npm run dev:backend`
-- `npm run dev:frontend`
-- `npm run build`
+## Notas
+- El backend soporta capas `services/repositories` para separar logica de acceso a datos.
+- Hay pruebas unitarias en `frontend/src/utils/*.test.mjs`.
