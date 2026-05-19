@@ -1,14 +1,4 @@
-import mysql from 'mysql2/promise';
-
-const pool = mysql.createPool({
-  host: '127.0.0.1',
-  user: 'root',
-  password: '',
-  database: 'monitores_db',
-  waitForConnections: true,
-  connectionLimit: 1,
-  queueLimit: 0
-});
+import pool from './backend/utils/mysql.helper.js';
 
 async function check() {
   try {
