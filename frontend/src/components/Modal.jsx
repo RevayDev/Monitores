@@ -24,23 +24,23 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
   }, [isOpen]);
 
   const backdropVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 }
+    hidden: { opacity: 0, transition: { duration: 0.1, ease: 'easeIn' } },
+    visible: { opacity: 1, transition: { duration: 0.12, ease: 'easeOut' } }
   };
 
   const modalVariants = {
-    hidden: { opacity: 0, scale: 0.96, y: 16 },
+    hidden: { opacity: 0, scale: 0.97, y: 8 },
     visible: { 
       opacity: 1, 
       scale: 1, 
       y: 0,
-      transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] }
+      transition: { duration: 0.12, ease: 'easeOut' }
     },
     exit: { 
       opacity: 0, 
       scale: 0.98, 
-      y: 8,
-      transition: { duration: 0.1, ease: 'easeIn' }
+      y: 4,
+      transition: { duration: 0.08, ease: 'easeIn' }
     }
   };
 

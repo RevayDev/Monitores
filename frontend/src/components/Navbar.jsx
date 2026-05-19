@@ -91,7 +91,7 @@ const Navbar = () => {
         }
 
         const activeForumId = localStorage.getItem('monitores_active_forum_id');
-        const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id;
+        const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id || data.metadata?.threadId || data.metadata?.thread_id;
 
         // Only show toast if NOT looking at that specific forum thread
         if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {

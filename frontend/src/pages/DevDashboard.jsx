@@ -333,9 +333,9 @@ const LiveTerminal = ({
                   })}
                 </div>
               ) : log.type === 'neofetch' ? (
-                <div className="flex flex-col md:flex-row gap-6 p-4 bg-gray-950 text-gray-100 rounded-2xl font-mono text-[11px] leading-relaxed w-full border border-gray-800 shadow-inner select-text">
+                <div className="flex flex-col md:flex-row gap-6 p-5 bg-slate-50 text-slate-800 rounded-2xl font-mono text-[11px] leading-relaxed w-full border border-slate-200 shadow-sm select-text">
                   {/* Left Column: Ubuntu Logo ASCII */}
-                  <div className="text-red-500 font-bold shrink-0 whitespace-pre selection:bg-red-500/20 text-[10px] md:text-[11px]">
+                  <div className="text-[#e95420] font-bold shrink-0 whitespace-pre selection:bg-orange-500/20 text-[10px] md:text-[11px]">
 {`         .-/+oossssoo+/-.
      \`:+ssssssssssssssssss+:\`
    -+ssssssssssssssssssyyyssss+-
@@ -360,43 +360,43 @@ const LiveTerminal = ({
                   {/* Right Column: Dynamic System Info */}
                   <div className="space-y-1 py-1 flex-grow">
                     <div className="text-[12px] font-black tracking-tight">
-                      <span className="text-red-400">{log.data?.username}</span>
-                      <span className="text-gray-400">@</span>
-                      <span className="text-red-400">{log.data?.hostname}</span>
+                      <span className="text-[#e95420]">{log.data?.username}</span>
+                      <span className="text-slate-400">@</span>
+                      <span className="text-[#e95420]">{log.data?.hostname}</span>
                     </div>
-                    <div className="text-gray-600 font-black">- - - - - - - - - - - - - - - - - - - - -</div>
-                    <div><span className="text-red-400 font-bold">OS:</span> <span className="text-gray-300">{log.data?.os}</span></div>
-                    <div><span className="text-red-400 font-bold">Host:</span> <span className="text-gray-300">{log.data?.host}</span></div>
-                    <div><span className="text-red-400 font-bold">Kernel:</span> <span className="text-gray-300">{log.data?.kernel}</span></div>
-                    <div><span className="text-red-400 font-bold">Uptime:</span> <span className="text-gray-300">{log.data?.uptime}</span></div>
-                    <div><span className="text-red-400 font-bold">Packages:</span> <span className="text-gray-300">{log.data?.packages}</span></div>
-                    <div><span className="text-red-400 font-bold">Shell:</span> <span className="text-gray-300">{log.data?.shell}</span></div>
-                    <div><span className="text-red-400 font-bold">Resolution:</span> <span className="text-gray-300">{log.data?.resolution}</span></div>
-                    <div><span className="text-red-400 font-bold">Terminal:</span> <span className="text-gray-300">{log.data?.terminal}</span></div>
-                    <div><span className="text-red-400 font-bold">CPU:</span> <span className="text-gray-300">{log.data?.cpu}</span></div>
-                    <div><span className="text-red-400 font-bold">Memory:</span> <span className="text-gray-300">{log.data?.memory}</span></div>
+                    <div className="text-slate-300 font-black">- - - - - - - - - - - - - - - - - - - - -</div>
+                    <div><span className="text-[#e95420] font-bold">OS:</span> <span className="text-slate-600">{log.data?.os}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Host:</span> <span className="text-slate-600">{log.data?.host}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Kernel:</span> <span className="text-slate-600">{log.data?.kernel}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Uptime:</span> <span className="text-slate-600">{log.data?.uptime}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Packages:</span> <span className="text-slate-600">{log.data?.packages}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Shell:</span> <span className="text-slate-600">{log.data?.shell}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Resolution:</span> <span className="text-slate-600">{log.data?.resolution}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Terminal:</span> <span className="text-slate-600">{log.data?.terminal}</span></div>
+                    <div><span className="text-[#e95420] font-bold">CPU:</span> <span className="text-slate-600">{log.data?.cpu}</span></div>
+                    <div><span className="text-[#e95420] font-bold">Memory:</span> <span className="text-slate-600">{log.data?.memory}</span></div>
                     
                     {/* Colored Blocks Block */}
                     <div className="flex flex-col gap-0.5 pt-4">
                       <div className="flex">
-                        <span className="w-5 h-4 bg-black"></span>
-                        <span className="w-5 h-4 bg-red-600"></span>
-                        <span className="w-5 h-4 bg-green-600"></span>
-                        <span className="w-5 h-4 bg-yellow-500"></span>
-                        <span className="w-5 h-4 bg-blue-600"></span>
-                        <span className="w-5 h-4 bg-purple-600"></span>
-                        <span className="w-5 h-4 bg-cyan-600"></span>
-                        <span className="w-5 h-4 bg-gray-300"></span>
+                        <span className="w-5 h-4 bg-slate-900 border border-slate-900"></span>
+                        <span className="w-5 h-4 bg-red-600 border border-red-600"></span>
+                        <span className="w-5 h-4 bg-green-600 border border-green-600"></span>
+                        <span className="w-5 h-4 bg-yellow-500 border border-yellow-500"></span>
+                        <span className="w-5 h-4 bg-blue-600 border border-blue-600"></span>
+                        <span className="w-5 h-4 bg-purple-600 border border-purple-600"></span>
+                        <span className="w-5 h-4 bg-cyan-600 border border-cyan-600"></span>
+                        <span className="w-5 h-4 bg-slate-300 border border-slate-300"></span>
                       </div>
                       <div className="flex">
-                        <span className="w-5 h-4 bg-gray-600"></span>
-                        <span className="w-5 h-4 bg-red-400"></span>
-                        <span className="w-5 h-4 bg-green-400"></span>
-                        <span className="w-5 h-4 bg-yellow-300"></span>
-                        <span className="w-5 h-4 bg-blue-400"></span>
-                        <span className="w-5 h-4 bg-purple-400"></span>
-                        <span className="w-5 h-4 bg-cyan-400"></span>
-                        <span className="w-5 h-4 bg-white"></span>
+                        <span className="w-5 h-4 bg-slate-500 border border-slate-500"></span>
+                        <span className="w-5 h-4 bg-red-400 border border-red-400"></span>
+                        <span className="w-5 h-4 bg-green-400 border border-green-400"></span>
+                        <span className="w-5 h-4 bg-yellow-300 border border-yellow-300"></span>
+                        <span className="w-5 h-4 bg-blue-400 border border-blue-400"></span>
+                        <span className="w-5 h-4 bg-purple-400 border border-purple-400"></span>
+                        <span className="w-5 h-4 bg-cyan-400 border border-cyan-400"></span>
+                        <span className="w-5 h-4 bg-white border border-slate-200"></span>
                       </div>
                     </div>
                   </div>
@@ -816,25 +816,27 @@ const DevDashboard = () => {
   };
 
   const SwitchCard = ({ id, label, description, icon }) => (
-    <div className={`p-6 rounded-[24px] border-2 transition-all flex items-center justify-between ${config[id]
+    <div className={`p-5 sm:p-6 rounded-[24px] border-2 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full ${config[id]
       ? 'bg-red-50/50 border-red-500/20 shadow-lg shadow-red-500/5'
       : 'bg-white border-transparent hover:border-gray-100 shadow-sm'
       }`}>
       <div className="flex gap-4 items-center">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${config[id] ? 'bg-red-500 text-white shadow-red-500/20' : 'bg-gray-100 text-gray-500'
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${config[id] ? 'bg-red-500 text-white shadow-red-500/20' : 'bg-gray-100 text-gray-500'
           }`}>
           {icon}
         </div>
         <div>
-          <h3 className={`font-black text-lg ${config[id] ? 'text-red-700' : 'text-gray-900'}`}>
+          <h3 className={`font-black text-base sm:text-lg ${config[id] ? 'text-red-700' : 'text-gray-900'}`}>
             {label}
           </h3>
-          <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{description}</p>
+          <p className="text-[10px] sm:text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-widest leading-normal">{description}</p>
         </div>
       </div>
-      <button onClick={() => handleToggle(id)} className={`relative w-16 h-8 rounded-full transition-colors border-2 ${config[id] ? 'bg-red-500 border-red-500' : 'bg-gray-200 border-gray-200'}`}>
-        <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${config[id] ? 'translate-x-8' : 'translate-x-0'}`} />
-      </button>
+      <div className="w-full sm:w-auto flex justify-end">
+        <button onClick={() => handleToggle(id)} className={`relative w-16 h-8 rounded-full transition-colors border-2 shrink-0 ${config[id] ? 'bg-red-500 border-red-500' : 'bg-gray-200 border-gray-200'}`}>
+          <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${config[id] ? 'translate-x-8' : 'translate-x-0'}`} />
+        </button>
+      </div>
     </div>
   );
 
@@ -911,18 +913,18 @@ const DevDashboard = () => {
         {activeTab === 'devs' && (
           <div className="space-y-8 animate-slide-up">
             <div className="bg-white rounded-[32px] p-6 md:p-8 shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div className="flex gap-4 items-center">
-                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shrink-0">
                     <ShieldCheck size={24} />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Gestión de Desarrolladores</h2>
+                    <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Gestión de Desarrolladores</h2>
                     <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">Control de acceso nivel ROOT</p>
                   </div>
                 </div>
                 {currentUser.is_principal && (
-                  <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-violet-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg hover:bg-violet-700 transition-all text-sm">
+                  <button onClick={handleOpenAdd} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-violet-600 text-white px-5 py-3 rounded-2xl font-black shadow-lg hover:bg-violet-700 transition-all text-sm">
                     <PlusCircle size={18} /> <span>Nuevo Developer</span>
                   </button>
                 )}

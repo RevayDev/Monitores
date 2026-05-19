@@ -24,17 +24,17 @@ const ConfirmDialog = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.12 }}
             onClick={onClose}
             className="fixed inset-0 bg-slate-900/45 backdrop-blur-sm z-0"
           />
 
           {/* Dialog Card - Matching Image 3 aesthetics */}
           <motion.div 
-            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: 8 }}
-            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, scale: 0.98, y: 4 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
             className="relative bg-white w-full max-w-lg rounded-t-[24px] sm:rounded-[32px] shadow-[0_32px_100px_rgba(0,0,0,0.25)] overflow-hidden z-10 border border-white/40 flex flex-col max-h-[92vh] sm:max-h-[90vh]"
           >
             {/* Top border indicator style */}
