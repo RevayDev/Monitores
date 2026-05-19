@@ -53,7 +53,7 @@ const roleBadgeLabel = (userId, userRole, monitorId) => {
   return 'Estudiante';
 };
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://158.23.59.208:3000';
 
 const allowedMimeTypes = new Set([
   'application/pdf',

@@ -557,7 +557,7 @@ const DevDashboard = () => {
     console.error = (...args) => { ingestClientLog('error', args); originalConsoleError(...args); };
 
     // Setup Socket Connection for Live Logs
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://158.23.59.208:3000';
     const newSocket = io(socketUrl);
     newSocket.emit('join_dev_console');
     newSocket.on('backend_log', (log) => {

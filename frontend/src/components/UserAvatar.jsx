@@ -50,7 +50,7 @@ const UserAvatar = ({
 
         {user?.foto ? (
           <img
-            src={`${user.foto.startsWith('http') ? user.foto : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${user.foto}`}?t=${new Date().getTime()}`}
+            src={`${user.foto.startsWith('http') ? user.foto : `${import.meta.env.VITE_API_BASE_URL || 'http://158.23.59.208:3000'}${user.foto}`}?t=${new Date().getTime()}`}
             alt={user.nombre}
             className={`w-full h-full object-cover ${rounded}`}
             onError={(e) => {

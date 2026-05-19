@@ -52,6 +52,7 @@ const wrapAllAsyncRoutes = (expressApp) => {
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://158.23.59.208:5173',
   'https://monitoreshub.vercel.app',
   'https://monitoreshub.vercel.app/',
   process.env.FRONTEND_URL
