@@ -250,6 +250,15 @@ const MonitorDashboard = () => {
   useEffect(() => {
     if (isDiningMonitor) {
       setTopTab('stats_dining');
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then((stream) => {
+            stream.getTracks().forEach((track) => track.stop());
+          })
+          .catch((err) => {
+            console.warn("Camera permission prompt failed or denied:", err);
+          });
+      }
     } else {
       setTopTab('stats');
     }
@@ -907,7 +916,7 @@ const MonitorDashboard = () => {
                     <select
                       value={selectedCameraId}
                       onChange={(e) => setSelectedCameraId(e.target.value)}
-                      className="border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-700 bg-white focus:ring-4 focus:ring-teal-50 outline-none select-none transition-all"
+                      className="border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-base font-bold text-slate-700 bg-white focus:border-slate-400 outline-none select-none transition-all"
                     >
                       {(cameraDevices || []).map((cam, idx) => (
                         <option key={cam.deviceId || idx} value={cam.deviceId}>
@@ -1498,7 +1507,7 @@ const MonitorDashboard = () => {
               value={deleteComment}
               onChange={(e) => setDeleteComment(e.target.value)}
               placeholder="Ej. El estudiante no asistió a las sesiones..."
-              className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition-all outline-none text-gray-900 font-bold"
+              className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue transition-all outline-none text-gray-900 font-bold text-base"
             />
           </div>
 

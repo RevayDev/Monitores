@@ -110,7 +110,7 @@ const AttendanceSurvey = () => {
                 value={formData.studentName}
                 onChange={(e) => setFormData({...formData, studentName: e.target.value})}
                 placeholder="Ej. Roberto Jiménez"
-                className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all text-black font-medium"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue outline-none transition-all text-black font-medium text-base"
               />
             </div>
 
@@ -122,7 +122,7 @@ const AttendanceSurvey = () => {
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({...formData, date: e.target.value})}
-                className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all text-black font-medium"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue outline-none transition-all text-black font-medium text-base"
               />
             </div>
 
@@ -168,7 +168,7 @@ const AttendanceSurvey = () => {
                 value={formData.comment}
                 onChange={(e) => setFormData({...formData, comment: e.target.value})}
                 placeholder="Cuéntanos cómo te pareció la monitoría..."
-                className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all text-black font-medium resize-none"
+                className="w-full h-32 p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-brand-blue outline-none transition-all text-black font-medium resize-none text-base"
               />
             </div>
 

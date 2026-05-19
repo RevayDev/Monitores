@@ -68,7 +68,7 @@ const InputField = ({
  
   const labelVariants = {
     unfocused: { scale: 1, color: "var(--color-slate-500)" },
-    focused: { scale: 1.05, color: roleColor.themeVar }
+    focused: { scale: 1, color: roleColor.themeVar }
   };
  
   const inputBaseClasses = `
@@ -76,8 +76,8 @@ const InputField = ({
     ${disabled 
       ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-100 opacity-80" 
       : "bg-white border-slate-200 text-slate-900 hover:border-slate-300"}
-    ${error ? "border-rose-400 ring-4 ring-rose-500/10" : "border-slate-200"}
-    ${isFocused && !error ? `${roleColor.border} ring-4 ${roleColor.ring} shadow-lg ${roleColor.shadow}` : ""}
+    ${error ? "border-rose-400" : "border-slate-200"}
+    ${isFocused && !error ? `${roleColor.border}` : ""}
     ${icon ? 'pl-12' : 'pl-4'}
   `;
  
@@ -102,7 +102,7 @@ const InputField = ({
         {icon && (
           <div className={`
             absolute inset-y-0 left-0 pl-4 flex items-center transition-all duration-300 z-10 pointer-events-none
-            ${isFocused ? `${roleColor.text} scale-110` : "text-slate-400"}
+            ${isFocused ? `${roleColor.text}` : "text-slate-400"}
           `}>
             {React.cloneElement(icon, { size: 18, strokeWidth: isFocused ? 2.5 : 2 })}
           </div>
@@ -171,18 +171,6 @@ const InputField = ({
             )}
           </div>
         )}
-
-        {/* Glow effect background */}
-        <AnimatePresence>
-          {isFocused && !disabled && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              className={`absolute -inset-[1px] rounded-[17px] bg-gradient-to-r ${roleColor.glow} -z-10 blur-[2px]`}
-            />
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Error Message */}

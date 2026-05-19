@@ -613,7 +613,7 @@ const Profile = () => {
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}
                   placeholder="Tu contraseña actual..."
-                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none"
+                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-base font-bold focus:border-red-500 transition-all outline-none"
                 />
               </div>
             </div>
