@@ -333,6 +333,38 @@ const MonitorDashboard = () => {
     return null;
   };
 
+  const waitForVideoReady = (videoEl, timeoutMs = 5000) => new Promise((resolve, reject) => {
+    if (!videoEl) return reject(new Error('Video element missing'));
+    if (videoEl.readyState >= 2 && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) return resolve(true);
+
+    let timeoutId = null;
+    const cleanup = () => {
+      videoEl.removeEventListener('loadedmetadata', onReady);
+      videoEl.removeEventListener('canplay', onReady);
+      videoEl.removeEventListener('error', onError);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+    const onReady = () => {
+      if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        cleanup();
+        resolve(true);
+      }
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('Video stream failed'));
+    };
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error('Video stream timeout'));
+    }, timeoutMs);
+
+    videoEl.addEventListener('loadedmetadata', onReady);
+    videoEl.addEventListener('canplay', onReady);
+    videoEl.addEventListener('error', onError);
+  });
+
   const startCamera = async (deviceId = '') => {
     stopCamera();
     setCameraError('');
@@ -352,16 +384,32 @@ const MonitorDashboard = () => {
 
     setCameraStatus('loading');
     try {
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(
-          deviceId
-            ? { video: { deviceId: { exact: deviceId } } }
-            : { video: { facingMode: { ideal: 'environment' } } }
-        );
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const constraintsList = [];
+      if (deviceId) constraintsList.push({ video: { deviceId: { exact: deviceId } }, audio: false });
+      constraintsList.push({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      constraintsList.push({ video: { facingMode: { ideal: 'user' } }, audio: false });
+      constraintsList.push({ video: true, audio: false });
+
+      let stream = null;
+      let lastErr = null;
+      for (const constraints of constraintsList) {
+        let candidate = null;
+        try {
+          candidate = await navigator.mediaDevices.getUserMedia(constraints);
+          if (videoRef.current) {
+            videoRef.current.srcObject = candidate;
+            await videoRef.current.play();
+            await waitForVideoReady(videoRef.current, 4500);
+          }
+          stream = candidate;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (videoRef.current) videoRef.current.srcObject = null;
+          try { candidate?.getTracks?.().forEach((track) => track.stop()); } catch { }
+        }
       }
+      if (!stream) throw lastErr || new Error('No se pudo abrir la camara');
 
       activeStreamRef.current = stream;
       const track = stream.getVideoTracks()[0];
@@ -372,11 +420,6 @@ const MonitorDashboard = () => {
       setCameraDevices(videos);
       if (!selectedCameraId && activeDeviceId) setSelectedCameraId(activeDeviceId);
       if (!selectedCameraId && videos.length && !activeDeviceId) setSelectedCameraId(videos[0].deviceId);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => { });
-      }
 
       setCameraAvailable(true);
       setCameraStatus('ready');
@@ -393,10 +436,13 @@ const MonitorDashboard = () => {
       const errName = String(error?.name || '');
       if (errName === 'NotAllowedError' || errName === 'SecurityError') {
         setCameraPermission('denied');
-        setCameraError('Permiso de camara denegado. Debes permitir acceso para escanear.');
+        setCameraError('Permiso de camara denegado. Activalo desde el candado del navegador y recarga.');
       } else if (errName === 'NotFoundError' || errName === 'OverconstrainedError') {
         setCameraPermission('missing');
         setCameraError('No se encontro camara disponible.');
+      } else if (errName === 'NotReadableError' || errName === 'AbortError') {
+        setCameraPermission('busy');
+        setCameraError('La camara esta en uso por otra app o pestaña. Cierra esa app e intenta de nuevo.');
       } else {
         setCameraPermission('error');
         setCameraError(String(error?.message || 'No se detecto camara'));
@@ -424,7 +470,7 @@ const MonitorDashboard = () => {
       }
 
       // Force permission prompt in all supported mobile browsers.
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       stream.getTracks().forEach((track) => track.stop());
       setCameraPermission('granted');
       await startCamera(selectedCameraId);
@@ -434,7 +480,10 @@ const MonitorDashboard = () => {
       setCameraStatus('error');
       if (errName === 'NotAllowedError' || errName === 'SecurityError') {
         setCameraPermission('denied');
-        setCameraError('Permiso de camara denegado. Habilitalo en el navegador.');
+        setCameraError('Permiso de camara denegado. Activalo en navegador (candado > camara) y recarga.');
+      } else if (errName === 'NotReadableError' || errName === 'AbortError') {
+        setCameraPermission('busy');
+        setCameraError('La camara esta ocupada por otra app/pestaña.');
       } else {
         setCameraPermission('error');
         setCameraError(String(error?.message || 'No se pudo solicitar permiso de camara.'));
