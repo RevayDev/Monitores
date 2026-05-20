@@ -28,6 +28,7 @@ import {
 import UserAvatar from '../components/UserAvatar';
 import { ToastContext } from '../context/ToastContext';
 import { splitHighlightedText } from '../utils/forumSearchHelpers';
+import { getSocketUrl } from '../utils/socketUrl';
 
 const getVisualRole = (userId, userRole, monitorId, members = []) => {
   const roleStr = String(userRole || '').toLowerCase();
@@ -52,7 +53,7 @@ const roleBadgeLabel = (userId, userRole, monitorId) => {
   return 'Estudiante';
 };
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+const SOCKET_URL = getSocketUrl();
 
 const allowedMimeTypes = new Set([
   'application/pdf',
@@ -590,6 +591,14 @@ const ModuleForum = () => {
         setUnreadWhileBrowsing(0);
         setIsAtBottom(true);
         isAtBottomRef.current = true;
+        if (selectedId && detail) {
+          const replies = detail.replies || detail.comments || [];
+          const maxReplyId = replies.reduce((acc, r) => Math.max(acc, Number(r.id || 0)), 0);
+          if (maxReplyId > 0) {
+            localStorage.setItem(`forum_seen_reply_${selectedId}`, String(maxReplyId));
+            setDetail((prev) => prev ? { ...prev, lastSeenReplyId: maxReplyId } : prev);
+          }
+        }
       }, 120);
     }
   };
@@ -817,6 +826,17 @@ const ModuleForum = () => {
       socket.off('message_received');
     };
   }, [socket, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || !detail) {
+      setUnreadWhileBrowsing(0);
+      return;
+    }
+    const replies = detail.replies || detail.comments || [];
+    const lastSeen = Number(detail.lastSeenReplyId || 0);
+    const unseen = replies.reduce((acc, r) => (Number(r?.id || 0) > lastSeen ? acc + 1 : acc), 0);
+    setUnreadWhileBrowsing(unseen);
+  }, [selectedId, detail?.id, detail?.lastSeenReplyId, detail?.replies?.length, detail?.comments?.length]);
 
   const typingTimeoutRef = useRef(null);
   const lastTypingEmitRef = useRef(0);
@@ -1475,8 +1495,8 @@ const ModuleForum = () => {
                   {unreadWhileBrowsing > 0 && (
                     <button
                       onClick={scrollToBottom}
-                      className="new-message-fab absolute left-600 !m-0"
-                      title="Ir al ultimo mensaje"
+                      className="new-message-fab absolute right-4 -top-14 !m-0"
+                      title="Ir al ultimo mensaje no visto"
                     >
                       <ChevronDown size={18} />
                       <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-brand-blue text-white text-[10px] font-black grid place-items-center">{unreadWhileBrowsing > 99 ? '99+' : unreadWhileBrowsing}</span>

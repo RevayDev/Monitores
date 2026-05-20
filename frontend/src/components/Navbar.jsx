@@ -23,6 +23,7 @@ import Modal from './Modal';
 import { getCurrentUser, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
 import { io } from 'socket.io-client';
 import { ToastContext } from '../context/ToastContext';
+import { getSocketUrl } from '../utils/socketUrl';
 const safeParse = (raw, fallback = null) => {
   try {
     return raw ? JSON.parse(raw) : fallback;
@@ -111,8 +112,7 @@ const Navbar = () => {
     // Socket connection for notifications (Restored)
     let socket;
     if (user?.id) {
-      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-      socket = io(socketUrl);
+      socket = io(getSocketUrl());
       socket.emit('join_user', user.id);
       socket.on('new_notification', (data) => {
         if (data?.event === 'notifications_read_all') {

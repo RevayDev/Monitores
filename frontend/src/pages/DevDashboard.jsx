@@ -12,7 +12,7 @@ import {
   getMaintenanceConfig, setMaintenanceConfig, getAllUsers,
   createUser, updateUser, deleteUser, getSedes, getCuatrimestres,
   resetScans, dbReset, dbEnsure, dbNuke, dbPopulate, dbPopulateVolume, fixUsernames,
-  getDiagnostics, executeTerminalCommand, request,
+  getDiagnostics, executeTerminalCommand, request, generateQr, getCurrentQr,
   rootEnable, rootMemberAction, rootFileAction, getRootLogs,
   rootSystemBackup, rootSystemRestore, getSupportTickets, updateSupportTicketStatus, deleteSupportTicket
 } from '../services/api';
@@ -20,6 +20,7 @@ import Modal from '../components/Modal';
 import { ToastContext } from '../context/ToastContext';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
+import { getSocketUrl } from '../utils/socketUrl';
 
 // ─── LiveTerminal extracted as a TOP-LEVEL component ───────────────────────
 // CRITICAL: If defined inside DevDashboard, React re-mounts it on every parent
@@ -594,6 +595,10 @@ const DevDashboard = () => {
   const [activeTab, setActiveTab] = useState('config'); // 'config', 'devs', 'utils'
   const [supportTickets, setSupportTickets] = useState([]);
   const [ticketActionId, setTicketActionId] = useState(null);
+  const [qrLabToken, setQrLabToken] = useState('');
+  const [qrLabGeneratedAt, setQrLabGeneratedAt] = useState('');
+  const [qrLabLoading, setQrLabLoading] = useState(false);
+  const [qrLabCurrent, setQrLabCurrent] = useState(null);
   const getTicketStatusMeta = (status) => {
     const s = String(status || '').toLowerCase();
     if (s === 'closed') return { label: 'Cerrado', cls: 'bg-slate-900 text-white border-slate-800' };
@@ -633,8 +638,7 @@ const DevDashboard = () => {
     console.error = (...args) => { ingestClientLog('error', args); originalConsoleError(...args); };
 
     // Setup Socket Connection for Live Logs
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-    const newSocket = io(socketUrl);
+    const newSocket = io(getSocketUrl());
     newSocket.emit('join_dev_console');
     newSocket.on('backend_log', (log) => {
       setServerLogs(prev => {
@@ -714,6 +718,31 @@ const DevDashboard = () => {
     }
   };
 
+  const loadQrLabCurrent = async () => {
+    try {
+      const current = await getCurrentQr();
+      setQrLabCurrent(current || null);
+    } catch {
+      setQrLabCurrent(null);
+    }
+  };
+
+  const handleGenerateQrLab = async () => {
+    try {
+      setQrLabLoading(true);
+      const result = await generateQr();
+      const token = result?.token || result?.qrText || '';
+      setQrLabToken(token);
+      setQrLabGeneratedAt(new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }));
+      await loadQrLabCurrent();
+      showToast('QR de laboratorio generado.', 'success');
+    } catch (error) {
+      showToast(error.message || 'No se pudo generar QR de laboratorio.', 'error');
+    } finally {
+      setQrLabLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTermTab === 'root_audit') {
       getRootLogs(0, 100).then(setRootLogs).catch(() => { });
@@ -723,6 +752,9 @@ const DevDashboard = () => {
   useEffect(() => {
     if (activeTab === 'tickets') {
       loadSupportTickets();
+    }
+    if (activeTab === 'qr_lab') {
+      loadQrLabCurrent();
     }
   }, [activeTab]);
 
@@ -931,6 +963,7 @@ const DevDashboard = () => {
                   { id: 'config', label: 'Mantenimiento', icon: <Globe size={14} /> },
                   { id: 'devs', label: 'Equipo', icon: <ShieldCheck size={14} /> },
                   { id: 'utils', label: 'Utilidades', icon: <Wrench size={14} /> },
+                  { id: 'qr_lab', label: 'QR Lab', icon: <PlusCircle size={14} /> },
                   { id: 'tickets', label: 'Tickets', icon: <Mail size={14} /> },
                   { id: 'console', label: 'Terminal', icon: <Activity size={14} /> }
                 ].map(tab => {
@@ -1175,6 +1208,55 @@ const DevDashboard = () => {
             </div>
 
 
+          </div>
+        )}
+        {activeTab === 'qr_lab' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="bg-white rounded-[24px] border border-gray-100 p-6">
+              <h3 className="text-xl font-black text-gray-900">QR Generator Lab</h3>
+              <p className="text-xs text-gray-500 mt-1">Pruebas de generacion de QR sin restricciones visuales del flujo normal.</p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-[24px] border border-gray-100 p-6 space-y-4">
+                <button
+                  onClick={handleGenerateQrLab}
+                  disabled={qrLabLoading}
+                  className="w-full py-3 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-60"
+                >
+                  {qrLabLoading ? 'Generando...' : 'Generar QR de prueba'}
+                </button>
+                <button
+                  onClick={loadQrLabCurrent}
+                  className="w-full py-3 rounded-2xl bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-widest"
+                >
+                  Cargar QR actual
+                </button>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-[10px] font-black uppercase text-gray-500">Ultimo token generado</p>
+                  <p className="text-xs font-mono text-gray-700 break-all mt-1">{qrLabToken || 'Sin generar'}</p>
+                  <p className="text-[10px] text-gray-500 mt-2">{qrLabGeneratedAt || '--'}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-[24px] border border-gray-100 p-6 space-y-4">
+                <p className="text-[10px] font-black uppercase text-gray-500">Vista previa QR</p>
+                <div className="min-h-[280px] rounded-2xl border border-gray-200 grid place-items-center bg-white">
+                  {(qrLabToken || qrLabCurrent?.token) ? (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrLabToken || qrLabCurrent?.token)}`}
+                      alt="QR lab"
+                      className="w-64 h-64 object-contain"
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-400 font-bold">Sin datos QR</p>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-[10px] font-black uppercase text-gray-500">QR actual del backend</p>
+                  <p className="text-xs text-gray-700 mt-1 break-all font-mono">{qrLabCurrent?.token || 'Sin activo'}</p>
+                  <p className="text-[10px] text-gray-500 mt-2">Expira: {qrLabCurrent?.expires_at ? new Date(qrLabCurrent.expires_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' }) : '--'}</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         {activeTab === 'tickets' && (
