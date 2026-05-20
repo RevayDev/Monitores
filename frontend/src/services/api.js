@@ -1,4 +1,15 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const trimSlash = (v) => String(v || '').replace(/\/+$/, '');
+const API_URL = (() => {
+  const fromEnvRaw = String(import.meta.env.VITE_API_URL || '').trim();
+  const fromEnv = trimSlash(fromEnvRaw);
+  if (import.meta.env.DEV) {
+    if (!fromEnv) return 'http://localhost:3000/api';
+    if (fromEnv.startsWith('/')) return 'http://localhost:3000/api';
+    return fromEnv;
+  }
+  if (fromEnv) return fromEnv;
+  return '/api';
+})();
 console.log(`%c[API] Conectado a: ${API_URL}`, 'background: #2a2a2a; color: #00ffcc; font-size: 11px; padding: 3px 6px; border-radius: 4px; font-weight: bold;');
 
 // Persistence for the current user (session) still uses localStorage for convenience,
@@ -49,11 +60,17 @@ export const request = async (endpoint, options = {}) => {
       ...options.headers
     }
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || error.message || 'Request failed');
+  const responseText = await response.text();
+  let data = null;
+  try {
+    data = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    data = null;
   }
-  const data = await response.json();
+  if (!response.ok) {
+    const message = data?.error || data?.message || (responseText?.trim() || `Request failed (${response.status})`);
+    throw new Error(message);
+  }
   const method = (options.method || 'GET').toUpperCase();
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
     pushNotification({

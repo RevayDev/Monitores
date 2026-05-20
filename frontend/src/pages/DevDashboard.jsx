@@ -963,7 +963,6 @@ const DevDashboard = () => {
                   { id: 'config', label: 'Mantenimiento', icon: <Globe size={14} /> },
                   { id: 'devs', label: 'Equipo', icon: <ShieldCheck size={14} /> },
                   { id: 'utils', label: 'Utilidades', icon: <Wrench size={14} /> },
-                  { id: 'qr_lab', label: 'QR Lab', icon: <PlusCircle size={14} /> },
                   { id: 'tickets', label: 'Tickets', icon: <Mail size={14} /> },
                   { id: 'console', label: 'Terminal', icon: <Activity size={14} /> }
                 ].map(tab => {
@@ -1204,59 +1203,54 @@ const DevDashboard = () => {
                     {isPopulating ? 'Generando...' : 'Cargar Simulacion'}
                   </button>
                 </div>
+
+              </div>
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mt-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl"><Shield size={24} /></div>
+                      <div>
+                        <h4 className="font-extrabold text-gray-900">QR LAB</h4>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Generacion sin restricciones</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleGenerateQrLab}
+                      disabled={qrLabLoading}
+                      className="w-full py-3 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-60"
+                    >
+                      {qrLabLoading ? 'Generando...' : 'Generar QR de prueba'}
+                    </button>
+                    <button
+                      onClick={loadQrLabCurrent}
+                      className="w-full py-3 rounded-2xl bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-widest"
+                    >
+                      Cargar QR actual
+                    </button>
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-[10px] font-black uppercase text-gray-500">Token</p>
+                      <p className="text-xs font-mono text-gray-700 break-all mt-1">{qrLabToken || qrLabCurrent?.token || 'Sin generar'}</p>
+                      <p className="text-[10px] text-gray-500 mt-2">{qrLabGeneratedAt || '--'}</p>
+                      <p className="text-[10px] text-gray-500 mt-1">Expira: {qrLabCurrent?.expires_at ? new Date(qrLabCurrent.expires_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' }) : '--'}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 grid place-items-center min-h-[220px]">
+                    {(qrLabToken || qrLabCurrent?.token) ? (
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrLabToken || qrLabCurrent?.token)}`}
+                        alt="QR lab"
+                        className="w-44 h-44 object-contain"
+                      />
+                    ) : (
+                      <p className="text-xs text-gray-400 font-bold">Sin QR generado</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
 
-          </div>
-        )}
-        {activeTab === 'qr_lab' && (
-          <div className="space-y-6 animate-slide-up">
-            <div className="bg-white rounded-[24px] border border-gray-100 p-6">
-              <h3 className="text-xl font-black text-gray-900">QR Generator Lab</h3>
-              <p className="text-xs text-gray-500 mt-1">Pruebas de generacion de QR sin restricciones visuales del flujo normal.</p>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-[24px] border border-gray-100 p-6 space-y-4">
-                <button
-                  onClick={handleGenerateQrLab}
-                  disabled={qrLabLoading}
-                  className="w-full py-3 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-60"
-                >
-                  {qrLabLoading ? 'Generando...' : 'Generar QR de prueba'}
-                </button>
-                <button
-                  onClick={loadQrLabCurrent}
-                  className="w-full py-3 rounded-2xl bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-widest"
-                >
-                  Cargar QR actual
-                </button>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                  <p className="text-[10px] font-black uppercase text-gray-500">Ultimo token generado</p>
-                  <p className="text-xs font-mono text-gray-700 break-all mt-1">{qrLabToken || 'Sin generar'}</p>
-                  <p className="text-[10px] text-gray-500 mt-2">{qrLabGeneratedAt || '--'}</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-[24px] border border-gray-100 p-6 space-y-4">
-                <p className="text-[10px] font-black uppercase text-gray-500">Vista previa QR</p>
-                <div className="min-h-[280px] rounded-2xl border border-gray-200 grid place-items-center bg-white">
-                  {(qrLabToken || qrLabCurrent?.token) ? (
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrLabToken || qrLabCurrent?.token)}`}
-                      alt="QR lab"
-                      className="w-64 h-64 object-contain"
-                    />
-                  ) : (
-                    <p className="text-xs text-gray-400 font-bold">Sin datos QR</p>
-                  )}
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                  <p className="text-[10px] font-black uppercase text-gray-500">QR actual del backend</p>
-                  <p className="text-xs text-gray-700 mt-1 break-all font-mono">{qrLabCurrent?.token || 'Sin activo'}</p>
-                  <p className="text-[10px] text-gray-500 mt-2">Expira: {qrLabCurrent?.expires_at ? new Date(qrLabCurrent.expires_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' }) : '--'}</p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
         {activeTab === 'tickets' && (
