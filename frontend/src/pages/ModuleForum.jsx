@@ -776,7 +776,7 @@ const ModuleForum = () => {
   }, [detail, isReportReplyTarget, reportTargetIdParam, highlightedReplyId]);
 
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
+    const newSocket = io(SOCKET_URL, { path: '/api/socket.io' });
     setSocket(newSocket);
     return () => newSocket.close();
   }, []);

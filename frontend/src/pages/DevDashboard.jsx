@@ -638,7 +638,7 @@ const DevDashboard = () => {
     console.error = (...args) => { ingestClientLog('error', args); originalConsoleError(...args); };
 
     // Setup Socket Connection for Live Logs
-    const newSocket = io(getSocketUrl());
+    const newSocket = io(getSocketUrl(), { path: '/api/socket.io' });
     newSocket.emit('join_dev_console');
     newSocket.on('backend_log', (log) => {
       setServerLogs(prev => {

@@ -112,7 +112,7 @@ const Navbar = () => {
     // Socket connection for notifications (Restored)
     let socket;
     if (user?.id) {
-      socket = io(getSocketUrl());
+      socket = io(getSocketUrl(), { path: '/api/socket.io' });
       socket.emit('join_user', user.id);
       socket.on('new_notification', (data) => {
         if (data?.event === 'notifications_read_all') {
