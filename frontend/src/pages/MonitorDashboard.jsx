@@ -245,6 +245,7 @@ const MonitorDashboard = () => {
   const isDiningMonitor = ['monitor_administrativo'].includes(String(session?.role || '').toLowerCase()) || ['monitor_administrativo'].includes(String(session?.baseRole || '').toLowerCase());
 
   const monitorId = session.id; // Use real session ID now
+  const isSecureCameraContext = Boolean(window.isSecureContext || ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname));
 
   useEffect(() => {
     if (isDiningMonitor) {
@@ -335,6 +336,13 @@ const MonitorDashboard = () => {
   const startCamera = async (deviceId = '') => {
     stopCamera();
     setCameraError('');
+    if (!isSecureCameraContext) {
+      setCameraAvailable(false);
+      setCameraStatus('error');
+      setCameraPermission('insecure');
+      setCameraError('La camara requiere HTTPS. Abre este panel en https:// o en localhost.');
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraAvailable(false);
       setCameraStatus('none');
@@ -400,6 +408,13 @@ const MonitorDashboard = () => {
     setCameraError('');
     setCameraStatus('loading');
     try {
+      if (!isSecureCameraContext) {
+        setCameraPermission('insecure');
+        setCameraStatus('error');
+        setCameraAvailable(false);
+        setCameraError('No se puede pedir permiso de camara en HTTP. Usa HTTPS para esta IP.');
+        return;
+      }
       if (!navigator?.mediaDevices?.getUserMedia) {
         setCameraPermission('unsupported');
         setCameraStatus('none');
@@ -432,9 +447,31 @@ const MonitorDashboard = () => {
       stopCamera();
       return;
     }
-    requestCameraPermission();
+    const autoBootCamera = async () => {
+      if (!isSecureCameraContext) {
+        setCameraAvailable(false);
+        setCameraStatus('error');
+        setCameraPermission('insecure');
+        setCameraError('Camara bloqueada: la URL actual usa HTTP. Debe ser HTTPS.');
+        return;
+      }
+      try {
+        const permission = await navigator.permissions?.query?.({ name: 'camera' });
+        if (permission?.state === 'granted') {
+          await startCamera(selectedCameraId);
+          return;
+        }
+      } catch {
+        // Fallback to manual permission request via button.
+      }
+      setCameraAvailable(false);
+      setCameraStatus('idle');
+      setCameraPermission('unknown');
+      setCameraError('Pulsa "Permitir camara" para iniciar el escaner.');
+    };
+    autoBootCamera();
     return () => stopCamera();
-  }, [isDiningMonitor, topTab, selectedCameraId]);
+  }, [isDiningMonitor, topTab]);
 
   useEffect(() => {
     const checkMaintenance = async () => {
@@ -950,11 +987,11 @@ const MonitorDashboard = () => {
                 </AnimatePresence>
 
                 {cameraAvailable && (
-                  <div className="flex flex-wrap gap-3 items-center justify-center">
+                  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-center">
                     <select
                       value={selectedCameraId}
                       onChange={(e) => setSelectedCameraId(e.target.value)}
-                      className="border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-base font-bold text-slate-700 bg-white focus:border-slate-400 outline-none select-none transition-all"
+                      className="w-full sm:w-auto border-2 border-slate-200 rounded-2xl px-4 py-2.5 text-base font-bold text-slate-700 bg-white focus:border-slate-400 outline-none select-none transition-all"
                     >
                       {(cameraDevices || []).map((cam, idx) => (
                         <option key={cam.deviceId || idx} value={cam.deviceId}>
@@ -970,7 +1007,7 @@ const MonitorDashboard = () => {
                           if (!res) showToast('No se detectó QR. Intenta enfocar mejor.', 'info');
                         }, 800);
                       }}
-                      className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2"
+                      className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black hover:bg-teal-700 active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
                       <PlusCircle size={14} /> Escanear Ahora
                     </button>
@@ -980,11 +1017,15 @@ const MonitorDashboard = () => {
                   <div className="flex justify-center">
                     <button
                       onClick={requestCameraPermission}
-                      className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black hover:bg-teal-700 active:scale-95 transition-all"
+                      disabled={cameraPermission === 'insecure'}
+                      className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Permitir camara
                     </button>
                   </div>
+                )}
+                {cameraError && (
+                  <p className="text-xs font-bold text-amber-700 text-center">{cameraError}</p>
                 )}
 
                 <div className="relative w-full max-w-sm mx-auto rounded-[48px] overflow-hidden border-8 border-white bg-black/95 aspect-square shadow-2xl group group-hover:border-teal-400/20 transition-all duration-500">

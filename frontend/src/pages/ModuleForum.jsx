@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -97,7 +97,7 @@ const bubbleByVisualRole = (vRole, isMine = false) => {
   return isMine ? 'bg-blue-100 border-blue-300 text-slate-900' : 'bg-white/95 border-blue-100 text-slate-800';
 };
 
-const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, onSelect, onKeyUp, textareaRef, scrollRef, placeholder, className, minHeight, disabled = false, maxHeight = 260 }) => {
+const MentionHighlighter = React.memo(({ value, members, monitorId, onChange, onKeyDown, onSelect, onKeyUp, textareaRef, scrollRef, placeholder, className, minHeight, disabled = false, maxHeight = 260 }) => {
   useEffect(() => {
     if (!textareaRef?.current) return;
     const el = textareaRef.current;
@@ -167,7 +167,7 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
       />
     </div>
   );
-};
+});
 
 
 const renderAttachment = (item) => {
@@ -337,7 +337,7 @@ const isRecentlyMentioned = (createdAt, text, myId) => {
   return isNewlyCreated(createdAt);
 };
 
-const LiveImagePreview = ({ text, cursorPosition }) => {
+const LiveImagePreview = React.memo(({ text, cursorPosition }) => {
   const images = extractImagesWithMetadata(text);
   if (!images.length) return null;
   return (
@@ -354,7 +354,7 @@ const LiveImagePreview = ({ text, cursorPosition }) => {
       })}
     </div>
   );
-};
+});
 
 const ModuleForum = () => {
   const { id } = useParams();
@@ -409,6 +409,7 @@ const ModuleForum = () => {
   const detailCacheRef = useRef(new Map());
   const [showNewDivider, setShowNewDivider] = useState(false);
   const newDividerTimerRef = useRef(null);
+  const draftSaveTimeoutRef = useRef({ thread: null, reply: null });
 
   useEffect(() => {
     isAtBottomRef.current = isAtBottom;
@@ -419,6 +420,12 @@ const ModuleForum = () => {
   }, []);
   useEffect(() => {
     return () => { if (newDividerTimerRef.current) clearTimeout(newDividerTimerRef.current); };
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (draftSaveTimeoutRef.current.thread) clearTimeout(draftSaveTimeoutRef.current.thread);
+      if (draftSaveTimeoutRef.current.reply) clearTimeout(draftSaveTimeoutRef.current.reply);
+    };
   }, []);
 
   const [replyText, setReplyText] = useState('');
@@ -543,13 +550,19 @@ const ModuleForum = () => {
   }, [selectedId]);
 
   useEffect(() => {
-    if (content.trim()) localStorage.setItem(`forum_draft_thread_${moduleId}`, content);
-    else localStorage.removeItem(`forum_draft_thread_${moduleId}`);
+    if (draftSaveTimeoutRef.current.thread) clearTimeout(draftSaveTimeoutRef.current.thread);
+    draftSaveTimeoutRef.current.thread = setTimeout(() => {
+      if (content.trim()) localStorage.setItem(`forum_draft_thread_${moduleId}`, content);
+      else localStorage.removeItem(`forum_draft_thread_${moduleId}`);
+    }, 250);
   }, [content, moduleId]);
 
   useEffect(() => {
-    if (selectedId && replyText.trim()) localStorage.setItem(`forum_draft_reply_${selectedId}`, replyText);
-    else if (selectedId) localStorage.removeItem(`forum_draft_reply_${selectedId}`);
+    if (draftSaveTimeoutRef.current.reply) clearTimeout(draftSaveTimeoutRef.current.reply);
+    draftSaveTimeoutRef.current.reply = setTimeout(() => {
+      if (selectedId && replyText.trim()) localStorage.setItem(`forum_draft_reply_${selectedId}`, replyText);
+      else if (selectedId) localStorage.removeItem(`forum_draft_reply_${selectedId}`);
+    }, 250);
   }, [replyText, selectedId]);
 
   const handleScrollTracking = () => {
@@ -806,6 +819,7 @@ const ModuleForum = () => {
   }, [socket, selectedId]);
 
   const typingTimeoutRef = useRef(null);
+  const lastTypingEmitRef = useRef(0);
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
@@ -817,6 +831,9 @@ const ModuleForum = () => {
 
   const handleTypingEmit = () => {
     if (!socket || !selectedId || !currentUser) return;
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current < 1200) return;
+    lastTypingEmitRef.current = now;
     socket.emit('typing', {
       forumId: selectedId,
       user: {
@@ -896,6 +913,8 @@ const ModuleForum = () => {
     setMentionTarget(target);
     setMentionQuery(query);
   };
+  const deferredReplyText = useDeferredValue(replyText);
+  const deferredContent = useDeferredValue(content);
 
   const handleEditorSelection = (target) => {
     const ref = target === 'thread' ? threadTextRef.current : (target === 'edit' ? editTextRef.current : replyTextRef.current);
@@ -1468,7 +1487,7 @@ const ModuleForum = () => {
                     <MentionHighlighter textareaRef={replyTextRef} scrollRef={replyScrollRef} value={replyText} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('reply', e.target.value)} onKeyDown={(e) => handleInputKeyDown('reply', e)} placeholder={isReadOnly ? "Foro en modo lectura: no puedes escribir." : (editingId ? "Modo edición activo" : "Escribe una respuesta... usa @ para mencionar")} minHeight="100px" onSelect={() => handleEditorSelection('reply')} disabled={isReadOnly || !!editingId} />
                     {!isReadOnly && !editingId && renderMentionDropdown('reply')}
                   </div>
-                  {!isReadOnly && !editingId && <LiveImagePreview text={replyText} cursorPosition={cursorPos.reply} />}
+                  {!isReadOnly && !editingId && <LiveImagePreview text={deferredReplyText} cursorPosition={cursorPos.reply} />}
                   {!isReadOnly && !editingId && attachmentGrid(replyAttachments, 'reply')}
                   <div className={`flex flex-wrap gap-2 items-center ${(isReadOnly || !!editingId) ? 'opacity-90' : ''}`}>
                     {(isReadOnly || !!editingId) ? (
@@ -1514,7 +1533,7 @@ const ModuleForum = () => {
             <MentionHighlighter textareaRef={threadTextRef} scrollRef={threadScrollRef} value={content} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('thread', e.target.value)} onKeyDown={(e) => handleInputKeyDown('thread', e)} placeholder="Describe tu duda... usa @ para mencionar" minHeight="120px" onSelect={() => handleEditorSelection('thread')} />
             {renderMentionDropdown('thread')}
           </div>
-          <LiveImagePreview text={content} cursorPosition={cursorPos.thread} />
+          <LiveImagePreview text={deferredContent} cursorPosition={cursorPos.thread} />
           {attachmentGrid(attachments, 'thread')}
           <div className="flex flex-wrap gap-2 items-center">
             {insertMenu('thread')}
