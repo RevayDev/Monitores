@@ -31,8 +31,28 @@ const respondSupportTicket = async (req, res) => {
   }
 };
 
+const updateSupportTicketStatus = async (req, res) => {
+  try {
+    const result = await supportService.updateTicketStatus(req.params.id, req.body, req.user || null);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const deleteSupportTicket = async (req, res) => {
+  try {
+    const result = await supportService.deleteTicket(req.params.id, req.user || null);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export default {
   submitSupportRequest,
   listSupportTickets,
-  respondSupportTicket
+  respondSupportTicket,
+  updateSupportTicketStatus,
+  deleteSupportTicket
 };

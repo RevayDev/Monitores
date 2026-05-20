@@ -38,7 +38,7 @@ const safeParse = (raw, fallback = {}) => {
 };
 
 const Profile = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => safeParse(sessionStorage.getItem('monitores_current_role'), safeParse(localStorage.getItem('monitores_current_role'), null)));
   const [formData, setFormData] = useState({ nombre: '', email: '', sede: '', cuatrimestre: '' });
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -87,6 +87,7 @@ const Profile = () => {
           setPhotoPreview(dbUser.foto || null);
 
           // Update session to keep it synced
+          sessionStorage.setItem('monitores_current_role', JSON.stringify(syncedUser));
           localStorage.setItem('monitores_current_role', JSON.stringify(syncedUser));
           window.dispatchEvent(new Event('profile-updated'));
           return;
@@ -105,7 +106,7 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error fetching user from DB:", error);
-    }
+    } finally {}
   };
 
   const getRoleTheme = (role) => {
@@ -140,8 +141,9 @@ const Profile = () => {
       await updateUser(user.id, { foto: url });
 
       // Update session user
-      const currentSession = safeParse(localStorage.getItem('monitores_current_role'), {});
+      const currentSession = safeParse(sessionStorage.getItem('monitores_current_role'), safeParse(localStorage.getItem('monitores_current_role'), {}));
       const updatedSession = { ...currentSession, foto: url };
+      sessionStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
       localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
       setUser(updatedSession);
 
@@ -157,9 +159,10 @@ const Profile = () => {
   const handleDeletePhoto = async () => {
     setPhotoPreview(null);
     await updateUser(user.id, { foto: null });
-    const currentSession = safeParse(localStorage.getItem('monitores_current_role'), {});
+    const currentSession = safeParse(sessionStorage.getItem('monitores_current_role'), safeParse(localStorage.getItem('monitores_current_role'), {}));
     const updatedSession = { ...currentSession };
     delete updatedSession.foto; // Remove foto property
+    sessionStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
     localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
     setUser(updatedSession);
     showToast('¡Foto de perfil eliminada!', 'success');
@@ -168,7 +171,7 @@ const Profile = () => {
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
-    const currentSession = safeParse(localStorage.getItem('monitores_current_role'), {});
+    const currentSession = safeParse(sessionStorage.getItem('monitores_current_role'), safeParse(localStorage.getItem('monitores_current_role'), {}));
     const restrictions = safeParse(currentSession?.restrictions, {});
 
     if (restrictions.management && currentSession?.baseRole !== 'dev' && currentSession?.role !== 'dev' && !currentSession?.is_principal) {
@@ -178,6 +181,7 @@ const Profile = () => {
     await updateUser(user.id, formData);
     // Also update session
     const updatedSession = { ...currentSession, ...formData };
+    sessionStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
     localStorage.setItem('monitores_current_role', JSON.stringify(updatedSession));
     setUser(updatedSession);
     fetchUser();
@@ -216,15 +220,7 @@ const Profile = () => {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-brand-gray p-6 flex items-center justify-center">
-        <div className="bg-white border border-gray-200 rounded-2xl px-6 py-5 text-sm font-semibold text-gray-600">
-          No se pudo cargar el perfil. Recarga la pagina.
-        </div>
-      </div>
-    );
-  }
+
 
   const restrictions = safeParse(user.restrictions, {});
 

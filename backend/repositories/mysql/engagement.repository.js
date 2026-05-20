@@ -434,9 +434,10 @@ class EngagementRepositoryMySQL {
   async createNotification({ userId, type, title, body, metadata }) {
     const message = [title, body].filter(Boolean).join(' - ');
     let link = null;
-    if (metadata?.moduleId) link = `/modules/${metadata.moduleId}/forum`;
-    else if (metadata?.forumId) link = '/mis-monitorias';
-    if (metadata?.threadId) link = '/mis-monitorias';
+    const moduleId = metadata?.moduleId || metadata?.module_id || null;
+    const forumId = metadata?.forumId || metadata?.forum_id || metadata?.threadId || metadata?.thread_id || null;
+    if (moduleId && forumId) link = `/modules/${moduleId}/forum?forumId=${forumId}`;
+    else if (moduleId) link = `/modules/${moduleId}/forum`;
     const [result] = await pool.query(
       `
       INSERT INTO notifications (user_id, type, message, link, is_read, created_at)

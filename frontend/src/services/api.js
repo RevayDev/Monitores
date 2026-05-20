@@ -4,6 +4,17 @@ console.log(`%c[API] Conectado a: ${API_URL}`, 'background: #2a2a2a; color: #00f
 // Persistence for the current user (session) still uses localStorage for convenience,
 // but the data itself comes from the backend.
 const CURRENT_USER_KEY = 'monitores_current_role';
+const readSessionUser = () => {
+  const fromSession = safeParse(sessionStorage.getItem(CURRENT_USER_KEY), null);
+  if (fromSession && fromSession.id) return fromSession;
+  const fromLocal = safeParse(localStorage.getItem(CURRENT_USER_KEY), null);
+  return fromLocal && fromLocal.id ? fromLocal : null;
+};
+const writeSessionUser = (user) => {
+  const payload = JSON.stringify(user || { role: 'student' });
+  sessionStorage.setItem(CURRENT_USER_KEY, payload);
+  localStorage.setItem(CURRENT_USER_KEY, payload);
+};
 const NOTIFICATIONS_KEY = 'monitores_notifications';
 const safeParse = (raw, fallback) => {
   try {
@@ -26,7 +37,7 @@ const pushNotification = (item) => {
 
 // Helper for fetch
 export const request = async (endpoint, options = {}) => {
-  const sessionUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
+  const sessionUser = readSessionUser() || {};
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
@@ -55,14 +66,14 @@ export const request = async (endpoint, options = {}) => {
 
 // --- Auth & Roles ---
 export const getCurrentUser = () => {
-  const user = safeParse(localStorage.getItem(CURRENT_USER_KEY), null);
+  const user = readSessionUser();
   return Promise.resolve(user || { role: 'student' });
 };
 
 export const switchRole = async (role, data = {}) => {
   const currentUser = await getCurrentUser();
   const newUser = { ...currentUser, role, ...data };
-  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
+  writeSessionUser(newUser);
   return newUser;
 };
 
@@ -71,7 +82,7 @@ export const login = async (identifier, role, password) => {
     method: 'POST',
     body: JSON.stringify({ identifier, role, password })
   });
-  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  writeSessionUser(user);
   return user;
 };
 
@@ -80,7 +91,7 @@ export const signupStudent = async (userData) => {
     method: 'POST',
     body: JSON.stringify(userData)
   });
-  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  writeSessionUser(user);
   return user;
 };
 
@@ -102,6 +113,7 @@ export const uploadImage = async (file) => {
 };
 
 export const logout = () => {
+  sessionStorage.removeItem(CURRENT_USER_KEY);
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({ role: 'student' }));
   return Promise.resolve(true);
 };
@@ -225,6 +237,11 @@ export const respondSupportTicket = (ticketId, payload) => request(`/support/tic
   method: 'POST',
   body: JSON.stringify(payload)
 });
+export const updateSupportTicketStatus = (ticketId, status) => request(`/support/tickets/${ticketId}/status`, {
+  method: 'PATCH',
+  body: JSON.stringify({ status })
+});
+export const deleteSupportTicket = (ticketId) => request(`/support/tickets/${ticketId}`, { method: 'DELETE' });
 
 
 export const getStudentsByMonitor = (monitorId) => {

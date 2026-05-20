@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import pool from '../utils/mysql.helper.js';
+import { notifyUser } from '../socket.js';
 
 const getTransporter = () => {
   const host = process.env.SMTP_HOST;
@@ -20,6 +21,50 @@ const getTransporter = () => {
 const normalize = (value) => String(value || '').trim();
 
 class SupportService {
+  validStatuses = new Set(['open', 'in_progress', 'answered', 'closed']);
+
+  normalizeStatus(status) {
+    const normalized = normalize(status).toLowerCase();
+    return this.validStatuses.has(normalized) ? normalized : null;
+  }
+
+  async notifySupportTeams(ticket, actorId = null) {
+    const [staffRows] = await pool.query(
+      `SELECT id, role
+       FROM users
+       WHERE role IN ('admin', 'dev')
+       ORDER BY id ASC`
+    );
+    const uniqueRows = (staffRows || []).filter((row, index, arr) => arr.findIndex((item) => Number(item.id) === Number(row.id)) === index);
+    if (!uniqueRows.length) return;
+
+    for (const row of uniqueRows) {
+      const userId = Number(row.id);
+      if (!userId) continue;
+      const role = String(row.role || '').toLowerCase();
+      const link = role === 'admin' ? '/admin-dashboard' : '/dev-dashboard';
+      const [insertResult] = await pool.query(
+        `INSERT INTO notifications (user_id, type, message, link, is_read, created_at)
+         VALUES (?, 'support_ticket', ?, ?, 0, NOW())`,
+        [
+          userId,
+          `Nuevo ticket #${ticket.id}: ${ticket.subject}`,
+          link
+        ]
+      );
+      notifyUser(userId, {
+        id: insertResult.insertId,
+        user_id: userId,
+        type: 'support_ticket',
+        message: `Nuevo ticket #${ticket.id}: ${ticket.subject}`,
+        link,
+        is_read: 0,
+        created_at: new Date().toISOString(),
+        metadata: { ticketId: ticket.id, category: ticket.category, actorId }
+      });
+    }
+  }
+
   async submitTicket(payload, requester) {
     const name = normalize(payload?.name || requester?.nombre);
     const email = normalize(payload?.email || requester?.email).toLowerCase();
@@ -39,6 +84,13 @@ class SupportService {
     );
 
     const ticketId = insertResult.insertId;
+    const createdTicket = {
+      id: ticketId,
+      requester_name: name,
+      requester_email: email,
+      category: category || 'tecnico',
+      subject
+    };
 
     await pool.query(
       'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
@@ -50,6 +102,8 @@ class SupportService {
         JSON.stringify({ email, category, subject })
       ]
     );
+
+    await this.notifySupportTeams(createdTicket, requester?.id || null);
 
     const supportEmail = process.env.SUPPORT_EMAIL || process.env.SMTP_USER;
     const transporter = getTransporter();
@@ -134,6 +188,47 @@ class SupportService {
     }
 
     return { ok: true, message: 'Respuesta enviada y ticket actualizado.' };
+  }
+
+  async updateTicketStatus(ticketId, payload, actor) {
+    const newStatus = this.normalizeStatus(payload?.status);
+    if (!newStatus) {
+      throw new Error('Estado invalido.');
+    }
+
+    const [existing] = await pool.query('SELECT id, status FROM support_tickets WHERE id = ? LIMIT 1', [ticketId]);
+    const ticket = existing[0];
+    if (!ticket) throw new Error('Ticket no encontrado.');
+    if (ticket.status === 'closed' && newStatus !== 'closed') {
+      throw new Error('El ticket ya esta cerrado.');
+    }
+
+    await pool.query(
+      `UPDATE support_tickets
+       SET status = ?, assigned_to = COALESCE(assigned_to, ?), updated_at = NOW()
+       WHERE id = ?`,
+      [newStatus, actor?.id || null, ticketId]
+    );
+
+    await pool.query(
+      'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+      [actor?.id || null, 'SUPPORT_TICKET_STATUS_UPDATED', 'support_ticket', ticketId, JSON.stringify({ from: ticket.status, to: newStatus })]
+    );
+
+    return { ok: true, message: 'Estado actualizado.' };
+  }
+
+  async deleteTicket(ticketId, actor) {
+    const [existing] = await pool.query('SELECT id, status FROM support_tickets WHERE id = ? LIMIT 1', [ticketId]);
+    const ticket = existing[0];
+    if (!ticket) throw new Error('Ticket no encontrado.');
+
+    await pool.query('DELETE FROM support_tickets WHERE id = ? LIMIT 1', [ticketId]);
+    await pool.query(
+      'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+      [actor?.id || null, 'SUPPORT_TICKET_DELETED', 'support_ticket', ticketId, JSON.stringify({ previousStatus: ticket.status })]
+    );
+    return { ok: true, message: 'Ticket eliminado.' };
   }
 }
 

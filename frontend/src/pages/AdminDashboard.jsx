@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { splitHighlightedText } from '../utils/forumSearchHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   getAllUsers,
   getAllRegistrations,
@@ -30,7 +30,8 @@ import {
   getModerationLogs,
   request,
   getSupportTickets,
-  respondSupportTicket
+  updateSupportTicketStatus,
+  deleteSupportTicket
 } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
 import Modal from '../components/Modal';
@@ -149,6 +150,7 @@ const Donut = ({ percent = 0, size = 120, color = '#4f46e5', track = '#e2e8f0', 
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
   const [activeTab, setActiveTab] = useState('users');
   const [suspiciousLogs, setSuspiciousLogs] = useState(new Set());
@@ -179,8 +181,14 @@ const AdminDashboard = () => {
   const [reportSubTab, setReportSubTab] = useState('pending');
   const [reports, setReports] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
-  const [ticketResponse, setTicketResponse] = useState({});
-  const [respondingTicketId, setRespondingTicketId] = useState(null);
+  const [ticketActionId, setTicketActionId] = useState(null);
+  const getTicketStatusMeta = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'closed') return { label: 'Cerrado', cls: 'bg-slate-900 text-white border-slate-800' };
+    if (s === 'answered') return { label: 'Implementado', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+    if (s === 'in_progress') return { label: 'En progreso', cls: 'bg-amber-100 text-amber-800 border-amber-200' };
+    return { label: 'Abierto', cls: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+  };
   const [moderationLogs, setModerationLogs] = useState([]);
   const [reportsPage, setReportsPage] = useState(1);
   const [usersPage, setUsersPage] = useState(1);
@@ -305,22 +313,29 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleRespondTicket = async (ticketId) => {
-    const responseMessage = String(ticketResponse[ticketId] || '').trim();
-    if (!responseMessage) {
-      showToast('Escribe una respuesta para el ticket.', 'error');
-      return;
-    }
+  const handleTicketStatus = async (ticketId, status) => {
     try {
-      setRespondingTicketId(ticketId);
-      await respondSupportTicket(ticketId, { responseMessage, status: 'answered' });
-      showToast('Ticket respondido y correo enviado.', 'success');
-      setTicketResponse((prev) => ({ ...prev, [ticketId]: '' }));
+      setTicketActionId(`${ticketId}:${status}`);
+      await updateSupportTicketStatus(ticketId, status);
+      showToast('Estado actualizado.', 'success');
       await loadSupportTickets();
     } catch (error) {
-      showToast(error.message || 'No se pudo responder el ticket.', 'error');
+      showToast(error.message || 'No se pudo actualizar el ticket.', 'error');
     } finally {
-      setRespondingTicketId(null);
+      setTicketActionId(null);
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId) => {
+    try {
+      setTicketActionId(`${ticketId}:delete`);
+      await deleteSupportTicket(ticketId);
+      showToast('Ticket eliminado.', 'success');
+      await loadSupportTickets();
+    } catch (error) {
+      showToast(error.message || 'No se pudo eliminar el ticket.', 'error');
+    } finally {
+      setTicketActionId(null);
     }
   };
 
@@ -335,6 +350,11 @@ const AdminDashboard = () => {
       loadSupportTickets();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'tickets') setActiveTab('tickets');
+  }, [location.search]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -991,28 +1011,41 @@ const AdminDashboard = () => {
                           || String(ticket.subject || '').toLowerCase().includes(search);
                       })
                       .map((ticket) => (
-                        <div key={ticket.id} className="bg-white border border-gray-200 rounded-2xl p-5">
+                        <div key={ticket.id} className={`border rounded-2xl p-5 ${String(ticket.status || '').toLowerCase() === 'closed' ? 'bg-slate-50 border-slate-300' : String(ticket.status || '').toLowerCase() === 'answered' ? 'bg-emerald-50/40 border-emerald-200' : String(ticket.status || '').toLowerCase() === 'in_progress' ? 'bg-amber-50/40 border-amber-200' : 'bg-indigo-50/40 border-indigo-200'}`}>
+                          {(() => {
+                            const statusMeta = getTicketStatusMeta(ticket.status);
+                            return (
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="text-xs font-black text-indigo-700">#{ticket.id}</span>
                             <span className="text-xs font-bold text-gray-700">{ticket.requester_name}</span>
                             <span className="text-xs text-gray-500">{ticket.requester_email}</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold uppercase">{ticket.status}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${statusMeta.cls}`}>{statusMeta.label}</span>
                           </div>
+                            );
+                          })()}
                           <p className="text-sm font-black text-gray-900">{ticket.subject}</p>
                           <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{ticket.message}</p>
-                          <textarea
-                            value={ticketResponse[ticket.id] || ''}
-                            onChange={(e) => setTicketResponse((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
-                            placeholder="Respuesta para el usuario..."
-                            className="mt-3 w-full min-h-24 rounded-xl border-2 border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                          />
-                          <button
-                            onClick={() => handleRespondTicket(ticket.id)}
-                            disabled={respondingTicketId === ticket.id}
-                            className="mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 disabled:opacity-60"
-                          >
-                            {respondingTicketId === ticket.id ? 'Enviando...' : 'Responder ticket'}
-                          </button>
+                          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                            <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200"><span className="font-black text-gray-700">Correo:</span> <span className="text-gray-600">{ticket.requester_email}</span></div>
+                            <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200"><span className="font-black text-gray-700">Categoria:</span> <span className="text-gray-600">{ticket.category || 'tecnico'}</span></div>
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            <div className="rounded-xl border border-gray-200 bg-white/70 p-3">
+                              <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Estado</p>
+                              <div className="flex flex-wrap gap-2">
+                                <button onClick={() => handleTicketStatus(ticket.id, 'in_progress')} disabled={ticket.status === 'closed' || ticketActionId === `${ticket.id}:in_progress`} className="px-3 py-2 rounded-xl bg-amber-100 text-amber-800 text-xs font-black disabled:opacity-60">En progreso</button>
+                                <button onClick={() => handleTicketStatus(ticket.id, 'answered')} disabled={ticket.status === 'closed' || ticketActionId === `${ticket.id}:answered`} className="px-3 py-2 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-black disabled:opacity-60">Implementado</button>
+                                <button onClick={() => handleTicketStatus(ticket.id, 'closed')} disabled={ticket.status === 'closed' || ticketActionId === `${ticket.id}:closed`} className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black disabled:opacity-60">Cerrar</button>
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-gray-200 bg-white/70 p-3">
+                              <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Acciones</p>
+                              <div className="flex flex-wrap gap-2">
+                                <a href={`mailto:${encodeURIComponent(ticket.requester_email)}?subject=${encodeURIComponent(`[Ticket #${ticket.id}] ${ticket.subject}`)}&body=${encodeURIComponent(`Ticket: #${ticket.id}\nCategoria: ${ticket.category || 'tecnico'}\n\nDescripcion:\n${ticket.message}`)}`} className="px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 text-xs font-black hover:bg-indigo-50">Abrir correo</a>
+                                <button onClick={() => handleDeleteTicket(ticket.id)} disabled={ticketActionId === `${ticket.id}:delete`} className="px-3 py-2 rounded-xl bg-rose-100 text-rose-700 text-xs font-black disabled:opacity-60">Quitar</button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     {!supportTickets.length && (

@@ -18,7 +18,7 @@ const Login = () => {
   React.useEffect(() => {
     const checkMaint = async () => {
       const config = await getMaintenanceConfig();
-      const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
+      const session = JSON.parse(sessionStorage.getItem('monitores_current_role') || localStorage.getItem('monitores_current_role') || '{}');
       if (config?.login && session?.baseRole !== 'dev' && session?.role !== 'dev' && !session?.is_principal) {
         showToast('El inicio de sesión está deshabilitado por mantenimiento.', 'error');
         navigate('/');
@@ -78,7 +78,7 @@ const Login = () => {
   const currentStyle = roleStyles[formData.role] || roleStyles.student;
 
   return (
-    <div className="min-h-[calc(100vh-50px)] bg-brand-gray flex items-center justify-center p-3 font-sans">
+    <div className="min-h-[calc(100vh-50px)] bg-brand-gray flex items-start md:items-center justify-center p-3 pt-6 md:pt-3 font-sans">
       <div className="max-w-4xl w-full bg-white rounded-[32px] overflow-hidden border border-gray-100 flex flex-col md:flex-row animate-scale-in">
 
         {/* Left Side: Branding - Dynamic Background */}
@@ -125,7 +125,7 @@ const Login = () => {
         </div>
 
         {/* Right Side: Form */}
-        <div className="md:w-7/12 p-6 md:p-8 flex flex-col justify-center bg-white">
+        <div className="md:w-7/12 p-5 md:p-8 flex flex-col justify-center bg-white">
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-6">
               <div className="space-y-1">
@@ -133,7 +133,7 @@ const Login = () => {
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Acceso Seguro</p>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-3">
                 {roles.map((r) => {
                   const rStyle = roleStyles[r.id];
                   return (

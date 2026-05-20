@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Wrench,
   Bell,
-  Trash2,
   ChevronDown,
   ChevronRight,
   AlertCircle
@@ -24,6 +23,13 @@ import Modal from './Modal';
 import { getCurrentUser, logout as apiLogout, getNotifications, markNotificationsRead, deleteNotification as apiDeleteNotification } from '../services/api';
 import { io } from 'socket.io-client';
 import { ToastContext } from '../context/ToastContext';
+const safeParse = (raw, fallback = null) => {
+  try {
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 const getRoleColor = (role) => {
   if (role?.includes('dev')) return { bg: 'bg-violet-600', gradient: 'from-violet-600 to-indigo-600', bgLight: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200' };
@@ -55,7 +61,7 @@ const Navbar = () => {
   const { showToast } = React.useContext(ToastContext);
   const fetchUser = useCallback(async () => {
     try {
-      const localUser = JSON.parse(localStorage.getItem('monitores_current_role') || 'null');
+      const localUser = safeParse(localStorage.getItem('monitores_current_role'));
       if (localUser && localUser.id) {
         setUser(localUser);
       } else {
@@ -65,11 +71,15 @@ const Navbar = () => {
       setUser(null);
     }
     const data = await getCurrentUser();
-    setUser(data);
+    if (data?.id) setUser(data);
   }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      const target = event.target;
+      if (target?.closest?.('[data-notifications-panel="true"]') || target?.closest?.('[data-notification-item="true"]')) {
+        return;
+      }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setNotificationsOpen(false);
       }
@@ -117,17 +127,20 @@ const Navbar = () => {
 
         const activeForumId = localStorage.getItem('monitores_active_forum_id');
         const notificationForumId = data.metadata?.forumId || data.metadata?.forum_id || data.metadata?.threadId || data.metadata?.thread_id;
+        const isSameOpenForum = !!activeForumId && !!notificationForumId && String(activeForumId) === String(notificationForumId);
 
         // Only show toast if NOT looking at that specific forum thread
-        if (!activeForumId || String(activeForumId) !== String(notificationForumId)) {
+        if (!isSameOpenForum) {
           showToast(data.message || { title: data.title, body: data.body }, 'notification');
         }
 
         // Prepend new notification to state immediately for real-time bubble update
-        setNotifications(prev => {
-          if (prev.find(n => n.id === data.id)) return prev;
-          return [data, ...prev];
-        });
+        if (!isSameOpenForum) {
+          setNotifications(prev => {
+            if (prev.find(n => n.id === data.id)) return prev;
+            return [data, ...prev];
+          });
+        }
 
         // Trigger visceral shake animation for ALL incoming notifications
         setBellAnimating(true);
@@ -194,7 +207,20 @@ const Navbar = () => {
   };
 
   const resolveNotificationLink = (item) => {
-    if (item?.link) return item.link;
+    const directLink = String(item?.link || '').trim();
+    if (directLink) {
+      if (directLink === '/dev-dashboard' || directLink === '/admin-dashboard') {
+        const ticketId = item?.metadata?.ticketId || item?.metadata?.ticket_id;
+        return `${directLink}?tab=tickets${ticketId ? `&ticketId=${ticketId}` : ''}`;
+      }
+      return directLink;
+    }
+    const type = String(item?.type || '').toLowerCase();
+    if (type === 'support_ticket') {
+      const role = String(user?.role || user?.baseRole || '').toLowerCase();
+      const ticketId = item?.metadata?.ticketId || item?.metadata?.ticket_id;
+      return `${role === 'admin' ? '/admin-dashboard' : '/dev-dashboard'}?tab=tickets${ticketId ? `&ticketId=${ticketId}` : ''}`;
+    }
     const metadata = item?.metadata || {};
     const forumId = metadata.forumId || metadata.forum_id;
     const moduleId = metadata.moduleId || metadata.module_id;
@@ -203,17 +229,19 @@ const Navbar = () => {
     return null;
   };
   const handleDeleteNotification = async (id) => {
+    setNotifications((prev) => prev.filter((n) => Number(n.id) !== Number(id)));
     try {
       await apiDeleteNotification(id);
-      setNotifications((prev) => prev.filter((n) => Number(n.id) !== Number(id)));
     } catch (error) {
-      showToast(error.message || 'No se pudo eliminar la notificacion.', 'error');
+      showToast(error.message || 'No se pudo borrar en servidor. Se oculto localmente.', 'error');
     }
   };
 
   const handleNotificationClick = async (item) => {
     const targetLink = resolveNotificationLink(item);
-    if (targetLink) navigate(targetLink);
+    if (targetLink) {
+      navigate(targetLink);
+    }
   };
 
   const isNewlyCreated = (dateString) => {
@@ -270,6 +298,8 @@ const Navbar = () => {
       {notificationsOpen && (
         <>
           <div
+            data-notifications-panel="true"
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             className="absolute right-0 mt-3 w-80 max-h-[420px] overflow-auto bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 z-[100] animate-scale-in origin-top-right shadow-xl shadow-slate-900/5 max-sm:fixed max-sm:top-[74px] max-sm:left-3 max-sm:right-3 max-sm:w-auto max-sm:max-h-[min(70vh,520px)] max-sm:rounded-2xl max-sm:border"
           >
@@ -283,8 +313,8 @@ const Navbar = () => {
               const typeNormalized = String(n.type || '').toLowerCase();
               const isMention = ['forum_mention', 'mencion_foro'].includes(typeNormalized);
               return (
-                <div key={n.id} className={`px-5 py-4 flex items-start gap-4 transition-all hover:bg-slate-50 group ${isRecent ? (isMention ? `${roleColor.bgLight} border-l-4 ${roleColor.border}` : 'bg-blue-50/50 border-l-4 border-l-blue-400') : ''}`}>
-                  <button onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
+                <div data-notification-item="true" key={n.id} className={`px-5 py-4 flex items-start gap-4 transition-all hover:bg-slate-50 group ${isRecent ? (isMention ? `${roleColor.bgLight} border-l-4 ${roleColor.border}` : 'bg-blue-50/50 border-l-4 border-l-blue-400') : ''}`}>
+                  <button onMouseDown={(e) => e.stopPropagation()} onClick={() => handleNotificationClick(n)} className="flex-1 text-left">
                     <div className="flex items-center gap-2 mb-1.5">
                       <p className={`text-[10px] font-bold uppercase tracking-wide ${isRecent ? (isMention ? roleColor.text : 'text-blue-600') : 'text-slate-700'}`}>
                         {getNotificationTypeLabel(n.type)}
@@ -296,8 +326,8 @@ const Navbar = () => {
                     <p className="text-sm text-slate-600 font-medium leading-relaxed">{n.message}</p>
                     <p className="text-[10px] text-slate-400 mt-2 font-semibold">{new Date(n.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' }).toUpperCase()}</p>
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                    <Trash2 size={14} />
+                  <button id={`notif-close-${n.id}`} data-delete-id={`notification-trash-${n.id}`} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }} className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                    <X size={14} />
                   </button>
                 </div>
               );

@@ -23,7 +23,6 @@ import {
   updateForum,
   updateForumReply,
   updateForumPresence,
-  getForumPresence,
   createForumReport
 } from '../services/api';
 import UserAvatar from '../components/UserAvatar';
@@ -142,10 +141,10 @@ const MentionHighlighter = ({ value, members, monitorId, onChange, onKeyDown, on
   };
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl border border-gray-200">
+    <div className="relative w-full overflow-hidden rounded-xl border border-gray-300 bg-gray-100/70">
       <div
         ref={scrollRef}
-        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-white text-gray-900 select-none px-3 py-2 leading-[1.5]`}
+        className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden bg-gray-100/70 text-gray-900 select-none px-3 py-2 leading-[1.5]`}
         style={{ fontSize: '16px', fontFamily: '"Inter", sans-serif', letterSpacing: 'normal' }}
         aria-hidden="true"
       >
@@ -211,6 +210,35 @@ const getMentionQuery = (value) => {
 };
 
 const buildMentionToken = (member) => `@${member?.nombre || member?.username || 'Usuario'}#${member.id}`;
+
+const getCaretAnchor = (textarea) => {
+  if (!textarea) return { x: 12, y: 12 };
+  const caretIndex = textarea.selectionStart || 0;
+  const text = textarea.value || '';
+  const before = text.slice(0, caretIndex);
+  const div = document.createElement('div');
+  const style = window.getComputedStyle(textarea);
+  const mirrorStyles = [
+    'boxSizing', 'width', 'height', 'overflowX', 'overflowY', 'borderTopWidth', 'borderRightWidth',
+    'borderBottomWidth', 'borderLeftWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'fontSizeAdjust', 'lineHeight',
+    'fontFamily', 'textAlign', 'textTransform', 'textIndent', 'textDecoration', 'letterSpacing', 'wordSpacing'
+  ];
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.wordWrap = 'break-word';
+  mirrorStyles.forEach((prop) => { div.style[prop] = style[prop]; });
+  div.textContent = before;
+  const span = document.createElement('span');
+  span.textContent = '\u200b';
+  div.appendChild(span);
+  document.body.appendChild(div);
+  const anchorX = span.offsetLeft - textarea.scrollLeft;
+  const anchorY = span.offsetTop - textarea.scrollTop;
+  document.body.removeChild(div);
+  return { x: anchorX, y: anchorY };
+};
 
 const renderRichText = (text, members = [], monitorId, myId) => {
   const value = String(text || '');
@@ -375,12 +403,22 @@ const ModuleForum = () => {
   const [allAdmins, setAllAdmins] = useState([]);
   const [unreadWhileBrowsing, setUnreadWhileBrowsing] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const isAtBottomRef = useRef(true);
   const messagesScrollRef = useRef(null);
   const [highlightedReplyId, setHighlightedReplyId] = useState(null);
-  const [visibleRepliesCount, setVisibleRepliesCount] = useState(6);
+  const detailCacheRef = useRef(new Map());
+  const [showNewDivider, setShowNewDivider] = useState(false);
+  const newDividerTimerRef = useRef(null);
+
+  useEffect(() => {
+    isAtBottomRef.current = isAtBottom;
+  }, [isAtBottom]);
 
   useEffect(() => {
     return () => { if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current); };
+  }, []);
+  useEffect(() => {
+    return () => { if (newDividerTimerRef.current) clearTimeout(newDividerTimerRef.current); };
   }, []);
 
   const [replyText, setReplyText] = useState('');
@@ -390,6 +428,7 @@ const ModuleForum = () => {
   const [replying, setReplying] = useState(false);
   const [mentionTarget, setMentionTarget] = useState(null);
   const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionAnchor, setMentionAnchor] = useState({ x: 12, y: 12 });
   const [showInsertMenu, setShowInsertMenu] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [reportTarget, setReportTarget] = useState(null);
@@ -399,7 +438,7 @@ const ModuleForum = () => {
   const location = useLocation();
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const isReadOnlyParam = useMemo(() => queryParams.get('readOnly') === 'true', [queryParams]);
-  const forumIdParam = useMemo(() => queryParams.get('forumId'), [queryParams]);
+  const forumIdParam = useMemo(() => queryParams.get('forumId') || queryParams.get('threadId'), [queryParams]);
   const reportTypeParam = useMemo(() => queryParams.get('reportType'), [queryParams]);
   const reportTargetIdParam = useMemo(() => Number(queryParams.get('targetId') || 0), [queryParams]);
   const isReportThreadTarget = reportTypeParam === 'thread' && reportTargetIdParam > 0;
@@ -423,7 +462,11 @@ const ModuleForum = () => {
 
   const handleInputKeyDown = (target, e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      if (mentionTarget === target) return;
+      if (mentionTarget === target && mentionCandidates.length) {
+        e.preventDefault();
+        insertMention(target, mentionCandidates[0]);
+        return;
+      }
       e.preventDefault();
       if (target === 'thread') handleCreate();
       else if (target === 'reply') handleReply();
@@ -514,20 +557,36 @@ const ModuleForum = () => {
     const { scrollTop, scrollHeight, clientHeight } = messagesScrollRef.current;
     const isBottom = scrollHeight - scrollTop - clientHeight < 50;
     setIsAtBottom(isBottom);
-    if (isBottom) setUnreadWhileBrowsing(0);
+    if (isBottom) {
+      setUnreadWhileBrowsing(0);
+      if (selectedId && detail) {
+        const replies = detail.replies || detail.comments || [];
+        const maxReplyId = replies.reduce((acc, r) => Math.max(acc, Number(r.id || 0)), 0);
+        if (maxReplyId > 0) {
+          localStorage.setItem(`forum_seen_reply_${selectedId}`, String(maxReplyId));
+          setDetail((prev) => prev ? { ...prev, lastSeenReplyId: maxReplyId } : prev);
+        }
+      }
+    }
   };
 
   const scrollToBottom = () => {
     if (messagesScrollRef.current) {
       messagesScrollRef.current.scrollTo({ top: messagesScrollRef.current.scrollHeight, behavior: 'smooth' });
+      setTimeout(() => {
+        setUnreadWhileBrowsing(0);
+        setIsAtBottom(true);
+        isAtBottomRef.current = true;
+      }, 120);
     }
   };
   useEffect(() => {
-    if (detail || typingUsers.length > 0) {
-      const timer = setTimeout(scrollToBottom, 50);
+    // Keep pinned only if user was already at bottom.
+    if ((detail?.replies?.length || detail?.comments?.length) && isAtBottomRef.current) {
+      const timer = setTimeout(() => scrollToBottom(), 30);
       return () => clearTimeout(timer);
     }
-  }, [detail?.replies?.length, detail?.comments?.length, typingUsers.length, selectedId]);
+  }, [detail?.replies?.length, detail?.comments?.length]);
 
   const loadThreads = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -543,12 +602,12 @@ const ModuleForum = () => {
       setMyModules(ownModules);
       if (!selectedCreateModuleId && ownModules.length) setSelectedCreateModuleId(Number(ownModules[0].id));
       const maxId = list.reduce((acc, item) => Math.max(acc, Number(item.id || 0)), 0);
-      if (lastSeenId && maxId > lastSeenId) {
+      if (lastSeenId && maxId > lastSeenId && !selectedId) {
         const newItems = list.filter(t => Number(t.id) > lastSeenId);
         newItems.forEach(item => { if (isMeMentioned(item.content, currentUser?.id)) showToast(`Fuiste mencionado en: ${item.title || 'un hilo'}`, 'info'); });
       }
       if (!lastSeenId && maxId) setLastSeenId(maxId);
-      if (lastSeenId && maxId > lastSeenId) setNewCount(maxId - lastSeenId);
+      if (lastSeenId && maxId > lastSeenId && !selectedId) setNewCount(maxId - lastSeenId);
       if (forumIdParam && !selectedId) {
         const pId = Number(forumIdParam);
         if (pId > 0) setSelectedId(pId);
@@ -594,21 +653,53 @@ const ModuleForum = () => {
 
   const loadDetail = async (threadId, { silent = false } = {}) => {
     if (!threadId) return setDetail(null);
+    const cached = detailCacheRef.current.get(Number(threadId));
+    if (cached) {
+      const savedLastSeenCached = Number(localStorage.getItem(`forum_seen_reply_${threadId}`) || 0);
+      setDetail({ ...cached, lastSeenReplyId: savedLastSeenCached });
+    }
     try {
       const data = await getForumById(threadId);
+      detailCacheRef.current.set(Number(threadId), data);
       const replies = (data.replies || data.comments || []);
       const maxReplyId = replies.reduce((acc, r) => Math.max(acc, Number(r.id)), 0);
       const storageKey = `forum_seen_reply_${threadId}`;
       const savedLastSeen = Number(localStorage.getItem(storageKey) || 0);
       setDetail({ ...data, lastSeenReplyId: savedLastSeen });
+      const unseenCount = Math.max(0, maxReplyId - savedLastSeen);
+      setUnreadWhileBrowsing(unseenCount);
+      setShowNewDivider(unseenCount > 0);
+      if (newDividerTimerRef.current) clearTimeout(newDividerTimerRef.current);
+      if (unseenCount > 0) {
+        newDividerTimerRef.current = setTimeout(() => setShowNewDivider(false), 120000);
+      }
       if (!silent && savedLastSeen > 0 && maxReplyId > savedLastSeen) {
         setShowBanner(true);
         if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
         bannerTimerRef.current = setTimeout(() => setShowBanner(false), 300000);
       }
-      localStorage.setItem(storageKey, String(maxReplyId || savedLastSeen || 0));
+      // Go to last seen message when entering, not auto-bottom.
+      if (savedLastSeen > 0) {
+        setTimeout(() => {
+          const anchor = document.getElementById(`reply-${savedLastSeen}`);
+          if (anchor) {
+            anchor.scrollIntoView({ behavior: 'auto', block: 'center' });
+            setIsAtBottom(false);
+            isAtBottomRef.current = false;
+          }
+        }, 30);
+      }
       if (!silent) { setEditingId(null); setShowInsertMenu(null); }
     } catch (error) { if (!silent) { showToast(error.message || 'No se pudo abrir la pregunta.', 'error'); setDetail(null); } }
+  };
+
+  const handleSelectThread = (threadId) => {
+    const cached = detailCacheRef.current.get(Number(threadId));
+    if (cached) {
+      const savedLastSeen = Number(localStorage.getItem(`forum_seen_reply_${threadId}`) || 0);
+      setDetail({ ...cached, lastSeenReplyId: savedLastSeen });
+    }
+    setSelectedId(threadId);
   };
 
   useEffect(() => { loadThreads(); }, [moduleId]);
@@ -639,10 +730,19 @@ const ModuleForum = () => {
     setShowBanner(false);
     loadDetail(selectedId);
     // Reset unread when switching threads
-    setUnreadWhileBrowsing(0);
-    setIsAtBottom(true);
-    setVisibleRepliesCount(6);
+    setIsAtBottom(false);
   }, [selectedId]);
+
+  useEffect(() => {
+    return () => {
+      if (!selectedId || !detail) return;
+      const replies = detail.replies || detail.comments || [];
+      const maxReplyId = replies.reduce((acc, r) => Math.max(acc, Number(r.id || 0)), 0);
+      if (maxReplyId > 0) {
+        localStorage.setItem(`forum_seen_reply_${selectedId}`, String(maxReplyId));
+      }
+    };
+  }, [selectedId, detail]);
 
   useEffect(() => {
     if (!detail || !isReportReplyTarget || highlightedReplyId === reportTargetIdParam) return;
@@ -686,7 +786,7 @@ const ModuleForum = () => {
         if (replies.find(r => r.id === newMessage.id)) return prev;
 
         // If user is not at bottom, increment unread bubble
-        if (!isAtBottom) {
+        if (!isAtBottomRef.current) {
           setUnreadWhileBrowsing(c => c + 1);
         }
 
@@ -706,6 +806,15 @@ const ModuleForum = () => {
   }, [socket, selectedId]);
 
   const typingTimeoutRef = useRef(null);
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handleTypingEmit = () => {
     if (!socket || !selectedId || !currentUser) return;
     socket.emit('typing', {
@@ -783,6 +892,7 @@ const ModuleForum = () => {
     if (ref) setCursorPos((prev) => ({ ...prev, [target]: ref.selectionStart }));
     const query = getMentionQuery(value);
     if (query === null) { setMentionTarget(null); setMentionQuery(''); return; }
+    if (ref) setMentionAnchor(getCaretAnchor(ref));
     setMentionTarget(target);
     setMentionQuery(query);
   };
@@ -850,8 +960,29 @@ const ModuleForum = () => {
     if (publishing) return;
     setPublishing(true);
     try {
-      const response = await createForum({ modulo_id: Number(selectedCreateModuleId), title: title.trim(), content: content.trim(), attachments });
+      const payload = { modulo_id: Number(selectedCreateModuleId), title: title.trim(), content: content.trim(), attachments };
+      const response = await createForum(payload);
       if (response?.success === false) return showToast('No se pudo publicar', 'error');
+      const createdId = Number(response?.id || response?.forumId || response?.threadId || 0);
+      if (createdId && Number(selectedCreateModuleId) === Number(moduleId)) {
+        const nowIso = new Date().toISOString();
+        const optimisticThread = {
+          id: createdId,
+          title: payload.title,
+          content: payload.content,
+          user_id: currentUser?.id,
+          author_name: currentUser?.nombre,
+          author_role: currentUser?.role,
+          created_at: nowIso,
+          replies: [],
+          comments: [],
+          attachments: payload.attachments || []
+        };
+        detailCacheRef.current.set(createdId, optimisticThread);
+        setThreads((prev) => [optimisticThread, ...prev.filter((t) => Number(t.id) !== createdId)]);
+        setSelectedId(createdId);
+        setDetail({ ...optimisticThread, lastSeenReplyId: 0 });
+      }
 
       setTitle('');
       setContent('');
@@ -865,7 +996,7 @@ const ModuleForum = () => {
       if (Number(selectedCreateModuleId) !== Number(moduleId)) {
         navigate(`/modules/${selectedCreateModuleId}/forum`);
       } else {
-        await loadThreads();
+        loadThreads({ silent: true }).catch(() => {});
         markSeen();
       }
     } catch (error) {
@@ -877,36 +1008,77 @@ const ModuleForum = () => {
 
   const handleReply = async () => {
     if (!selectedId || !replyText.trim() || !currentUser) return;
-    if (replying) return;
+    const messageText = replyText.trim();
+    const messageAttachments = [...replyAttachments];
+    const tmpId = `tmp-local-${Date.now()}`;
+    const optimisticReply = {
+      id: tmpId,
+      content: messageText,
+      user_id: currentUser.id,
+      author_name: currentUser.nombre,
+      author_photo: currentUser.foto,
+      author_role: currentUser.role,
+      created_at: new Date().toISOString(),
+      attachments: messageAttachments.map((a, i) => ({ ...a, id: `tmp-attach-${Date.now()}-${i}` }))
+    };
+
+    setDetail(prev => {
+      if (!prev || Number(prev.id) !== Number(selectedId)) return prev;
+      const replies = prev.replies || prev.comments || [];
+      return { ...prev, replies: [...replies, optimisticReply], comments: [...replies, optimisticReply] };
+    });
+    setReplyText('');
+    setReplyAttachments([]);
+    setMentionTarget(null);
+    setMentionQuery('');
+    localStorage.removeItem(`forum_draft_reply_${selectedId}`);
+    setHasEnteredThread(true);
+    setShowBanner(false);
+    scrollToBottom();
+
     setReplying(true);
     try {
-      const response = await createForumReply(selectedId, { content: replyText.trim(), attachments: replyAttachments });
+      const response = await createForumReply(selectedId, { content: messageText, attachments: messageAttachments });
       if (response?.success === false) return showToast('No se pudo publicar', 'error');
 
       const commentId = response.reply?.id || response.id || response;
       const enrichedReply = {
         id: commentId,
-        content: replyText.trim(),
+        content: messageText,
         user_id: currentUser.id,
         author_name: currentUser.nombre,
         author_photo: currentUser.foto,
         author_role: currentUser.role,
         created_at: new Date().toISOString(),
-        attachments: (replyAttachments || []).map((a, i) => ({ ...a, id: `tmp-${Date.now()}-${i}` }))
+        attachments: messageAttachments.map((a, i) => ({ ...a, id: `tmp-${Date.now()}-${i}` }))
       };
+
+      setDetail(prev => {
+        if (!prev || Number(prev.id) !== Number(selectedId)) return prev;
+        const replies = prev.replies || prev.comments || [];
+        return {
+          ...prev,
+          replies: replies.map((r) => String(r.id) === String(tmpId) ? enrichedReply : r),
+          comments: replies.map((r) => String(r.id) === String(tmpId) ? enrichedReply : r)
+        };
+      });
 
       if (socket && selectedId) {
         socket.emit('new_message', { forumId: selectedId, message: enrichedReply });
       }
 
-      setHasEnteredThread(true); // Suppress banner logic
-      setShowBanner(false);      // Explicitly hide banner
-      await loadDetail(selectedId);
-      await loadThreads({ silent: true });
-      setReplyText(''); setReplyAttachments([]); setMentionTarget(null); setMentionQuery('');
-      localStorage.removeItem(`forum_draft_reply_${selectedId}`);
+      loadThreads({ silent: true }).catch(() => {});
       updateForumPresence(selectedId, false).catch(() => { });
-    } catch (error) { showToast(error?.message || 'No se pudo publicar', 'error'); }
+    } catch (error) {
+      setDetail(prev => {
+        if (!prev || Number(prev.id) !== Number(selectedId)) return prev;
+        const replies = (prev.replies || prev.comments || []).filter((r) => String(r.id) !== String(tmpId));
+        return { ...prev, replies, comments: replies };
+      });
+      setReplyText(messageText);
+      setReplyAttachments(messageAttachments);
+      showToast(error?.message || 'No se pudo publicar', 'error');
+    }
     finally { setReplying(false); }
   };
 
@@ -955,13 +1127,20 @@ const ModuleForum = () => {
   const renderMentionDropdown = (target) => {
     if (mentionTarget !== target) return null;
     if (!mentionCandidates.length) return null;
+    const isReplyTarget = target === 'reply';
     return (
-      <div className="absolute left-0 top-full mt-1 z-[220] w-full max-w-[360px] max-h-44 overflow-auto rounded-xl border border-gray-200 bg-white p-1 space-y-1 shadow-lg">
+      <div
+        className="absolute z-[240] w-[320px] max-w-[calc(100vw-2rem)] max-h-56 overflow-auto rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-xl"
+        style={isReplyTarget
+          ? { left: '0px', bottom: 'calc(100% + 8px)' }
+          : { left: `${Math.max(8, mentionAnchor.x)}px`, top: `${Math.max(8, mentionAnchor.y - 170)}px` }}
+      >
         {mentionCandidates.map((member) => (
-          <button key={member.id} type="button" onClick={() => insertMention(target, member)} className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <UserAvatar photo={member.foto} name={member.nombre} userId={member.id} userRole={member.role} monitorId={moduleMonitorId} size="w-8 h-8" />
-            <div className="min-w-0">
-              <p className="text-sm text-gray-900 truncate">{buildMentionToken(member)}</p>
+          <button key={member.id} type="button" onClick={() => insertMention(target, member)} className="w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2.5">
+            <UserAvatar user={{ nombre: member.nombre, foto: member.foto, role: member.role }} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-gray-900 truncate">{member.nombre}</p>
+              <p className="text-[11px] text-gray-500 truncate">@{member.username || member.nombre} #{member.id}</p>
               <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] items-center gap-1 font-bold uppercase ${roleChip(getVisualRole(member.id, member.role, moduleMonitorId))}`}>
                 {roleBadgeLabel(member.id, member.role, moduleMonitorId) || member.role}
               </span>
@@ -1065,7 +1244,7 @@ const ModuleForum = () => {
               <div className="space-y-2 max-h-[58vh] lg:max-h-none lg:h-[calc(100vh-270px)] overflow-auto pr-1 mt-2">
                 {filteredThreads.map((thread) => (
                   <div key={thread.id} className={`w-full text-left rounded-xl sm:rounded-2xl p-3 border ${Number(selectedId) === Number(thread.id) ? 'border-brand-blue bg-blue-50/50' : 'border-gray-100 bg-gray-50'}`}>
-                    <button onClick={() => setSelectedId(thread.id)} className="w-full text-left">
+                    <button onClick={() => handleSelectThread(thread.id)} className="w-full text-left">
                       <p className="text-sm text-gray-900 line-clamp-1">{renderSearchHighlight(thread.title)}</p>
                       <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{renderSearchHighlight(thread.content)}</p>
                       <p className="text-[11px] text-gray-400 mt-2">{thread.responses_count || 0} respuestas</p>
@@ -1162,25 +1341,26 @@ const ModuleForum = () => {
                         </>
                       )}
                     </div>
-                    {unreadWhileBrowsing > 0 && !isAtBottom && (
-                      <button onClick={scrollToBottom} className="new-message-fab">
-                        <ChevronDown size={16} />
-                        <span className="text-[10px] font-black uppercase">Nuevos ({unreadWhileBrowsing})</span>
-                      </button>
-                    )}
                     {(() => {
                       const allReplies = (detail.replies || detail.comments || []);
-                      const totalReplies = allReplies.length;
-                      const displayedReplies = allReplies.slice(0, visibleRepliesCount);
-                      const hasMoreReplies = totalReplies > visibleRepliesCount;
+                      const displayedReplies = allReplies;
 
                       const lastSeen = detail.lastSeenReplyId || 0;
                       const result = [];
-                      let bannerShown = false;
-                      const newMessages = allReplies.filter(r => Number(r.id) > lastSeen);
+                      let dividerShown = false;
 
                       displayedReplies.forEach((reply, idx) => {
                         if (!reply || !reply.id) return;
+                        if (showNewDivider && !dividerShown && Number(reply.id) > Number(lastSeen)) {
+                          result.push(
+                            <div key="new-messages-divider" className="flex justify-center my-2">
+                              <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
+                                Mensajes nuevos
+                              </span>
+                            </div>
+                          );
+                          dividerShown = true;
+                        }
                         // Hidden by UX request: no "mensajes nuevos" banner while inside chat
                         const isMentioned = isMeMentioned(reply.content, currentUser?.id);
                         const isNewlyMentioned = isMentioned && isNewlyCreated(reply.created_at);
@@ -1266,24 +1446,6 @@ const ModuleForum = () => {
                         );
                       });
 
-                      if (hasMoreReplies) {
-                        result.push(
-                          <div key="show-more-replies" className="relative pt-8 pb-4">
-                            <div className="absolute inset-x-0 -top-20 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-                            <button
-                              onClick={() => setVisibleRepliesCount(prev => prev + 10)}
-                              className="w-full py-4 border-2 border-solid border-gray-200 rounded-2xl text-xs font-black text-gray-400 hover:border-brand-blue/30 hover:text-brand-blue hover:bg-blue-50/30 transition-all flex flex-col items-center gap-2 group"
-                            >
-                              <div className="flex items-center gap-2">
-                                <ChevronDown size={16} className="group-hover:translate-y-1 transition-transform" />
-                                Ver {totalReplies - visibleRepliesCount} respuestas más
-                              </div>
-                              <span className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.2em]">Cargando respuestas adicionales</span>
-                            </button>
-                          </div>
-                        );
-                      }
-
                       return result;
                     })()}
                     {!(detail.replies || detail.comments || []).length && <p className="text-sm text-gray-400">Sin respuestas.</p>}
@@ -1291,6 +1453,16 @@ const ModuleForum = () => {
                   </div>
                 </div>
                 <div className={`rounded-xl sm:rounded-2xl border transition-all duration-300 p-3 space-y-2 relative ${(isReadOnly || !!editingId) ? 'border-2 border-dashed border-gray-400 bg-gray-50/80' : 'border-gray-100'}`}>
+                  {unreadWhileBrowsing > 0 && (
+                    <button
+                      onClick={scrollToBottom}
+                      className="new-message-fab absolute left-600 !m-0"
+                      title="Ir al ultimo mensaje"
+                    >
+                      <ChevronDown size={18} />
+                      <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-brand-blue text-white text-[10px] font-black grid place-items-center">{unreadWhileBrowsing > 99 ? '99+' : unreadWhileBrowsing}</span>
+                    </button>
+                  )}
                   <TypingIndicator users={typingUsers} monitorId={moduleMonitorId} />
                   <div className="relative">
                     <MentionHighlighter textareaRef={replyTextRef} scrollRef={replyScrollRef} value={replyText} members={members} monitorId={moduleMonitorId} onChange={(e) => onMentionAwareInput('reply', e.target.value)} onKeyDown={(e) => handleInputKeyDown('reply', e)} placeholder={isReadOnly ? "Foro en modo lectura: no puedes escribir." : (editingId ? "Modo edición activo" : "Escribe una respuesta... usa @ para mencionar")} minHeight="100px" onSelect={() => handleEditorSelection('reply')} disabled={isReadOnly || !!editingId} />
@@ -1310,7 +1482,7 @@ const ModuleForum = () => {
                         <input ref={replyImageRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadAndInsertImage(e.target.files?.[0], 'reply')} />
                       </>
                     )}
-                    <button disabled={isReadOnly || replying || !!editingId} onClick={handleReply} className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50"><Send size={14} /> {isReadOnly ? 'Bloqueado' : (replying ? 'Publicando...' : 'Responder')}</button>
+                    <button disabled={isReadOnly || !!editingId} onClick={handleReply} className="ml-auto px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black inline-flex items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50"><Send size={14} /> {isReadOnly ? 'Bloqueado' : 'Responder'}</button>
                   </div>
                   {(isReadOnly || !!editingId) && (
                     <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-transparent cursor-not-allowed" aria-hidden="true" />

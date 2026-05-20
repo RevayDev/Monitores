@@ -210,6 +210,7 @@ const MonitorDashboard = () => {
   const [selectedCameraId, setSelectedCameraId] = useState('');
   const [cameraStatus, setCameraStatus] = useState('checking');
   const [cameraError, setCameraError] = useState('');
+  const [cameraPermission, setCameraPermission] = useState('unknown');
   const [isValidatingScan, setIsValidatingScan] = useState(false);
   const [excuseTarget, setExcuseTarget] = useState(null);
   const [excuseReason, setExcuseReason] = useState('');
@@ -337,6 +338,7 @@ const MonitorDashboard = () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraAvailable(false);
       setCameraStatus('none');
+      setCameraPermission('unsupported');
       return;
     }
 
@@ -370,6 +372,7 @@ const MonitorDashboard = () => {
 
       setCameraAvailable(true);
       setCameraStatus('ready');
+      setCameraPermission('granted');
 
       // Universal scanning loop using jsQR
       scanTimerRef.current = setInterval(() => {
@@ -379,7 +382,48 @@ const MonitorDashboard = () => {
     } catch (error) {
       setCameraAvailable(false);
       setCameraStatus('error');
-      setCameraError(String(error?.message || 'No se detecto camara'));
+      const errName = String(error?.name || '');
+      if (errName === 'NotAllowedError' || errName === 'SecurityError') {
+        setCameraPermission('denied');
+        setCameraError('Permiso de camara denegado. Debes permitir acceso para escanear.');
+      } else if (errName === 'NotFoundError' || errName === 'OverconstrainedError') {
+        setCameraPermission('missing');
+        setCameraError('No se encontro camara disponible.');
+      } else {
+        setCameraPermission('error');
+        setCameraError(String(error?.message || 'No se detecto camara'));
+      }
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    setCameraError('');
+    setCameraStatus('loading');
+    try {
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        setCameraPermission('unsupported');
+        setCameraStatus('none');
+        setCameraAvailable(false);
+        setCameraError('Este navegador no soporta acceso a camara.');
+        return;
+      }
+
+      // Force permission prompt in all supported mobile browsers.
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      stream.getTracks().forEach((track) => track.stop());
+      setCameraPermission('granted');
+      await startCamera(selectedCameraId);
+    } catch (error) {
+      const errName = String(error?.name || '');
+      setCameraAvailable(false);
+      setCameraStatus('error');
+      if (errName === 'NotAllowedError' || errName === 'SecurityError') {
+        setCameraPermission('denied');
+        setCameraError('Permiso de camara denegado. Habilitalo en el navegador.');
+      } else {
+        setCameraPermission('error');
+        setCameraError(String(error?.message || 'No se pudo solicitar permiso de camara.'));
+      }
     }
   };
 
@@ -388,7 +432,7 @@ const MonitorDashboard = () => {
       stopCamera();
       return;
     }
-    startCamera(selectedCameraId);
+    requestCameraPermission();
     return () => stopCamera();
   }, [isDiningMonitor, topTab, selectedCameraId]);
 
@@ -932,6 +976,16 @@ const MonitorDashboard = () => {
                     </button>
                   </div>
                 )}
+                {!cameraAvailable && (
+                  <div className="flex justify-center">
+                    <button
+                      onClick={requestCameraPermission}
+                      className="px-6 py-2.5 rounded-2xl bg-teal-600 text-white text-xs font-black hover:bg-teal-700 active:scale-95 transition-all"
+                    >
+                      Permitir camara
+                    </button>
+                  </div>
+                )}
 
                 <div className="relative w-full max-w-sm mx-auto rounded-[48px] overflow-hidden border-8 border-white bg-black/95 aspect-square shadow-2xl group group-hover:border-teal-400/20 transition-all duration-500">
                   {cameraAvailable ? (
@@ -973,6 +1027,7 @@ const MonitorDashboard = () => {
                   {cameraStatus === 'loading' && <p className="text-teal-600 font-black animate-pulse text-[10px] uppercase tracking-widest">Iniciando Lente...</p>}
                   {cameraStatus === 'ready' && <p className="text-emerald-600 font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em]"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" /> Escáner Listo</p>}
                   {cameraStatus === 'error' && <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Error: {cameraError}</p>}
+                  {cameraPermission === 'denied' && <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mt-1">Activa camara en permisos del navegador</p>}
                 </div>
               </div>
 
