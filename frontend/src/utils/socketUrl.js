@@ -1,12 +1,10 @@
-const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
-
 export const getSocketUrl = () => {
-  const envSocket = trimTrailingSlash(import.meta.env.VITE_SOCKET_URL);
-  if (envSocket) return envSocket;
-
-  const envApi = trimTrailingSlash(import.meta.env.VITE_API_URL);
-  if (envApi) return envApi.replace(/\/api$/, '');
-
-  return window.location.origin;
+  const raw = String(import.meta.env.VITE_SOCKET_URL || '').trim();
+  if (!raw || raw === '/' || raw.startsWith('/')) return window.location.origin;
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    return parsed.origin;
+  } catch {
+    return window.location.origin;
+  }
 };
-
