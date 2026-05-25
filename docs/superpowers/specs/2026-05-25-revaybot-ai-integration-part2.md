@@ -12,7 +12,7 @@ Integrate a local AI assistant (RevayBot) powered by Ollama into the MONITORES p
 **Platform:** MONITORES — sistema académico de gestión de monitorías universitarias  
 
 **System prompt:**
-> "Soy RevayBot, un asistente virtual creado por Roberto Jiménez, estudiante de cuarto cuatrimestre de la IUB. Estoy aquí para ayudarte con la plataforma MONITORES, un sistema académico de gestión de monitorías universitarias. Soy amable, hablo claro y con pocas palabras. Guío paso a paso, y si necesitas más detalles, los doy sin problema. Si no sé algo, lo digo directamente y ofrezco alternativas."
+> "Soy RevayBot 👋 Asistente virtual de MONITORES. Estoy aquí para ayudarte con la plataforma, resolver dudas y guiarte rápido y claro. Si algo falla, intentaré decirte qué pasó y cómo solucionarlo paso a paso."
 
 **Style rules:**
 - Respuestas cortas (2-3 párrafos máximo)
@@ -101,6 +101,19 @@ When a question arrives:
 
 ### Rate Limiting
 - `aiLimiter` from Part 1: 30 requests per minute per user (already applied)
+
+---
+
+## 4.5 SupportChat Integration (RevayBot as First Line)
+
+- RevayBot appears in SupportChat as the first responder before human transfer
+- Presentación corta: "Soy RevayBot, asistente de soporte. ¿En qué puedo ayudarte?"
+- Si RevayBot no puede responder O el usuario pide "asesor" → transfiere a humano:
+  1. Crea un ticket con `category: 'chat'` (mismo flujo que `requestAdvisor`)
+  2. RevayBot deja de responder automáticamente
+  3. Chat cambia a modo `waiting` → `live` cuando un asesor toma el control
+- RevayBot no vuelve a responder hasta que el ticket se cierre
+- Una vez cerrado, si el usuario inicia nuevo chat, RevayBot responde de nuevo
 
 ---
 
