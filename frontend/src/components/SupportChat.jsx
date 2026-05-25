@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
 import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Shield, Clock, Headphones, Key, XCircle, Paperclip, Image as ImageIcon, FileText, AtSign } from 'lucide-react';
-import { submitSupportRequest, getSupportTicketMessages, sendSupportTicketMessage, uploadSupportFile, getAllUsers } from '../services/api';
+import { submitSupportRequest, getSupportTicketMessages, sendSupportTicketMessage, uploadSupportFile, getAllUsers, closeSupportTicket } from '../services/api';
 import { getSocketUrl } from '../utils/socketUrl';
 import { ToastContext } from '../context/ToastContext';
 import UserAvatar from './UserAvatar';
@@ -309,6 +309,7 @@ const SupportChat = () => {
   const [activeTicketId, setActiveTicketId] = useState(null);
   const [chatMode, setChatMode] = useState('bot'); // 'bot' | 'waiting' | 'live' | 'closed'
   const [advisorName, setAdvisorName] = useState('');
+  const [showClosePrompt, setShowClosePrompt] = useState(false);
 
   // Refs — same pattern as ModuleForum
   const messagesEndRef = useRef(null);
@@ -527,6 +528,19 @@ const SupportChat = () => {
     }
   };
 
+  // ── Close chat (user-facing) ────────────────────────────────────────────
+  const handleUserCloseChat = async () => {
+    if (!activeTicketId) return;
+    try {
+      await closeSupportTicket(activeTicketId);
+      setChatMode('closed');
+      setShowClosePrompt(false);
+      localStorage.removeItem('support_chat_ticket_id');
+    } catch (err) {
+      addBotMessage('Error al cerrar el chat. Intenta nuevamente.', 1000);
+    }
+  };
+
   // ── Typing emit (throttled like forum) ───────────────────────────────────
   const emitTyping = () => {
     if (!activeTicketId || !socketRef.current) return;
@@ -649,14 +663,14 @@ const SupportChat = () => {
         }]);
         await requestAdvisor(fullMessage);
 
-      // ── BOT MODE — farewell / gratitude → auto-close ──────────────────────
+      // ── BOT MODE — farewell / gratitude → ask if they need more ──────────
       } else if (chatMode === 'bot' && isFarewell(trimmed)) {
         setMessages(prev => [...prev, {
           id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
           sender_role: 'user', text: fullMessage, time: new Date(),
         }]);
-        addBotMessage('¡Con gusto! 😊 Me alegra haber podido ayudarte. Si necesitas algo más en el futuro, aquí estaré. ¡Hasta pronto!', 800);
-        setTimeout(() => setChatMode('closed'), 3500);
+        addBotMessage('¡Con gusto! 😊 Me alegra haber podido ayudarte.', 800);
+        setShowClosePrompt(true);
 
       // ── BOT MODE — smart intent ────────────────────────────────────────────
       } else {
@@ -1001,6 +1015,23 @@ const SupportChat = () => {
                     </div>
                   )}
 
+                  {/* Close prompt — shows after farewell or in live mode */}
+                  {showClosePrompt && (
+                    <div className="pt-2 flex flex-col items-center gap-2">
+                      <p className="text-[11px] font-bold text-slate-600">¿Necesitas algo más?</p>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setShowClosePrompt(false)}
+                          className="px-3 py-1.5 bg-brand-blue text-white text-[10px] font-black rounded-xl hover:brightness-110 transition-all">
+                          Sí, necesito ayuda
+                        </button>
+                        <button onClick={handleUserCloseChat}
+                          className="px-3 py-1.5 bg-slate-200 text-slate-700 text-[10px] font-black rounded-xl hover:bg-slate-300 transition-all flex items-center gap-1">
+                          <XCircle size={12} /> No, gracias
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -1090,9 +1121,17 @@ const SupportChat = () => {
                           {isBotTyping ? <Loader2 size={14} className="animate-spin" /> : <Send size={13} />}
                         </button>
                       </div>
-                      <p className="text-[9px] text-slate-400 text-center mt-1.5 font-medium">
-                        {chatMode === 'live' ? `En vivo con ${advisorName || 'Asesor'} · Monitores Hub` : 'Powered by RevayBot · Monitores Hub'}
-                      </p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[9px] text-slate-400 font-medium">
+                          {chatMode === 'live' ? `En vivo con ${advisorName || 'Asesor'} · Monitores Hub` : chatMode === 'waiting' ? 'Buscando asesor... · Monitores Hub' : 'Powered by RevayBot · Monitores Hub'}
+                        </p>
+                        {(chatMode === 'live' || chatMode === 'waiting') && (
+                          <button onClick={handleUserCloseChat}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-[9px] font-black transition-all">
+                            <XCircle size={10} /> {chatMode === 'waiting' ? 'Cancelar' : 'Finalizar chat'}
+                          </button>
+                        )}
+                      </div>
 
                       {/* Hidden file input */}
                       <input
