@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { LifeBuoy, Mail, Send, MessageCircle, ChevronRight, ChevronDown, User, Instagram } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { LifeBuoy, Mail, Send, MessageCircle, ChevronRight, User, Instagram } from 'lucide-react';
 import { submitSupportRequest } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
 import InputField from '../components/InputField';
 
 const HelpCenter = () => {
+  const navigate = useNavigate();
   const { showToast } = React.useContext(ToastContext);
   const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
 
@@ -22,8 +24,8 @@ const HelpCenter = () => {
     try {
       setSending(true);
       const response = await submitSupportRequest(form);
-      showToast(response?.message || 'Solicitud enviada.', 'success');
-      setForm((prev) => ({ ...prev, subject: '', message: '' }));
+      showToast(response?.message || 'Tu solicitud fue enviada. El equipo te responderá pronto.', 'success');
+      navigate('/');
     } catch (error) {
       showToast(error.message || 'No se pudo enviar la solicitud.', 'error');
     } finally {

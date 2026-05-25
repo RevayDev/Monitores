@@ -76,6 +76,15 @@ const assignTicketToAdvisor = async (req, res) => {
   }
 };
 
+const uploadSupportFile = async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo.' });
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const fileUrl = `${baseUrl}/uploads/support/${req.file.filename}`;
+  const mime = req.file.mimetype || '';
+  const kind = mime.startsWith('image/') ? 'image' : 'file';
+  res.status(201).json({ url: fileUrl, kind, name: req.file.originalname });
+};
+
 export default {
   submitSupportRequest,
   listSupportTickets,
@@ -84,5 +93,6 @@ export default {
   deleteSupportTicket,
   getTicketMessages,
   addTicketMessage,
-  assignTicketToAdvisor
+  assignTicketToAdvisor,
+  uploadSupportFile
 };

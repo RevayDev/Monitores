@@ -94,8 +94,7 @@ const QrCard = () => {
         </div>
       ) : !showLast ? (
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <QrCode size={14} className="text-brand-blue" />
-          <span>Ultimo QR oculto.</span>
+          <span>QR Oculto</span>
         </div>
       ) : (
         <>

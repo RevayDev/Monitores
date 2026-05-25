@@ -107,6 +107,12 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
+// Support uploads subfolder (created by support-upload.helper.js on first use)
+const supportUploadsDir = path.join(__dirname, 'uploads/support');
+if (!fs.existsSync(supportUploadsDir)) {
+  fs.mkdirSync(supportUploadsDir, { recursive: true });
+}
+
 // Simple logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);

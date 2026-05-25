@@ -12,8 +12,6 @@ export const initSocket = (httpServer) => {
   });
 
   io.on('connection', (socket) => {
-    // console.log(`User connected: ${socket.id}`);
-
     socket.on('join_forum', (forumId) => {
       socket.join(`forum_${forumId}`);
     });
@@ -24,6 +22,11 @@ export const initSocket = (httpServer) => {
 
     socket.on('join_dev_console', () => {
       socket.join('dev_console_logs');
+    });
+
+    // Staff room — admins/devs join this to get real-time ticket list updates
+    socket.on('join_support_staff', () => {
+      socket.join('support_staff');
     });
 
     socket.on('join_support_chat', (ticketId) => {
@@ -68,5 +71,12 @@ export const getIo = () => {
 export const notifyUser = (userId, notification) => {
   if (io) {
     io.to(`user_${userId}`).emit('new_notification', notification);
+  }
+};
+
+// Broadcast ticket list change to all staff (admin/dev) dashboards
+export const notifyStaffTicketUpdate = (payload) => {
+  if (io) {
+    io.to('support_staff').emit('support_ticket_list_updated', payload);
   }
 };

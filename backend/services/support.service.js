@@ -1,5 +1,5 @@
 import pool from '../utils/mysql.helper.js';
-import { notifyUser } from '../socket.js';
+import { notifyUser, notifyStaffTicketUpdate } from '../socket.js';
 import emailService from './email.service.js';
 
 const normalize = (value) => String(value || '').trim();
@@ -95,6 +95,7 @@ class SupportService {
     );
 
     await this.notifySupportTeams(createdTicket, requester?.id || null);
+    notifyStaffTicketUpdate({ action: 'created', ticketId });
 
     const supportEmail = process.env.SUPPORT_EMAIL || process.env.SMTP_USER;
 
@@ -192,6 +193,8 @@ class SupportService {
       }
     }
 
+    notifyStaffTicketUpdate({ action: 'responded', ticketId, status: newStatus || 'answered' });
+
     return { ok: true, message: 'Respuesta enviada y ticket actualizado.' };
   }
 
@@ -229,6 +232,8 @@ class SupportService {
       // ignore
     }
 
+    notifyStaffTicketUpdate({ action: 'status_updated', ticketId, status: newStatus });
+
     if (ticket.requester_user_id) {
       await this.notifyRequester(ticketId, {
         id: Date.now(),
@@ -255,6 +260,7 @@ class SupportService {
       'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
       [actor?.id || null, 'SUPPORT_TICKET_DELETED', 'support_ticket', ticketId, JSON.stringify({ previousStatus: ticket.status })]
     );
+    notifyStaffTicketUpdate({ action: 'deleted', ticketId, previousStatus: ticket.status });
     return { ok: true, message: 'Ticket eliminado.' };
   }
 
@@ -364,6 +370,8 @@ class SupportService {
       sender_avatar: advisorUser.foto || null,
       message: welcomeMsgText
     });
+
+    notifyStaffTicketUpdate({ action: 'assigned', ticketId, advisorId });
 
     // Notify rooms of assignment
     try {

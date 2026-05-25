@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, Users, Trophy, Zap, Sparkles } from 'lucide-react';
 import { getAllUsers, getMaintenanceConfig } from '../services/api';
@@ -9,12 +9,12 @@ import { ToastContext } from '../context/ToastContext';
 
 const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = React.useContext(ToastContext);
   const [staff, setStaff] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState('monitor');
   const [config, setConfig] = React.useState(null);
-
   React.useEffect(() => {
     const fetchData = async () => {
       try {

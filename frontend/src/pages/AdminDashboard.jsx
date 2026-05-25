@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
 import { splitHighlightedText } from '../utils/forumSearchHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { getSocketUrl } from '../utils/socketUrl';
 import {
   getAllUsers,
   getAllRegistrations,
@@ -35,7 +37,7 @@ import {
 } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
 import Modal from '../components/Modal';
-import SupportChatModal from '../components/SupportChatModal';
+import SupportTicketPanel from '../components/SupportTicketPanel';
 import {
   Users,
   UserPlus,
@@ -183,7 +185,6 @@ const AdminDashboard = () => {
   const [reportSubTab, setReportSubTab] = useState('pending');
   const [reports, setReports] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
-  const [activeChatTicket, setActiveChatTicket] = useState(null);
   const [ticketActionId, setTicketActionId] = useState(null);
   const getTicketStatusMeta = (status) => {
     const s = String(status || '').toLowerCase();
@@ -341,6 +342,24 @@ const AdminDashboard = () => {
       setTicketActionId(null);
     }
   };
+
+  // ── Real-time ticket updates via socket ────────────────────────────────
+  const loadSupportTicketsRef = useRef(loadSupportTickets);
+  loadSupportTicketsRef.current = loadSupportTickets;
+
+  useEffect(() => {
+    const socket = io(getSocketUrl(), { path: '/api/socket.io' });
+    socket.emit('join_support_staff');
+    socket.on('support_ticket_list_updated', () => loadSupportTicketsRef.current());
+    loadSupportTicketsRef.current();
+    return () => { socket.disconnect(); };
+  }, []);
+
+  useEffect(() => {
+    const onDataUpdated = () => loadSupportTicketsRef.current();
+    window.addEventListener('data-updated', onDataUpdated);
+    return () => window.removeEventListener('data-updated', onDataUpdated);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'users') {
@@ -1000,67 +1019,70 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 ) : activeTab === 'tickets' ? (
-                  <div className="p-6 space-y-4 bg-gray-50/30">
-                    {supportTickets
-                      .filter((ticket) => {
-                        const search = searchTerm.toLowerCase();
-                        return !search
-                          || String(ticket.requester_name || '').toLowerCase().includes(search)
-                          || String(ticket.requester_email || '').toLowerCase().includes(search)
-                          || String(ticket.subject || '').toLowerCase().includes(search);
-                      })
-                      .map((ticket) => (
-                        <div key={ticket.id} className={`border rounded-2xl p-5 ${String(ticket.status || '').toLowerCase() === 'closed' ? 'bg-slate-50 border-slate-300' : String(ticket.status || '').toLowerCase() === 'answered' ? 'bg-emerald-50/40 border-emerald-200' : String(ticket.status || '').toLowerCase() === 'in_progress' ? 'bg-amber-50/40 border-amber-200' : 'bg-indigo-50/40 border-indigo-200'}`}>
-                          {(() => {
-                            const statusMeta = getTicketStatusMeta(ticket.status);
-                            return (
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <span className="text-xs font-black text-indigo-700">#{ticket.id}</span>
-                            <span className="text-xs font-bold text-gray-700">{ticket.requester_name}</span>
-                            <span className="text-xs text-gray-500">{ticket.requester_email}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${statusMeta.cls}`}>{statusMeta.label}</span>
-                          </div>
-                            );
-                          })()}
-                          <p className="text-sm font-black text-gray-900">{ticket.subject}</p>
-                          <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{ticket.message}</p>
-                          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                            <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200"><span className="font-black text-gray-700">Correo:</span> <span className="text-gray-600">{ticket.requester_email}</span></div>
-                            <div className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200"><span className="font-black text-gray-700">Categoria:</span> <span className="text-gray-600">{ticket.category || 'tecnico'}</span></div>
-                          </div>
-                          <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                            <div className="rounded-xl border border-gray-200 bg-white/70 p-3">
-                              <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Estado</p>
-                              <div className="flex flex-wrap gap-2">
-                                <button onClick={() => handleTicketStatus(ticket.id, 'in_progress')} disabled={ticket.status === 'closed' || ticketActionId === `${ticket.id}:in_progress`} className="px-3 py-2 rounded-xl bg-amber-100 text-amber-800 text-xs font-black disabled:opacity-60">En progreso</button>
-                                <button onClick={() => handleTicketStatus(ticket.id, 'answered')} disabled={ticket.status === 'closed' || ticketActionId === `${ticket.id}:answered`} className="px-3 py-2 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-black disabled:opacity-60">Implementado</button>
-                                <button onClick={() => handleTicketStatus(ticket.id, 'closed')} disabled={ticket.status === 'closed' || ticketActionId === `${ticket.id}:closed`} className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black disabled:opacity-60">Cerrar</button>
-                              </div>
-                            </div>
-                            <div className="rounded-xl border border-gray-200 bg-white/70 p-3">
-                              <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Acciones</p>
-                              <div className="flex flex-wrap gap-2">
-                                {ticket.category === 'chat' ? (
-                                  <button
-                                    onClick={() => setActiveChatTicket(ticket)}
-                                    className="px-3 py-2 rounded-xl bg-brand-blue hover:bg-brand-blue-dark text-white text-xs font-black flex items-center gap-1 transition-all shadow-md shadow-brand-blue/20 border-none"
-                                  >
-                                    <MessageSquare size={12} /> Atender Chat
-                                  </button>
-                                ) : (
-                                  <a href={`mailto:${encodeURIComponent(ticket.requester_email)}?subject=${encodeURIComponent(`[Ticket #${ticket.id}] ${ticket.subject}`)}&body=${encodeURIComponent(`Ticket: #${ticket.id}\nCategoria: ${ticket.category || 'tecnico'}\n\nDescripcion:\n${ticket.message}`)}`} className="px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 text-xs font-black hover:bg-indigo-50">Abrir correo</a>
-                                )}
-                                <button onClick={() => handleDeleteTicket(ticket.id)} disabled={ticketActionId === `${ticket.id}:delete`} className="px-3 py-2 rounded-xl bg-rose-100 text-rose-700 text-xs font-black disabled:opacity-60">Quitar</button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    {!supportTickets.length && (
-                      <div className="bg-white border border-gray-200 rounded-2xl p-6 text-sm text-gray-500">
-                        No hay tickets registrados.
+                  <div className="p-4 md:p-6 space-y-6">
+                    {/* Chat Tickets - SupportTicketPanel */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare size={16} className="text-brand-blue" />
+                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Chat en Vivo</h3>
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-black rounded-full border border-blue-200">{supportTickets.filter(t => t.category === 'chat').length}</span>
                       </div>
-                    )}
+                      <div className="h-[calc(100vh-280px)]">
+                        <SupportTicketPanel
+                          tickets={supportTickets.filter(t => t.category === 'chat')}
+                          onStatusUpdated={() => loadSupportTickets()}
+                        />
+                      </div>
+                    </div>
+                    {/* Email Tickets - Inline list */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Mail size={16} className="text-indigo-600" />
+                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Tickets por Correo</h3>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-black rounded-full border border-indigo-200">{supportTickets.filter(t => t.category !== 'chat').length}</span>
+                      </div>
+                      {supportTickets.filter(t => t.category !== 'chat').length === 0 ? (
+                        <div className="bg-gray-50 border border-gray-200 rounded-2xl py-8 text-center">
+                          <p className="text-sm text-gray-400 font-black">No hay tickets por correo.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {supportTickets.filter(t => t.category !== 'chat').map(ticket => {
+                            const meta = getTicketStatusMeta(ticket.status);
+                            const isDisabled = ticket.status === 'closed' || ticket.status === 'answered';
+                            return (
+                              <div key={ticket.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-indigo-700">#{ticket.id}</span>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${meta.cls}`}>{meta.label}</span>
+                                  </div>
+                                  <span className="text-[9px] text-gray-400">{new Date(ticket.created_at).toLocaleDateString('es-CO')}</span>
+                                </div>
+                                <p className="text-sm font-black text-gray-900">{ticket.subject}</p>
+                                <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap line-clamp-2">{ticket.message}</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-[10px] font-bold text-gray-500">{ticket.requester_name}</span>
+                                  <span className="text-[9px] text-gray-400">{ticket.requester_email}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-3">
+                                  <button onClick={() => handleTicketStatus(ticket.id, ticket.status === 'closed' ? 'open' : 'closed')}
+                                    disabled={ticketActionId === `${ticket.id}:${ticket.status === 'closed' ? 'open' : 'closed'}`}
+                                    className={`px-4 py-2 text-[10px] font-black rounded-xl transition-all flex items-center gap-1.5 border-none ${isDisabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {ticket.status === 'closed' ? 'Reabrir' : 'Cerrar'}
+                                  </button>
+                                  <button onClick={() => handleDeleteTicket(ticket.id)}
+                                    disabled={ticketActionId === `${ticket.id}:delete`}
+                                    className="px-4 py-2 bg-red-50 text-red-600 text-[10px] font-black rounded-xl hover:bg-red-100 transition-all flex items-center gap-1.5 border-none">
+                                    <Trash2 size={12} /> Eliminar
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : activeTab === 'reports' ? (
                   <div className="p-8 space-y-8 bg-gray-50/30">
@@ -2280,17 +2302,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </Modal>
-
-      {/* Support Live Chat Modal */}
-      {activeChatTicket && (
-        <SupportChatModal
-          ticket={activeChatTicket}
-          onClose={() => setActiveChatTicket(null)}
-          onStatusUpdated={() => {
-            loadSupportTickets();
-          }}
-        />
-      )}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
-import { X, Send, Bot, User, Loader2, Shield, Clock, Key, Check, Smile, LogOut, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, Shield, Clock, Key, Check, Smile, LogOut, MessageSquare, AlertCircle, Copy, RefreshCw, UserCheck, Ban, Archive, ChevronDown, ChevronUp } from 'lucide-react';
 import { getSocketUrl } from '../utils/socketUrl';
 import { getSupportTicketMessages, sendSupportTicketMessage, assignSupportTicket, updateSupportTicketStatus } from '../services/api';
 import UserAvatar from './UserAvatar';
@@ -17,7 +17,10 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
   const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [userIsTyping, setUserIsTyping] = useState(false);
+  const [userTypingName, setUserTypingName] = useState('');
   const [ticketStatus, setTicketStatus] = useState(ticket.status);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
+  const isSendingRef = useRef(false);
   
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -68,12 +71,14 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
       }
     });
 
-    socket.on('support_user_typing', () => {
+    socket.on('support_user_typing', (data) => {
       setUserIsTyping(true);
+      setUserTypingName(data?.user || ticket.requester_name || 'Usuario');
     });
 
     socket.on('support_user_stop_typing', () => {
       setUserIsTyping(false);
+      setUserTypingName('');
     });
 
     socket.on('ticket_status_changed', (data) => {
@@ -99,6 +104,10 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
     const trimmed = textToSend.trim();
     if (!trimmed) return;
 
+    // Prevent double-send
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
+
     try {
       if (customText === null) {
         setInputValue('');
@@ -112,6 +121,8 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
       setIsTyping(false);
     } catch (err) {
       showToast('Error al enviar mensaje: ' + err.message, 'error');
+    } finally {
+      isSendingRef.current = false;
     }
   };
 
@@ -165,12 +176,20 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
     if (type === 'welcome') {
       message = `¡Hola! Soy **${currentUser.nombre}**, tu asesor técnico hoy. He revisado tu solicitud sobre: "${ticket.subject}". ¿En qué puedo ayudarte?`;
     } else if (type === 'reset') {
-      message = `Para restablecer tu contraseña de forma segura, haz clic en el siguiente enlace y sigue las instrucciones:\n\n[Restablecer Contraseña](/forgot-password)`;
+      message = `Para restablecer tu contraseña de forma segura, haz clic en el siguiente enlace y sigue las instrucciones:\n[Restablecer Contraseña](/forgot-password)`;
     } else if (type === 'goodbye') {
       message = `Espero haber solucionado todas tus dudas de forma excelente. Ha sido un placer atenderte. Finalizaré esta sesión. ¡Que tengas un gran día! ✨`;
+    } else if (type === 'wait') {
+      message = `Gracias por tu paciencia. Estoy revisando tu caso en este momento, dame un momento por favor. ⏳`;
+    } else if (type === 'escalate') {
+      message = `He escalado tu caso al equipo técnico especializado. Recibirás una respuesta en las próximas horas. Lamentamos los inconvenientes. 🔧`;
+    } else if (type === 'qr') {
+      message = `Para el problema con el QR de asistencia: asegúrate de que el monitor tenga el código activo. Si el código expiró, pídele que genere uno nuevo desde su panel. ¿Sigue sin funcionar?`;
+    } else if (type === 'resolved') {
+      message = `Me alegra confirmar que el problema ha sido resuelto. Si tienes alguna otra consulta, no dudes en contactarnos. ✅`;
     }
     
-    handleSend(message);
+    if (message) handleSend(message);
   };
 
   const formatMessageText = (text) => {
@@ -355,28 +374,75 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
 
             {/* Quick Suggestions / Advisor Templates Panel */}
             {isAssigned && !isClosed && (
-              <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex flex-wrap gap-2 items-center">
-                <span className="text-[9px] font-black uppercase text-brand-blue tracking-wider flex items-center gap-1">
-                  <Smile size={10} /> Plantillas Rápidas:
-                </span>
-                <button 
-                  onClick={() => handleSendTemplate('welcome')}
-                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm border-none"
-                >
-                  👋 Saludo (Bienvenida)
-                </button>
-                <button 
-                  onClick={() => handleSendTemplate('reset')}
-                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center gap-1 border-none"
-                >
-                  <Key size={9} /> Reset Contraseña
-                </button>
-                <button 
-                  onClick={() => handleSendTemplate('goodbye')}
-                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm border-none"
-                >
-                  ✨ Despedida (Cerrar)
-                </button>
+              <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase text-brand-blue tracking-wider flex items-center gap-1">
+                    <Smile size={10} /> Plantillas Rápidas
+                  </span>
+                  <button
+                    onClick={() => setShowAllTemplates(v => !v)}
+                    className="text-[9px] font-black text-slate-500 hover:text-slate-800 flex items-center gap-0.5 transition-all border-none bg-transparent"
+                  >
+                    {showAllTemplates ? <><ChevronUp size={10} /> Menos</> : <><ChevronDown size={10} /> Más acciones</>}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <button 
+                    onClick={() => handleSendTemplate('welcome')}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm"
+                  >
+                    👋 Bienvenida
+                  </button>
+                  <button 
+                    onClick={() => handleSendTemplate('reset')}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center gap-1"
+                  >
+                    <Key size={9} /> Reset Contraseña
+                  </button>
+                  <button 
+                    onClick={() => handleSendTemplate('goodbye')}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm"
+                  >
+                    ✨ Despedida
+                  </button>
+                  {showAllTemplates && (
+                    <>
+                      <button 
+                        onClick={() => handleSendTemplate('wait')}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center gap-1"
+                      >
+                        <Clock size={9} /> Espera un momento
+                      </button>
+                      <button 
+                        onClick={() => handleSendTemplate('escalate')}
+                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center gap-1"
+                      >
+                        <UserCheck size={9} /> Escalar a equipo
+                      </button>
+                      <button 
+                        onClick={() => handleSendTemplate('qr')}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm"
+                      >
+                        📡 Problema QR
+                      </button>
+                      <button 
+                        onClick={() => handleSendTemplate('resolved')}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center gap-1"
+                      >
+                        <Check size={9} /> Problema resuelto
+                      </button>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard?.writeText(ticket.requester_email || '');
+                          showToast('Correo copiado al portapapeles', 'success');
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center gap-1"
+                      >
+                        <Copy size={9} /> Copiar correo
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -448,11 +514,14 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
               {userIsTyping && (
                 <div className="flex items-end gap-2.5">
                   <UserAvatar user={{ nombre: ticket.requester_name, role: 'student' }} size="sm" />
-                  <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                    <div className="flex gap-1.5 items-center">
-                      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-black text-slate-500 px-1 block">{userTypingName || ticket.requester_name} está escribiendo...</span>
+                    <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                      <div className="flex gap-1.5 items-center">
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -482,7 +551,7 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
               )}
 
               {isAssigned && !isClosed && (
-                <div className="flex items-end gap-2 bg-slate-50 rounded-2xl border border-slate-200 pr-2 pl-4 py-2 focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/20 transition-all">
+                <div className="flex items-end gap-2 bg-white rounded-2xl border border-slate-200 pr-2 pl-4 py-2 focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/20 transition-all">
                   <textarea
                     value={inputValue}
                     onChange={handleInputChange}
@@ -494,8 +563,8 @@ const SupportChatModal = ({ ticket, onClose, onStatusUpdated }) => {
                     }}
                     placeholder="Escribe tu mensaje en tiempo real aquí..."
                     rows={1}
-                    className="flex-1 bg-none text-xs text-slate-800 placeholder-slate-400 resize-none outline-none font-medium max-h-20 py-1.5 leading-relaxed border-none"
-                    style={{ minHeight: '24px', background: 'none' }}
+                    className="flex-1 resize-none outline-none font-medium max-h-20 py-1.5 leading-relaxed border-none"
+                    style={{ minHeight: '24px', background: 'transparent', color: '#111827', caretColor: '#111827', fontSize: '12px' }}
                   />
                   <button
                     onClick={() => handleSend()}

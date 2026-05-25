@@ -449,6 +449,24 @@ export const uploadForumFile = async (file) => {
   return response.json();
 };
 
+export const uploadSupportFile = async (file) => {
+  const sessionUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_URL}/support/upload`, {
+    method: 'POST',
+    headers: {
+      ...(sessionUser?.id ? { 'x-user-id': String(sessionUser.id) } : {})
+    },
+    body: formData
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Upload failed');
+  }
+  return response.json();
+};
+
 // --- Maintenance ---
 export const getMaintenanceConfig = async () => {
   try {
