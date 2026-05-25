@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { io } from 'socket.io-client';
 import {
-  X, Send, Bot, Loader2, Shield, Clock, Key, Check, Smile,
-  MessageSquare, AlertCircle, ChevronDown, ChevronUp, Search,
-  ArrowLeft, Inbox, Phone, Mail, ChevronRight, Trash2
+  X, Send, Bot, Loader2, Shield, Clock, Key, Check,
+  MessageSquare, AlertCircle, ChevronDown, Search,
+  ArrowLeft, Inbox, Phone, Mail, ChevronRight, Trash2, UserCheck, Lock
 } from 'lucide-react';
 import { getSocketUrl } from '../utils/socketUrl';
 import {
@@ -14,11 +14,11 @@ import UserAvatar from './UserAvatar';
 import { ToastContext } from '../context/ToastContext';
 
 const STATUS_META = {
-  new: { label: 'Nuevo', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
-  open: { label: 'Abierto', cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  in_progress: { label: 'En Progreso', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  answered: { label: 'Respondido', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  closed: { label: 'Cerrado', cls: 'bg-slate-100 text-slate-600 border-slate-300' },
+  new: { label: 'Nuevo', icon: '🆕', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  open: { label: 'Abierto', icon: '📂', cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+  in_progress: { label: 'En Progreso', icon: '⏳', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  answered: { label: 'Respondido', icon: '✅', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  closed: { label: 'Cerrado', icon: '🔒', cls: 'bg-slate-100 text-slate-600 border-slate-300' },
 };
 
 const getStatusMeta = (status) => STATUS_META[status] || STATUS_META.open;
@@ -38,7 +38,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
   const [ticketStatus, setTicketStatus] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -48,7 +47,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
 
   const selectedTicket = selectedTicketId ? tickets.find(t => t.id === selectedTicketId) : null;
 
-  // ── Chat socket connection per ticket ─────────────────────────────────
   useEffect(() => {
     if (!selectedTicketId) { socketRef.current?.disconnect(); return; }
     receivedIdsRef.current = new Set();
@@ -76,7 +74,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     return () => { socket.disconnect(); };
   }, [selectedTicketId]);
 
-  // ── Load messages when ticket selected ────────────────────────────────
   useEffect(() => {
     if (!selectedTicketId) { setMessages([]); return; }
     (async () => {
@@ -94,12 +91,10 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     setTicketStatus(ticket?.status);
   }, [selectedTicketId]);
 
-  // ── Auto-scroll ───────────────────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, userIsTyping]);
 
-  // ── Send message ──────────────────────────────────────────────────────
   const handleSend = async (customText = null) => {
     const textToSend = customText !== null ? customText : inputValue;
     const trimmed = textToSend.trim();
@@ -115,7 +110,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     finally { setTimeout(() => { isSendingRef.current = false; }, 300); }
   };
 
-  // ── Typing indicator ──────────────────────────────────────────────────
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
     if (!isTyping && e.target.value.trim()) {
@@ -127,7 +121,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     }
   };
 
-  // ── Take control ─────────────────────────────────────────────────────
   const handleTakeControl = async () => {
     try {
       setIsAssigning(true);
@@ -140,7 +133,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     finally { setIsAssigning(false); }
   };
 
-  // ── Finalize chat ────────────────────────────────────────────────────
   const handleFinalizeChat = async () => {
     try {
       setIsSendingStatus(true);
@@ -152,7 +144,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     finally { setIsSendingStatus(false); }
   };
 
-  // ── Status change ────────────────────────────────────────────────────
   const handleStatusChange = async (status) => {
     try {
       setIsSendingStatus(true);
@@ -163,7 +154,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     finally { setIsSendingStatus(false); }
   };
 
-  // ── Delete ticket ────────────────────────────────────────────────────
   const handleDeleteTicket = async () => {
     if (!selectedTicketId) return;
     try {
@@ -177,7 +167,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     finally { setDeletingId(null); }
   };
 
-  // ── Templates ────────────────────────────────────────────────────────
   const handleSendTemplate = (type) => {
     let msg = '';
     if (type === 'welcome') msg = `Hola! Soy **${currentUser.nombre}**, tu asesor tecnico hoy. He revisado tu solicitud sobre: "${selectedTicket?.subject}". En que puedo ayudarte?`;
@@ -190,7 +179,16 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     if (msg) handleSend(msg);
   };
 
-  // ── Message formatter ────────────────────────────────────────────────
+  const TEMPLATES = [
+    { key: 'welcome', label: '👋 Bienvenida' },
+    { key: 'wait', label: '⏳ Espera' },
+    { key: 'goodbye', label: '👋 Despedida' },
+    { key: 'reset', label: '🔑 Password' },
+    { key: 'escalate', label: '📈 Escalar' },
+    { key: 'qr', label: '📱 QR' },
+    { key: 'resolved', label: '✅ Resuelto' },
+  ];
+
   const formatMsgText = (text) => {
     const value = String(text || '');
     if (value.includes('[Restablecer Contrasena](/forgot-password)')) {
@@ -238,7 +236,11 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     catch { return ''; }
   };
 
-  // ── Filter tickets ───────────────────────────────────────────────────
+  const formatDate = (iso) => {
+    try { return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }); }
+    catch { return ''; }
+  };
+
   const filteredTickets = tickets.filter(ticket => {
     const s = searchTerm.toLowerCase();
     const matchesSearch = !s || String(ticket.requester_name || '').toLowerCase().includes(s)
@@ -250,26 +252,17 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
 
   const isClosed = selectedTicket && (ticketStatus === 'closed' || selectedTicket.status === 'closed');
 
-  const roleChip = (role) => {
-    if (['monitor_academico', 'monitor_administrativo'].includes(role)) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (role === 'admin' || role === 'dev') return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-    return 'bg-blue-100 text-blue-800 border-blue-200';
-  };
-
   const bubbleByRole = (role, isMe) => {
     if (isMe) {
-      if (role === 'admin') return 'bg-indigo-100 border-indigo-300 text-slate-900';
-      if (role === 'dev') return 'bg-indigo-100 border-indigo-300 text-slate-900';
+      if (role === 'admin' || role === 'dev') return 'bg-indigo-100 border-indigo-300 text-slate-900';
       if (['monitor_academico', 'monitor_administrativo'].includes(role)) return 'bg-emerald-100 border-emerald-300 text-slate-900';
       return 'bg-blue-100 border-blue-300 text-slate-900';
     }
-    if (role === 'admin') return 'bg-indigo-50 border-indigo-200 text-slate-800';
-    if (role === 'dev') return 'bg-indigo-50 border-indigo-200 text-slate-800';
+    if (role === 'admin' || role === 'dev') return 'bg-indigo-50 border-indigo-200 text-slate-800';
     if (['monitor_academico', 'monitor_administrativo'].includes(role)) return 'bg-emerald-50 border-emerald-200 text-slate-800';
     return 'bg-white/95 border-blue-100 text-slate-800';
   };
 
-  // ── Render: Chat Detail (Right Panel) ────────────────────────────────
   const renderChatDetail = () => {
     if (!selectedTicket) {
       return (
@@ -283,53 +276,55 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     return (
       <div className="h-full flex flex-col bg-white">
         {/* Mobile header */}
-        <div className="flex items-center justify-between p-3 bg-white/95 backdrop-blur-md border-b border-slate-100 lg:hidden sticky top-0 z-30 shrink-0">
+        <div className="flex items-center justify-between p-3 bg-white border-b border-slate-100 lg:hidden shrink-0">
           <button onClick={() => { setSelectedTicketId(null); }}
             className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
             <ArrowLeft size={14} /> Volver
           </button>
           <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-indigo-700">#{selectedTicket.id}</span>
             {isClosed && (
               <button onClick={handleDeleteTicket} disabled={deletingId === selectedTicketId}
                 className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-50 border border-red-200 rounded-xl px-2.5 py-1.5">
                 {deletingId === selectedTicketId ? <Loader2 className="animate-spin" size={10} /> : <Trash2 size={10} />}
               </button>
             )}
-            <span className="text-[10px] font-black text-indigo-700">#{selectedTicket.id}</span>
           </div>
         </div>
 
         {/* Desktop header */}
-        <div className="hidden lg:flex items-center gap-2 px-5 py-3 border-b border-gray-100 shrink-0 bg-white">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-indigo-700">#{selectedTicket.id}</span>
-              {selectedTicket.assigned_to === null && !isClosed && (
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-black">Sin asignar</span>
-              )}
-              {selectedTicket.assigned_to !== null && !isClosed && (
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-black">Atendiendo</span>
-              )}
-              {isClosed && (
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 font-black">Cerrado</span>
-              )}
-            </div>
-            <p className="text-xs font-black text-gray-800 truncate mt-0.5">{selectedTicket.subject}</p>
+        <div className="hidden lg:flex items-center gap-3 px-5 py-3 border-b border-gray-100 shrink-0 bg-white">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-[10px] font-black text-indigo-700 shrink-0">#{selectedTicket.id}</span>
+            {selectedTicket.assigned_to === null && !isClosed && (
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-black shrink-0">Sin asignar</span>
+            )}
+            {selectedTicket.assigned_to !== null && !isClosed && (
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-black shrink-0">👤 Atendiendo</span>
+            )}
+            {isClosed && (
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 font-black shrink-0">🔒 Cerrado</span>
+            )}
+            <p className="text-xs font-black text-gray-800 truncate">{selectedTicket.subject}</p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {!isClosed && (
               <button onClick={() => handleStatusChange('open')} disabled={isSendingStatus}
-                className="px-2.5 py-1.5 rounded-xl bg-indigo-100 text-indigo-700 text-[9px] font-black border-none disabled:opacity-50">Abrir</button>
+                className="px-2.5 py-1.5 rounded-xl bg-indigo-100 text-indigo-700 text-[9px] font-black border-none disabled:opacity-50 flex items-center gap-1">
+                📂 Abrir
+              </button>
             )}
             {!isAssigned && !isClosed && (
               <button onClick={handleTakeControl} disabled={isAssigning}
                 className="px-2.5 py-1.5 rounded-xl bg-brand-blue text-white text-[9px] font-black border-none disabled:opacity-50 flex items-center gap-1">
-                {isAssigning ? <Loader2 className="animate-spin" size={10} /> : null} Tomar control
+                {isAssigning ? <Loader2 className="animate-spin" size={10} /> : '🖐️'} Tomar control
               </button>
             )}
             {isAssigned && !isClosed && (
               <button onClick={handleFinalizeChat} disabled={isSendingStatus}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-200 text-slate-600 text-[9px] font-black border-none disabled:opacity-50">Cerrar</button>
+                className="px-2.5 py-1.5 rounded-xl bg-slate-200 text-slate-600 text-[9px] font-black border-none disabled:opacity-50 flex items-center gap-1">
+                🔒 Cerrar
+              </button>
             )}
             {isClosed && (
               <button onClick={handleDeleteTicket} disabled={deletingId === selectedTicketId}
@@ -340,32 +335,21 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
           </div>
         </div>
 
-        {/* Quick templates */}
+        {/* Quick templates as collapsible details */}
         {isAssigned && !isClosed && messages.length > 0 && (
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 space-y-1.5 shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black uppercase text-brand-blue tracking-wider flex items-center gap-1">
-                <Smile size={9} /> Plantillas
-              </span>
-              <button onClick={() => setShowAllTemplates(v => !v)}
-                className="text-[9px] font-black text-slate-500 hover:text-slate-800 flex items-center gap-0.5 transition-all border-none bg-transparent">
-                {showAllTemplates ? <><ChevronUp size={9} /> Menos</> : <><ChevronDown size={9} /> Mas</>}
-              </button>
+          <details className="bg-gray-50 border-b border-gray-200 shrink-0 group">
+            <summary className="px-4 py-2 text-[9px] font-black uppercase text-brand-blue tracking-wider cursor-pointer flex items-center gap-1 list-none [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={10} className="transition-transform group-open:rotate-180" /> 📋 Plantillas
+            </summary>
+            <div className="px-4 pb-2 flex flex-wrap gap-1">
+              {TEMPLATES.map(t => (
+                <button key={t.key} onClick={() => handleSendTemplate(t.key)}
+                  className="px-2 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 text-[9px] font-black rounded-lg transition-colors">
+                  {t.label}
+                </button>
+              ))}
             </div>
-            <div className="flex flex-wrap gap-1">
-              <button onClick={() => handleSendTemplate('welcome')} className="px-2 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 text-[9px] font-black rounded-lg">Bienvenida</button>
-              <button onClick={() => handleSendTemplate('wait')} className="px-2 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 text-[9px] font-black rounded-lg">Espera</button>
-              <button onClick={() => handleSendTemplate('goodbye')} className="px-2 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 text-[9px] font-black rounded-lg">Despedida</button>
-              {showAllTemplates && (
-                <>
-                  <button onClick={() => handleSendTemplate('reset')} className="px-2 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 text-[9px] font-black rounded-lg flex items-center gap-1"><Key size={8} /> Password</button>
-                  <button onClick={() => handleSendTemplate('escalate')} className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-black rounded-lg">Escalar</button>
-                  <button onClick={() => handleSendTemplate('qr')} className="px-2 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 text-[9px] font-black rounded-lg">QR</button>
-                  <button onClick={() => handleSendTemplate('resolved')} className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[9px] font-black rounded-lg"><Check size={8} /> Resuelto</button>
-                </>
-              )}
-            </div>
-          </div>
+          </details>
         )}
 
         {/* Messages */}
@@ -395,7 +379,7 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
                 return (
                   <div key={`msg-${msg.id}`} className="flex justify-center my-1.5">
                     <span className="px-3 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full border border-slate-200 shadow-sm flex items-center gap-1">
-                      <Shield size={8} />{msg.message}
+                      🛡️ {msg.message}
                     </span>
                   </div>
                 );
@@ -409,7 +393,9 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
                     <div className={`px-3.5 py-2 rounded-2xl border shadow-sm text-[11px] leading-relaxed font-medium ${bubbleCls} ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
                       {formatMsgText(msg.message)}
                     </div>
-                    <p className={`text-[8px] font-bold px-1.5 ${isMe ? 'text-right text-slate-400' : 'text-slate-400'}`}>{formatTime(msg.created_at)}</p>
+                    <p className={`text-[8px] font-bold px-1.5 flex items-center gap-1 ${isMe ? 'text-right justify-end text-slate-400' : 'text-slate-400'}`}>
+                      <Clock size={8} /> {formatTime(msg.created_at)}
+                    </p>
                   </div>
                 </div>
               );
@@ -442,14 +428,14 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
               <p className="text-[10px] font-bold text-brand-blue leading-normal flex-1">Espera a que el usuario escriba su consulta.</p>
               <button onClick={handleTakeControl} disabled={isAssigning}
                 className="px-3 py-1.5 bg-brand-blue hover:bg-brand-blue-dark text-white text-[10px] font-black rounded-xl shadow-md flex items-center gap-1 border-none shrink-0">
-                {isAssigning ? <Loader2 className="animate-spin" size={10} /> : 'Tomar control'}
+                {isAssigning ? <Loader2 className="animate-spin" size={10} /> : '🖐️'} Tomar control
               </button>
             </div>
           )}
           {isClosed && (
             <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl">
-              <Shield className="text-slate-500 shrink-0" size={14} />
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex-1">Chat cerrado</p>
+              <Lock className="text-slate-500 shrink-0" size={14} />
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex-1">🔒 Chat cerrado</p>
               <button onClick={handleDeleteTicket} disabled={deletingId === selectedTicketId}
                 className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[10px] font-black rounded-xl shadow-md flex items-center gap-1 border-none shrink-0">
                 {deletingId === selectedTicketId ? <Loader2 className="animate-spin" size={10} /> : <Trash2 size={10} />} Eliminar
@@ -474,7 +460,6 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
     );
   };
 
-  // ── Render: Main Layout ──────────────────────────────────────────────
   return (
     <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-0 sm:gap-4">
       {/* Left Panel: Ticket List */}
@@ -483,7 +468,7 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
         <div className="relative shrink-0">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por titulo o contenido..."
+            placeholder="🔍 Buscar tickets..."
             className="w-full pl-9 pr-8 py-2.5 text-[11px] font-bold border border-gray-200 rounded-xl outline-none focus:border-brand-blue transition-all bg-gray-50/50 hover:bg-white" />
           {searchTerm && (
             <button onClick={() => setSearchTerm('')}
@@ -493,14 +478,18 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
           )}
         </div>
 
-        {/* Status filters */}
+        {/* Status filter pills with emojis */}
         <div className="flex flex-wrap gap-1.5 shrink-0 mt-4">
-          {['all', 'new', 'open', 'in_progress', 'answered', 'closed'].map(st => (
-            <button key={st} onClick={() => setStatusFilter(st)}
+          <button onClick={() => setStatusFilter('all')}
+            className={`px-2.5 py-1 rounded-lg text-[9px] font-black border transition-all ${
+              statusFilter === 'all' ? 'bg-brand-blue text-white border-brand-blue shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}>Todos</button>
+          {Object.entries(STATUS_META).map(([key, meta]) => (
+            <button key={key} onClick={() => setStatusFilter(key)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-black border transition-all ${
-                statusFilter === st ? 'bg-brand-blue text-white border-brand-blue shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                statusFilter === key ? 'bg-brand-blue text-white border-brand-blue shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
               }`}>
-              {st === 'all' ? 'Todos' : getStatusMeta(st).label}
+              {meta.icon} {meta.label}
             </button>
           ))}
         </div>
@@ -510,7 +499,7 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
           {filteredTickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-1">
               <Inbox size={24} className="text-gray-300" />
-              <p className="text-xs font-black text-gray-500">No hay tickets</p>
+              <p className="text-xs font-black text-gray-500">📭 No hay tickets</p>
               <p className="text-[10px] text-gray-400">Con los filtros actuales.</p>
             </div>
           ) : (
@@ -520,22 +509,22 @@ const SupportTicketPanel = ({ tickets = [], onStatusUpdated }) => {
               return (
                 <button key={ticket.id} onClick={() => { setSelectedTicketId(ticket.id); }}
                   className={`w-full text-left rounded-xl sm:rounded-2xl p-3 border transition-all ${
-                    isSelected
-                      ? 'border-brand-blue bg-blue-50/50'
-                      : 'border-gray-100 bg-gray-50'
+                    isSelected ? 'border-brand-blue bg-blue-50/50 shadow-sm' : 'border-gray-100 bg-gray-50 hover:bg-gray-100/50'
                   }`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-[9px] font-black ${isSelected ? 'text-brand-blue' : 'text-indigo-600'}`}>#{ticket.id}</span>
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full border font-black ${meta.cls}`}>{meta.label}</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full border font-black ${meta.cls}`}>{meta.icon} {meta.label}</span>
                   </div>
                   <p className="text-sm text-gray-900 font-black truncate">{ticket.subject}</p>
-                  <p className="text-[11px] text-gray-500 line-clamp-2 mt-0.5">{ticket.message}</p>
+                  <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">{ticket.message}</p>
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-1.5">
                       <UserAvatar user={{ nombre: ticket.requester_name, role: 'student' }} size="xs" />
-                      <span className="text-[10px] font-bold text-gray-600">{ticket.requester_name}</span>
+                      <span className="text-[10px] font-bold text-gray-600 truncate max-w-[100px]">{ticket.requester_name}</span>
                     </div>
-                    <span className="text-[9px] text-gray-400">{formatTime(ticket.created_at)}</span>
+                    <span className="text-[9px] text-gray-400 flex items-center gap-1">
+                      <Clock size={8} /> {formatDate(ticket.created_at)}
+                    </span>
                   </div>
                   {ticket.status !== 'closed' && (
                     <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-brand-blue">
