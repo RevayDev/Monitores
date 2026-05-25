@@ -6,7 +6,7 @@ import {
   Wrench, Shield, Globe, Users, BookOpen, UserPlus, LogIn, Activity,
   AlertTriangle, Edit3, Trash2, Mail, Lock, PlusCircle, ShieldCheck,
   UserCheck, MapPin, Check, FileCode, FileJson, FileText as FileTextIcon,
-  Image as ImageIcon, FolderOpen, Send
+  Image as ImageIcon, FolderOpen, Send, MessageSquare
 } from 'lucide-react';
 import {
   getMaintenanceConfig, setMaintenanceConfig, getAllUsers,
@@ -14,9 +14,10 @@ import {
   resetScans, dbReset, dbEnsure, dbNuke, dbPopulate, dbPopulateVolume, fixUsernames,
   getDiagnostics, executeTerminalCommand, request, generateQr, getCurrentQr,
   rootEnable, rootMemberAction, rootFileAction, getRootLogs,
-  rootSystemBackup, rootSystemRestore, getSupportTickets, updateSupportTicketStatus, deleteSupportTicket
+  rootSystemBackup, rootSystemRestore, getSupportTickets, updateSupportTicketStatus, deleteSupportTicket, respondSupportTicket
 } from '../services/api';
 import Modal from '../components/Modal';
+import SupportChatModal from '../components/SupportChatModal';
 import { ToastContext } from '../context/ToastContext';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
@@ -594,7 +595,11 @@ const DevDashboard = () => {
 
   const [activeTab, setActiveTab] = useState('config'); // 'config', 'devs', 'utils'
   const [supportTickets, setSupportTickets] = useState([]);
+  const [activeChatTicket, setActiveChatTicket] = useState(null);
   const [ticketActionId, setTicketActionId] = useState(null);
+  const [replyTicket, setReplyTicket] = useState(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [replySending, setReplySending] = useState(false);
   const [qrLabToken, setQrLabToken] = useState('');
   const [qrLabGeneratedAt, setQrLabGeneratedAt] = useState('');
   const [qrLabLoading, setQrLabLoading] = useState(false);
@@ -715,6 +720,22 @@ const DevDashboard = () => {
       showToast(error.message || 'No se pudo eliminar el ticket.', 'error');
     } finally {
       setTicketActionId(null);
+    }
+  };
+
+  const handleReplyTicket = async () => {
+    if (!replyTicket || !replyMessage.trim()) return showToast('Escribe una respuesta antes de enviar.', 'error');
+    setReplySending(true);
+    try {
+      await respondSupportTicket(replyTicket.id, { responseMessage: replyMessage.trim(), status: 'answered' });
+      showToast('Respuesta enviada al usuario por correo.', 'success');
+      setReplyTicket(null);
+      setReplyMessage('');
+      await loadSupportTickets();
+    } catch (error) {
+      showToast(error.message || 'No se pudo enviar la respuesta.', 'error');
+    } finally {
+      setReplySending(false);
     }
   };
 
@@ -1291,7 +1312,21 @@ const DevDashboard = () => {
                     <div className="rounded-xl border border-gray-200 bg-white/70 p-3">
                       <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Acciones</p>
                       <div className="flex flex-wrap gap-2">
-                        <a href={`mailto:${encodeURIComponent(ticket.requester_email)}?subject=${encodeURIComponent(`[Ticket #${ticket.id}] ${ticket.subject}`)}&body=${encodeURIComponent(`Ticket: #${ticket.id}\nCategoria: ${ticket.category || 'tecnico'}\n\nDescripcion:\n${ticket.message}`)}`} className="px-3 py-2 rounded-xl border border-violet-200 text-violet-700 text-xs font-black hover:bg-violet-50">Abrir correo</a>
+                        {ticket.category === 'chat' ? (
+                          <button
+                            onClick={() => setActiveChatTicket(ticket)}
+                            className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-black flex items-center gap-1 transition-all shadow-md shadow-purple-500/20"
+                          >
+                            <MessageSquare size={12} /> Atender Chat
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setReplyTicket(ticket); setReplyMessage(''); }}
+                            className="px-3 py-2 rounded-xl border border-violet-300 bg-violet-50 text-violet-700 text-xs font-black hover:bg-violet-100 flex items-center gap-1 transition-all"
+                          >
+                            <Mail size={12} /> Responder
+                          </button>
+                        )}
                         <button onClick={() => handleDeleteTicket(ticket.id)} disabled={ticketActionId === `${ticket.id}:delete`} className="px-3 py-2 rounded-xl bg-rose-100 text-rose-700 text-xs font-black disabled:opacity-60">Dar de baja</button>
                       </div>
                     </div>
@@ -1434,7 +1469,7 @@ const DevDashboard = () => {
             { name: "Backend API", desc: "Node.js + Express con servicios y repositorios separados por dominio.", icon: <Activity size={20} /> },
             { name: "Tiempo Real", desc: "Socket.IO para notificaciones en vivo y logs de consola DEV.", icon: <Globe size={20} /> },
             { name: "Persistencia", desc: "MySQL con ensure_db, schema bootstrap y backup/restore en ZIP.", icon: <BookOpen size={20} /> },
-            { name: "Seguridad", desc: "bcrypt para credenciales y control de acceso por roles can�nicos.", icon: <ShieldCheck size={20} /> },
+            { name: "Seguridad", desc: "bcrypt para credenciales y control de acceso por roles cannicos.", icon: <ShieldCheck size={20} /> },
             { name: "Flujo QR", desc: "Generacion, validacion, trazabilidad y limpieza de laboratorio de pruebas.", icon: <MapPin size={20} /> }
           ].map((item, idx) => (
             <div key={idx} className="flex gap-4 p-5 rounded-[24px] border border-gray-100 bg-white shadow-sm">
@@ -1444,11 +1479,81 @@ const DevDashboard = () => {
           ))}
         </div>
       </Modal>
+
+      {/* Reply Ticket Modal */}
+      {replyTicket && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setReplyTicket(null); setReplyMessage(''); }} />
+          <div className="relative bg-white rounded-[28px] shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in">
+            <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-5 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Mail size={16} />
+                </div>
+                <div>
+                  <p className="font-black text-sm">Responder Ticket #{replyTicket.id}</p>
+                  <p className="text-violet-200 text-[10px] font-bold uppercase tracking-wider">Respuesta por correo electrónico</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-1.5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Detalles del Ticket</p>
+                <p className="text-sm font-black text-slate-900">{replyTicket.subject}</p>
+                <p className="text-xs text-slate-500">De: <span className="font-bold text-slate-700">{replyTicket.requester_name}</span> ({replyTicket.requester_email})</p>
+                <p className="text-xs text-slate-500 line-clamp-2 mt-1">{replyTicket.message}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">Tu Respuesta</label>
+                <textarea
+                  className="w-full h-36 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition-all font-medium"
+                  placeholder="Escribe aquí tu respuesta al usuario. Se enviará automáticamente por correo electrónico con todos los detalles del ticket..."
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 rounded-xl p-3">
+                <p className="text-[10px] text-amber-800 font-semibold leading-relaxed">
+                  ⚠️ El usuario recibirá un correo con tu respuesta, los detalles del ticket y una nota indicando que <strong>no debe responder directamente</strong> a ese correo.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => { setReplyTicket(null); setReplyMessage(''); }}
+                  className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleReplyTicket}
+                  disabled={replySending || !replyMessage.trim()}
+                  className="flex-1 py-3.5 bg-violet-600 text-white font-black rounded-2xl hover:bg-violet-700 active:scale-95 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-violet-500/30"
+                >
+                  {replySending ? 'Enviando...' : <><Mail size={14} /> Enviar Respuesta</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Support Live Chat Modal */}
+      {activeChatTicket && (
+        <SupportChatModal
+          ticket={activeChatTicket}
+          onClose={() => setActiveChatTicket(null)}
+          onStatusUpdated={() => {
+            loadSupportTickets();
+          }}
+        />
+      )}
+
     </div>
   );
 };
 
 export default DevDashboard;
-
-
-

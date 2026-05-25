@@ -19,7 +19,7 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
   return (
     <div
       onClick={handleAction}
-      className={`rounded-2xl overflow-hidden border transition-all duration-500 hover:-translate-y-1 flex flex-col h-full relative group ${hasNoMonitor
+      className={`rounded-2xl overflow-hidden border transition-all duration-500 hover:-translate-y-1 flex flex-col h-full relative group module-card ${hasNoMonitor
         ? 'bg-gray-200 border-gray-300 opacity-60 cursor-not-allowed grayscale'
         : isRegistered
           ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-500/5'
@@ -32,7 +32,7 @@ const MonitorCard = ({ data, onAction, actionLabel, onSecondaryAction, secondary
         : isRegistered
           ? 'bg-amber-500'
           : 'bg-brand-blue group-hover:bg-brand-dark-blue'
-        } px-5 py-4 flex justify-between items-center text-white transition-colors duration-300`}>
+        } px-5 py-4 flex justify-between items-center text-white transition-colors duration-300 module-card-head`}>
         <div className="flex items-center gap-3">
           {isRegistered ? <Monitor size={18} className="animate-pulse" /> : <Book size={18} />}
           <span className="font-black text-[13px] uppercase tracking-tight">{data.modulo}</span>

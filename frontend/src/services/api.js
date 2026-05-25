@@ -103,6 +103,16 @@ export const login = async (identifier, role, password) => {
   return user;
 };
 
+export const requestPasswordReset = (username) => request('/password/forgot', {
+  method: 'POST',
+  body: JSON.stringify({ username })
+});
+
+export const resetPasswordWithToken = (token, password) => request('/password/reset', {
+  method: 'POST',
+  body: JSON.stringify({ token, password })
+});
+
 export const signupStudent = async (userData) => {
   const user = await request('/signup', {
     method: 'POST',
@@ -113,11 +123,15 @@ export const signupStudent = async (userData) => {
 };
 
 export const uploadImage = async (file) => {
+  const sessionUser = readSessionUser() || {};
   const formData = new FormData();
   formData.append('foto', file);
   
   const response = await fetch(`${API_URL}/upload`, {
     method: 'POST',
+    headers: {
+      ...(sessionUser?.id ? { 'x-user-id': String(sessionUser.id) } : {})
+    },
     body: formData
     // Don't set Content-Type, fetch will set it with boundary
   });
@@ -129,10 +143,15 @@ export const uploadImage = async (file) => {
   return response.json();
 };
 
-export const logout = () => {
+export const logout = async () => {
+  try {
+    await request('/logout', { method: 'POST', body: JSON.stringify({}) });
+  } catch {
+    // local logout still proceeds if server is unavailable
+  }
   sessionStorage.removeItem(CURRENT_USER_KEY);
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({ role: 'student' }));
-  return Promise.resolve(true);
+  return true;
 };
 
 // --- Users & Staff ---
@@ -145,7 +164,7 @@ export const getMeUserStats = () => request('/users/me/stats');
 export const getUserStatsById = (id) => request(`/users/${id}/stats`);
 
 export const createUser = (userData) => {
-  const currentUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
+  const currentUser = readSessionUser() || {};
   return request('/users', {
     method: 'POST',
     body: JSON.stringify({ ...userData, currentUserId: currentUser.id })
@@ -153,7 +172,7 @@ export const createUser = (userData) => {
 };
 
 export const updateUser = (userId, updatedData) => {
-  const currentUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
+  const currentUser = readSessionUser() || {};
   return request(`/users/${userId}`, {
     method: 'PUT',
     body: JSON.stringify({ ...updatedData, currentUserId: currentUser.id })
@@ -161,7 +180,7 @@ export const updateUser = (userId, updatedData) => {
 };
 
 export const deleteUser = (userId) => {
-  const currentUser = safeParse(localStorage.getItem(CURRENT_USER_KEY), {});
+  const currentUser = readSessionUser() || {};
   return request(`/users/${userId}`, {
     method: 'DELETE',
     body: JSON.stringify({ currentUserId: currentUser.id })
@@ -243,8 +262,16 @@ export const getMyStats = () => request('/my-stats');
 export const getNotifications = () => request('/notifications');
 export const markNotificationsRead = () => request('/notifications/read', { method: 'POST', body: JSON.stringify({}) });
 export const deleteNotification = (id) => request(`/notifications/${id}`, { method: 'DELETE' });
-export const submitSupportRequest = (payload) =>
-  request('/support/contact', { method: 'POST', body: JSON.stringify(payload) });
+export const submitSupportRequest = (payload) => {
+  const currentUser = readSessionUser() || {};
+  return request('/support/contact', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...payload,
+      currentUserId: payload.currentUserId || currentUser.id || null
+    })
+  });
+};
 
 export const getSupportTickets = (params = {}) => {
   const query = new URLSearchParams(params).toString();
@@ -259,6 +286,15 @@ export const updateSupportTicketStatus = (ticketId, status) => request(`/support
   body: JSON.stringify({ status })
 });
 export const deleteSupportTicket = (ticketId) => request(`/support/tickets/${ticketId}`, { method: 'DELETE' });
+
+export const getSupportTicketMessages = (ticketId) => request(`/support/tickets/${ticketId}/messages`);
+export const sendSupportTicketMessage = (ticketId, payload) => request(`/support/tickets/${ticketId}/messages`, {
+  method: 'POST',
+  body: JSON.stringify(payload)
+});
+export const assignSupportTicket = (ticketId) => request(`/support/tickets/${ticketId}/assign`, {
+  method: 'POST'
+});
 
 
 export const getStudentsByMonitor = (monitorId) => {
@@ -298,9 +334,9 @@ export const submitComplaint = (data) => request('/complaints', {
 });
 
 // --- QR ---
-export const generateQr = (moduleId = null) => request('/qr/generate', {
+export const generateQr = (moduleId = null, forceNew = false) => request('/qr/generate', {
   method: 'POST',
-  body: JSON.stringify(moduleId ? { moduleId } : {})
+  body: JSON.stringify({ ...(moduleId ? { moduleId } : {}), ...(forceNew ? { forceNew: true } : {}) })
 });
 
 export const getCurrentQr = () => request('/qr/current');

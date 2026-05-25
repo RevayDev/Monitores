@@ -105,15 +105,19 @@ class EngagementService {
       if (!canAccess) throw new Error('No tienes acceso a este modulo.');
     }
 
-    const activeQr = await engagementRepository.getActiveQrByUser(userId);
-    if (activeQr) return { ...activeQr, reused: true };
+    if (context.forceNew) {
+      await engagementRepository.revokeActiveQrs(userId);
+    } else {
+      const activeQr = await engagementRepository.getActiveQrByUser(userId);
+      if (activeQr) return { ...activeQr, reused: true };
+    }
 
     const latestQr = await engagementRepository.getCurrentQrByUser(userId);
     const now = new Date();
     const today = getBogotaDateStr();
     const latestQrDate = latestQr ? toYmd(latestQr.code_date || latestQr.created_at) : null;
 
-    if (latestQr && latestQrDate === today && now > new Date(latestQr.expires_at)) {
+    if (!context.forceNew && latestQr && latestQrDate === today && now > new Date(latestQr.expires_at)) {
       throw new Error('Tu QR de hoy ya expiro. Podras generar uno nuevo manana.');
     }
 
@@ -135,7 +139,7 @@ class EngagementService {
       action: 'QR_GENERATED',
       entityType: 'qr_code',
       entityId: qrCodeId,
-      metadata: { moduleId: moduleId || null },
+      metadata: { moduleId: moduleId || null, forceNew: !!context.forceNew },
       ip: context.ip,
       userAgent: context.userAgent
     });

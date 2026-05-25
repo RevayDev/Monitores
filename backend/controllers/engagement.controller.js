@@ -9,7 +9,7 @@ const generateQr = async (req, res) => {
   try {
     const userId = req.userContext.userId;
     const moduleId = req.body?.moduleId ? Number(req.body.moduleId) : null;
-    const qr = await engagementService.generateQr(userId, moduleId, getClientContext(req));
+    const qr = await engagementService.generateQr(userId, moduleId, { ...getClientContext(req), forceNew: !!req.body?.forceNew });
     res.status(201).json(qr);
   } catch (error) {
     res.status(400).json({ error: error.message });

@@ -10,6 +10,36 @@ const login = async (req, res) => {
   }
 };
 
+const getPublicBaseUrl = (req) => {
+  const configured = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL;
+  if (configured) return configured;
+  return `${req.protocol}://${req.get('host')}`;
+};
+
+const requestPasswordReset = async (req, res) => {
+  try {
+    const result = await usersService.requestPasswordReset(req.body?.username, getPublicBaseUrl(req));
+    res.json(result);
+  } catch (error) {
+    if (error?.code === 'ECONNREFUSED') {
+      return res.status(503).json({ error: 'Servicio temporalmente no disponible. Intenta de nuevo en unos minutos.' });
+    }
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const result = await usersService.resetPassword(req.body?.token, req.body?.password);
+    res.json(result);
+  } catch (error) {
+    if (error?.code === 'ECONNREFUSED') {
+      return res.status(503).json({ error: 'Servicio temporalmente no disponible. Intenta de nuevo en unos minutos.' });
+    }
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const signup = async (req, res) => {
   try {
     const user = await usersService.signup(req.body);
@@ -18,6 +48,15 @@ const signup = async (req, res) => {
     if (error.message === 'El usuario o correo ya existe') {
       return res.status(409).json({ success: false, message: error.message });
     }
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    const result = await usersService.logout(req.userContext?.userId);
+    res.json(result);
+  } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
@@ -41,7 +80,7 @@ const getUser = async (req, res) => {
 const createUser = async (req, res) => {
   const { currentUserId } = req.body; // Expecting frontend to send this or handle via auth middleware (if implemented)
   try {
-    const user = await usersService.createUser(req.body, currentUserId);
+    const user = await usersService.createUser(req.body, req.userContext?.userId || currentUserId);
     res.status(201).json(user);
   } catch (error) {
     if (error.message === 'El usuario o correo ya existe') {
@@ -54,7 +93,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   const { currentUserId } = req.body;
   try {
-    const user = await usersService.updateUser(req.params.id, req.body, currentUserId);
+    const user = await usersService.updateUser(req.params.id, req.body, req.userContext?.userId || currentUserId);
     if (user) res.json(user);
     else res.status(404).json({ error: 'User not found' });
   } catch (error) {
@@ -67,7 +106,7 @@ const updateUser = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    const result = await usersService.deleteUser(req.params.id);
+    const result = await usersService.deleteUser(req.params.id, req.userContext?.userId || req.body?.currentUserId);
     if (result) res.json({ success: true });
     else res.status(404).json({ error: 'User not found' });
   } catch (error) {
@@ -109,6 +148,9 @@ const getUserStats = async (req, res) => {
 
 export default {
   login,
+  logout,
+  requestPasswordReset,
+  resetPassword,
   signup,
   getUsers,
   getUser,

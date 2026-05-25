@@ -50,13 +50,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
 
   const handleClose = (e) => {
     if (e) e.stopPropagation();
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      if (window.confirm('¿Estás seguro de que deseas cerrar esta ventana?')) {
-        onClose();
-      }
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
   return createPortal(
@@ -107,3 +101,4 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl', role 
 };
 
 export default Modal;
+

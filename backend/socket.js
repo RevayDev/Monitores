@@ -26,6 +26,18 @@ export const initSocket = (httpServer) => {
       socket.join('dev_console_logs');
     });
 
+    socket.on('join_support_chat', (ticketId) => {
+      socket.join(`ticket_chat_${ticketId}`);
+    });
+
+    socket.on('support_typing', ({ ticketId, user }) => {
+      socket.to(`ticket_chat_${ticketId}`).emit('support_user_typing', { user });
+    });
+
+    socket.on('support_stop_typing', ({ ticketId, userId }) => {
+      socket.to(`ticket_chat_${ticketId}`).emit('support_user_stop_typing', { userId });
+    });
+
     socket.on('typing', ({ forumId, user }) => {
       socket.to(`forum_${forumId}`).emit('user_typing', { user });
     });

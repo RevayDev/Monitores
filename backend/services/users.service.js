@@ -3,6 +3,25 @@ import monitoriasRepository from '../repositories/mysql/monitorias.repository.js
 import engagementRepository from '../repositories/mysql/engagement.repository.js';
 import { deleteFile } from '../utils/upload.helper.js';
 import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { buildResetLink, createResetToken, getResetExpiry, hashResetToken } from '../utils/password-reset.helper.js';
+import emailService from './email.service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const emailConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../config/system-email.config.json'), 'utf8'));
+
+const getTransporter = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+  return nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
+};
 
 class UsersService {
   static VALID_ROLES = new Set(['dev', 'admin', 'student', 'monitor_academico', 'monitor_administrativo']);
@@ -62,6 +81,13 @@ class UsersService {
     if (user.is_active === 0 || user.is_active === false) {
       throw new Error('Tu cuenta ha sido dada de baja. No tienes acceso al sistema.');
     }
+    await engagementRepository.createActivityLog({
+      userId: user.id,
+      action: 'USER_LOGIN',
+      entityType: 'auth',
+      entityId: user.id,
+      metadata: { role: user.role }
+    });
     return { ...user, baseRole: user.role };
   }
 
@@ -81,6 +107,19 @@ class UsersService {
       metadata: { userId: user.id }
     });
     return { ...user, baseRole: 'student' };
+  }
+
+  async logout(userId) {
+    if (userId) {
+      await engagementRepository.createActivityLog({
+        userId,
+        action: 'USER_LOGOUT',
+        entityType: 'auth',
+        entityId: userId,
+        metadata: {}
+      });
+    }
+    return { success: true };
   }
 
   async getAllUsers(role = null) {
@@ -213,6 +252,8 @@ class UsersService {
 
     if (userData.password && !userData.password.startsWith('$2')) {
       userData.password = await bcrypt.hash(userData.password, 10);
+    } else if (userData.password === '') {
+      delete userData.password;
     }
 
     const updated = await usersRepository.update(id, userData);
@@ -225,10 +266,71 @@ class UsersService {
     return updated;
   }
 
-  async deleteUser(id) {
+  async requestPasswordReset(username, baseUrl) {
+    const ident = String(username || '').trim();
+    const user = await usersRepository.findByEmailOrUsername(ident);
+    
+    // Check if user exists and is active
+    if (user && user.is_active === 1) {
+      const token = createResetToken();
+      await usersRepository.createPasswordResetToken({
+        userId: user.id,
+        tokenHash: hashResetToken(token),
+        expiresAt: getResetExpiry()
+      });
+
+      await engagementRepository.createActivityLog({
+        userId: user.id,
+        action: 'PASSWORD_RESET_REQUESTED',
+        entityType: 'user',
+        entityId: user.id,
+        metadata: { username: user.username }
+      });
+
+      const resetLink = buildResetLink(baseUrl, token);
+      
+      try {
+        await emailService.sendPasswordResetEmail(user.email, resetLink, user.nombre);
+      } catch (error) {
+        console.error('[SMTP] Error al enviar correo de recuperación:', error.message);
+        // Fallback: don't break the application, proceed cleanly
+      }
+    }
+
+    return { sent: true, message: 'Si el correo existe, se enviaron instrucciones.' };
+  }
+
+  async resetPassword(token, password) {
+    if (!password || String(password).length < 6) throw new Error('La contrasena debe tener al menos 6 caracteres.');
+    const row = await usersRepository.findPasswordResetToken(hashResetToken(token));
+    if (!row) throw new Error('Token invalido o expirado.');
+    const hashed = await bcrypt.hash(password, 10);
+    await usersRepository.update(row.user_id, { password: hashed });
+    await usersRepository.markPasswordResetUsed(row.id);
+    await engagementRepository.createActivityLog({
+      userId: row.user_id,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entityType: 'user',
+      entityId: row.user_id,
+      metadata: { username: row.username }
+    });
+    return { success: true };
+  }
+
+  async deleteUser(id, actorId = null) {
     const user = await usersRepository.findById(id);
     if (!user) return false;
     if (user.is_principal) throw new Error('No se puede eliminar una cuenta principal.');
+    const actor = await usersRepository.findById(actorId);
+    const actorRole = this.normalizeRole(actor?.role);
+    const targetRole = this.normalizeRole(user.role);
+    if (!['admin', 'dev'].includes(actorRole)) throw new Error('No autorizado para eliminar usuarios.');
+    if (targetRole === 'admin' && !(actorRole === 'admin' && actor?.is_principal)) {
+      throw new Error('Solo el Administrador Principal puede eliminar administradores.');
+    }
+    if (targetRole === 'dev' && !(actorRole === 'dev' && actor?.is_principal)) {
+      throw new Error('Solo el Developer Principal puede eliminar desarrolladores.');
+    }
     
     // Delete photo file if exists
     if (user.foto) {

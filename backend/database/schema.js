@@ -423,6 +423,40 @@ const tables = [
     ip VARCHAR(45) NULL,
     user_agent VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_password_reset_hash (token_hash),
+    INDEX idx_password_reset_user (user_id, expires_at)
+  )`,
+  
+  `CREATE TABLE IF NOT EXISTS password_resets (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_password_resets_token (token),
+    INDEX idx_password_resets_user (user_id, expires_at)
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS support_ticket_messages (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id BIGINT NOT NULL,
+    sender_id INT NULL,
+    sender_name VARCHAR(180) NOT NULL,
+    sender_role ENUM('user', 'admin', 'dev', 'bot') NOT NULL DEFAULT 'user',
+    sender_avatar VARCHAR(255) NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_support_msg_ticket (ticket_id)
   )`
 ];
 

@@ -1,22 +1,6 @@
-import nodemailer from 'nodemailer';
 import pool from '../utils/mysql.helper.js';
 import { notifyUser } from '../socket.js';
-
-const getTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass }
-  });
-};
+import emailService from './email.service.js';
 
 const normalize = (value) => String(value || '').trim();
 
@@ -65,6 +49,13 @@ class SupportService {
     }
   }
 
+  async notifyRequester(ticketId, payload) {
+    const [rows] = await pool.query('SELECT requester_user_id FROM support_tickets WHERE id = ? LIMIT 1', [ticketId]);
+    const requesterUserId = rows?.[0]?.requester_user_id;
+    if (!requesterUserId) return;
+    notifyUser(requesterUserId, payload);
+  }
+
   async submitTicket(payload, requester) {
     const name = normalize(payload?.name || requester?.nombre);
     const email = normalize(payload?.email || requester?.email).toLowerCase();
@@ -106,9 +97,8 @@ class SupportService {
     await this.notifySupportTeams(createdTicket, requester?.id || null);
 
     const supportEmail = process.env.SUPPORT_EMAIL || process.env.SMTP_USER;
-    const transporter = getTransporter();
 
-    if (!supportEmail || !transporter) {
+    if (!supportEmail) {
       return {
         delivered: false,
         ticketId,
@@ -116,19 +106,27 @@ class SupportService {
       };
     }
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || `"Monitores Support" <${process.env.SMTP_USER}>`,
-      to: supportEmail,
-      replyTo: email,
-      subject: `[Monitores][Soporte #${ticketId}] ${subject}`,
-      text: `Ticket: #${ticketId}\nCategoria: ${category}\nNombre: ${name}\nCorreo: ${email}\nUsuarioID: ${requester?.id || 'N/A'}\n\n${message}`
-    });
+    try {
+      await emailService.sendMail({
+        to: supportEmail,
+        replyTo: email,
+        subject: `[Monitores][Soporte #${ticketId}] ${subject}`,
+        text: `Ticket: #${ticketId}\nCategoria: ${category}\nNombre: ${name}\nCorreo: ${email}\nUsuarioID: ${requester?.id || 'N/A'}\n\n${message}`
+      });
 
-    return {
-      delivered: true,
-      ticketId,
-      message: 'Solicitud guardada y enviada al correo de soporte.'
-    };
+      return {
+        delivered: true,
+        ticketId,
+        message: 'Solicitud guardada y enviada al correo de soporte.'
+      };
+    } catch (err) {
+      console.error('[SMTP] Error al enviar ticket de soporte:', err.message);
+      return {
+        delivered: false,
+        ticketId,
+        message: 'Solicitud guardada en sistema. Correo SMTP no configurado o fallido.'
+      };
+    }
   }
 
   async listTickets({ status = '', limit = 50 } = {}) {
@@ -177,14 +175,21 @@ class SupportService {
       [actor?.id || null, 'SUPPORT_TICKET_RESPONDED', 'support_ticket', ticketId, JSON.stringify({ status: newStatus || 'answered' })]
     );
 
-    const transporter = getTransporter();
-    if (transporter && ticket.requester_email) {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || `"Monitores Support" <${process.env.SMTP_USER}>`,
-        to: ticket.requester_email,
-        subject: `[Monitores][Ticket #${ticket.id}] Respuesta a tu solicitud`,
-        text: `Hola ${ticket.requester_name},\n\nTu solicitud \"${ticket.subject}\" fue respondida por el equipo.\n\nRespuesta:\n${responseMessage}\n\nEstado: ${newStatus || 'answered'}\n\nGracias.`
-      });
+    if (ticket.requester_email) {
+      try {
+        await emailService.sendSupportResponseEmail({
+          toEmail: ticket.requester_email,
+          ticketId: ticket.id,
+          subject: ticket.subject,
+          userName: ticket.requester_name,
+          originalMessage: ticket.message,
+          responseMessage: responseMessage,
+          status: newStatus || 'answered',
+          responderName: actor?.nombre || 'Soporte Monitores Hub'
+        });
+      } catch (err) {
+        console.error('[SMTP] Error al enviar respuesta de ticket por correo:', err.message);
+      }
     }
 
     return { ok: true, message: 'Respuesta enviada y ticket actualizado.' };
@@ -215,6 +220,28 @@ class SupportService {
       [actor?.id || null, 'SUPPORT_TICKET_STATUS_UPDATED', 'support_ticket', ticketId, JSON.stringify({ from: ticket.status, to: newStatus })]
     );
 
+    // Emit live socket event for status change
+    try {
+      const { getIo } = await import('../socket.js');
+      const io = getIo();
+      io.to(`ticket_chat_${ticketId}`).emit('ticket_status_changed', { status: newStatus });
+    } catch (err) {
+      // ignore
+    }
+
+    if (ticket.requester_user_id) {
+      await this.notifyRequester(ticketId, {
+        id: Date.now(),
+        type: 'support_ticket_status',
+        event: 'support_ticket_status',
+        message: newStatus === 'closed'
+          ? `Tu chat de soporte #${ticketId} ha sido cerrado.`
+          : `El estado de tu chat de soporte #${ticketId} cambió a ${newStatus}.`,
+        link: `/support/chat/${ticketId}`,
+        metadata: { ticketId, status: newStatus }
+      });
+    }
+
     return { ok: true, message: 'Estado actualizado.' };
   }
 
@@ -229,6 +256,141 @@ class SupportService {
       [actor?.id || null, 'SUPPORT_TICKET_DELETED', 'support_ticket', ticketId, JSON.stringify({ previousStatus: ticket.status })]
     );
     return { ok: true, message: 'Ticket eliminado.' };
+  }
+
+  async getTicketMessages(ticketId) {
+    const [rows] = await pool.query(
+      `SELECT id, ticket_id, sender_id, sender_name, sender_role, sender_avatar, message, created_at
+       FROM support_ticket_messages
+       WHERE ticket_id = ?
+       ORDER BY created_at ASC`,
+      [ticketId]
+    );
+    return rows;
+  }
+
+  async addTicketMessage(ticketId, payload, actor = null) {
+    let senderId = actor?.id || payload.sender_id || null;
+    let senderName = payload.sender_name || 'Sistema';
+    let senderRole = payload.sender_role || 'bot';
+    let senderAvatar = payload.sender_avatar || null;
+    const message = String(payload.message || '').trim();
+
+    if (!message) {
+      throw new Error('El mensaje no puede estar vacío.');
+    }
+
+    if (senderId) {
+      const [userRows] = await pool.query('SELECT nombre, foto, role FROM users WHERE id = ? LIMIT 1', [senderId]);
+      const user = userRows[0];
+      if (user) {
+        senderName = user.nombre;
+        senderRole = user.role === 'admin' ? 'admin' : (user.role === 'dev' ? 'dev' : 'user');
+        senderAvatar = user.foto;
+      }
+    }
+
+    const [insertResult] = await pool.query(
+      `INSERT INTO support_ticket_messages (ticket_id, sender_id, sender_name, sender_role, sender_avatar, message, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [ticketId, senderId, senderName, senderRole, senderAvatar, message]
+    );
+
+    const savedMessage = {
+      id: insertResult.insertId,
+      ticket_id: ticketId,
+      sender_id: senderId,
+      sender_name: senderName,
+      sender_role: senderRole,
+      sender_avatar: senderAvatar,
+      message,
+      created_at: new Date().toISOString()
+    };
+
+    // Update ticket updated_at
+    await pool.query('UPDATE support_tickets SET updated_at = NOW() WHERE id = ?', [ticketId]);
+
+    // Emit live socket event to ticket room
+    try {
+      const { getIo } = await import('../socket.js');
+      const io = getIo();
+      const roomName = `ticket_chat_${ticketId}`;
+      console.log('📤 Backend: Emitting ticket_message_received to room:', roomName, 'message:', savedMessage);
+      io.to(roomName).emit('ticket_message_received', savedMessage);
+      console.log('✅ Backend: Event emitted successfully');
+    } catch (err) {
+      console.error('❌ Backend: Error emitting socket event:', err);
+      // socket not active or initialized, ignore
+    }
+
+    // Notify ticket requester directly when a support staff / system message arrives.
+    if (senderRole !== 'user') {
+      await this.notifyRequester(ticketId, {
+        id: Date.now(),
+        type: 'support_ticket_message',
+        event: 'support_ticket_message',
+        message: `Tienes un nuevo mensaje en tu chat de soporte #${ticketId}.`,
+        link: `/support/chat/${ticketId}`,
+        metadata: { ticketId }
+      });
+    }
+
+    return savedMessage;
+  }
+
+  async assignTicketToAdvisor(ticketId, advisor) {
+    const [existing] = await pool.query('SELECT * FROM support_tickets WHERE id = ? LIMIT 1', [ticketId]);
+    const ticket = existing[0];
+    if (!ticket) throw new Error('Ticket no encontrado.');
+
+    const advisorId = advisor.id;
+    const [userRows] = await pool.query('SELECT nombre, foto FROM users WHERE id = ? LIMIT 1', [advisorId]);
+    const advisorUser = userRows[0];
+    if (!advisorUser) throw new Error('Asesor no encontrado.');
+
+    await pool.query(
+      `UPDATE support_tickets
+       SET assigned_to = ?, status = 'in_progress', updated_at = NOW()
+       WHERE id = ?`,
+      [advisorId, ticketId]
+    );
+
+    // Create system message
+    const welcomeMsgText = `El asesor **${advisorUser.nombre}** se ha unido al chat.`;
+    const systemMsg = await this.addTicketMessage(ticketId, {
+      sender_id: null,
+      sender_name: 'Sistema',
+      sender_role: 'bot',
+      sender_avatar: advisorUser.foto || null,
+      message: welcomeMsgText
+    });
+
+    // Notify rooms of assignment
+    try {
+      const { getIo } = await import('../socket.js');
+      const io = getIo();
+      io.to(`ticket_chat_${ticketId}`).emit('advisor_joined', {
+        advisorName: advisorUser.nombre,
+        assignedTo: advisorId,
+        systemMessage: systemMsg
+      });
+      
+      // Also notify user directly via notifyUser helper if ticket requester has ID
+      if (ticket.requester_user_id) {
+        await this.notifyRequester(ticketId, {
+          id: Date.now(),
+          type: 'support_ticket_assigned',
+          event: 'support_ticket_assigned',
+          message: `El asesor ${advisorUser.nombre} ha tomado tu chat de soporte.`,
+          link: `/support/chat/${ticketId}`,
+          metadata: { ticketId, advisorId }
+        });
+      }
+    } catch (err) {
+      // ignore socket failure
+    }
+
+    return { ok: true, advisorName: advisorUser.nombre, systemMessage: systemMsg };
   }
 }
 

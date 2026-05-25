@@ -1,6 +1,21 @@
 import usersRepository from '../repositories/mysql/users.repository.js';
 
 export const authMiddleware = (req, res, next) => {
+  // Allow unauthenticated access to the public support contact endpoint
+  const requestPath = String(req.path || '');
+  const fullPath = String(req.originalUrl || requestPath);
+  const method = String(req.method || '').toUpperCase();
+  if (
+    method === 'POST' && (
+      requestPath === '/support/contact' ||
+      fullPath === '/api/support/contact' ||
+      requestPath.endsWith('/support/contact') ||
+      fullPath.endsWith('/support/contact')
+    )
+  ) {
+    return next();
+  }
+
   const userId = req.headers['x-user-id'];
   const userRole = req.headers['x-user-role'];
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { resolveAvatarUrl } from '../utils/avatarUrl';
 
 const UserAvatar = ({
   user,
@@ -55,7 +56,7 @@ const UserAvatar = ({
 
         {user?.foto && !imgError ? (
           <img
-            src={user.foto.startsWith('http') ? user.foto : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${user.foto}`}
+            src={resolveAvatarUrl(user.foto, import.meta.env.VITE_API_URL)}
             alt={user.nombre}
             className={`w-full h-full object-cover ${rounded}`}
             onError={() => setImgError(true)}

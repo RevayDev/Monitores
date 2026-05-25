@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock, QrCode, RefreshCw, ShieldAlert } from 'lucide-react';
+import { Clock, Eye, QrCode, RefreshCw, ShieldAlert } from 'lucide-react';
 import { generateQr, getCurrentQr } from '../services/api';
 import Modal from './Modal';
 
@@ -17,6 +17,7 @@ const QrCard = () => {
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [showLast, setShowLast] = useState(true);
 
   const fetchQr = async () => {
     try {
@@ -47,8 +48,9 @@ const QrCard = () => {
   const handleGenerate = async () => {
     setLoading(true);
     try {
-      const generated = await generateQr();
+      const generated = await generateQr(null, true);
       setQr(generated);
+      setShowLast(true);
       setShowSecurityModal(true);
     } catch {
       setQr(null);
@@ -63,23 +65,37 @@ const QrCard = () => {
 
   return (
     <section className="bg-white p-5 sm:p-8 rounded-[1.5rem] shadow-sm border border-gray-100 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
           <QrCode className="text-brand-blue" /> QR dinámico
         </h2>
-        <button
-          onClick={handleGenerate}
-          disabled={loading || !canGenerate || (!!qr && !isExpired)}
-          className="px-5 py-2.5 rounded-xl bg-brand-blue text-white text-xs font-black disabled:opacity-40 flex items-center gap-2 hover:bg-brand-dark-blue transition-all"
-        >
-          <RefreshCw size={12} /> {qr && !isExpired ? 'Activo' : 'Generar'}
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setShowLast((v) => !v)}
+            disabled={!qr}
+            className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-black disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-slate-200 transition-all"
+          >
+            <Eye size={12} /> {showLast ? 'Ocultar ultimo' : 'Mostrar ultimo'}
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={loading || !canGenerate}
+            className="px-5 py-2.5 rounded-xl bg-brand-blue text-white text-xs font-black disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-brand-dark-blue transition-all"
+          >
+            <RefreshCw size={12} /> Generar nuevo
+          </button>
+        </div>
       </div>
 
       {!qr ? (
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Clock size={14} className="text-brand-blue" />
           <span>Sin QR activo. Pulsa Generar.</span>
+        </div>
+      ) : !showLast ? (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <QrCode size={14} className="text-brand-blue" />
+          <span>Ultimo QR oculto.</span>
         </div>
       ) : (
         <>

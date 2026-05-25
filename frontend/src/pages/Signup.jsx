@@ -11,7 +11,8 @@ import {
   ArrowRight,
   CheckCircle2,
   MapPin,
-  GraduationCap
+  GraduationCap,
+  Check
 } from 'lucide-react';
 import InputField from '../components/InputField';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,10 +66,42 @@ const Signup = () => {
     fetchInitialData();
   }, []);
 
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return { score: 0, label: 'Muy Débil', color: 'bg-red-200', width: 'w-0', textClass: 'text-gray-400', checks: { length: false, upper: false, lower: false, number: false, special: false } };
+    let score = 0;
+    const checks = {
+      length: pwd.length >= 8,
+      upper: /[A-Z]/.test(pwd),
+      lower: /[a-z]/.test(pwd),
+      number: /[0-9]/.test(pwd),
+      special: /[^A-Za-z0-9]/.test(pwd),
+    };
+    
+    score += checks.length ? 1 : 0;
+    score += checks.upper ? 1 : 0;
+    score += checks.lower ? 1 : 0;
+    score += checks.number ? 1 : 0;
+    score += checks.special ? 1 : 0;
+
+    if (score <= 2) return { score, label: 'Débil', color: 'bg-rose-500', width: 'w-1/3', textClass: 'text-rose-500', checks };
+    if (score <= 4) return { score, label: 'Aceptable', color: 'bg-amber-500', width: 'w-2/3', textClass: 'text-amber-500', checks };
+    return { score, label: 'Segura', color: 'bg-emerald-500', width: 'w-full', textClass: 'text-emerald-500', checks };
+  };
+
+  const strength = getPasswordStrength(formData.password);
+
   const handleNext = (e) => {
     e.preventDefault();
     if (!formData.username || !formData.nombre || !formData.password) {
       showToast("Por favor completa todos los campos de acceso", "error");
+      return;
+    }
+    if (formData.password.length < 8) {
+      showToast("La contraseña debe tener al menos 8 caracteres", "error");
+      return;
+    }
+    if (strength.score < 3) {
+      showToast("Por favor crea una contraseña más segura", "error");
       return;
     }
     setStep(2);
@@ -198,6 +231,47 @@ const Signup = () => {
                       onChange={e => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Crea una clave segura"
                     />
+
+                    {/* Password Strength Indicator — siempre visible */}
+                    <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-purple-700/70 tracking-wider">Seguridad de la contraseña</span>
+                        <span className={`text-xs font-black uppercase tracking-tight ${formData.password ? strength.textClass : 'text-slate-400'}`}>
+                          {formData.password ? strength.label : 'Escribe tu contraseña'}
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="h-2 w-full bg-slate-200/60 rounded-full overflow-hidden">
+                        <div className={`h-full transition-all duration-500 ease-out ${strength.color} ${strength.width}`}></div>
+                      </div>
+
+                      {/* Requirements List */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
+                        {[
+                          { label: 'Mínimo 8 caracteres', met: strength.checks.length },
+                          { label: 'Una letra mayúscula', met: strength.checks.upper },
+                          { label: 'Una letra minúscula', met: strength.checks.lower },
+                          { label: 'Un número (0-9)', met: strength.checks.number },
+                          { label: 'Un carácter especial (!@#)', met: strength.checks.special },
+                        ].map((req, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all ${
+                              req.met
+                                ? 'bg-purple-100 border-purple-300 text-purple-700'
+                                : 'bg-white border-slate-200 text-slate-300'
+                            }`}>
+                              {req.met ? <Check size={9} className="stroke-[3.5px]" /> : <span className="w-1 h-1 bg-slate-300 rounded-full" />}
+                            </div>
+                            <span className={req.met ? 'text-purple-800' : 'text-slate-400'}>{req.label}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-[9px] text-purple-700/60 leading-normal font-medium border-t border-purple-100 pt-2 mt-1">
+                        💡 <strong>Consejo estándar:</strong> La mejor contraseña combina letras mayúsculas, minúsculas, dígitos y símbolos. Evita patrones obvios como fechas.
+                      </p>
+                    </div>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -258,7 +332,7 @@ const Signup = () => {
                 )}
 
                 <p className="text-center text-[10px] text-gray-400 font-bold">
-                  ¿Ya tienes cuenta? <Link to="/login" className="text-brand-blue hover:underline transition-colors uppercase tracking-widest">Inicia Sesión</Link>
+                  ¿Ya tienes cuenta? <Link to="/login" className="text-brand-blue underline transition-colors tracking-widest">Inicia Sesión</Link>
                 </p>
               </div>
             </form>

@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { initializeDatabase } from './database/index.js';
 import { initSocket } from './socket.js';
 import os from 'os';
+import emailService from './services/email.service.js';
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -69,6 +70,10 @@ initializeDatabase()
   .then(() => {
     httpServer.listen(PORT, HOST, () => {
       logRuntimeInfo();
+      // Verify SMTP service connection asynchronously without blocking server startup
+      emailService.verifySMTP().catch(err => {
+        console.warn('[SMTP] Fallo silencioso al verificar el servidor de correo:', err.message);
+      });
     });
   })
   .catch((error) => {

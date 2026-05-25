@@ -34,6 +34,11 @@ class UsersRepositoryMySQL {
     return rows[0];
   }
 
+  async findActiveByUsername(username) {
+    const [rows] = await pool.query('SELECT * FROM users WHERE username = ? AND is_active = 1 LIMIT 1', [username]);
+    return rows[0] || null;
+  }
+
   async findByEmailOrUsername(identifier) {
     const [rows] = await pool.query(
       'SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1',
@@ -86,6 +91,34 @@ class UsersRepositoryMySQL {
     values.push(id);
     await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
     return this.findById(id);
+  }
+
+  async createPasswordResetToken({ userId, tokenHash, expiresAt }) {
+    await pool.query(
+      'UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0',
+      [userId]
+    );
+    const [result] = await pool.query(
+      'INSERT INTO password_resets (user_id, token, expires_at, created_at, used) VALUES (?, ?, ?, NOW(), 0)',
+      [userId, tokenHash, toMySQLDatetime(expiresAt)]
+    );
+    return result.insertId;
+  }
+
+  async findPasswordResetToken(tokenHash) {
+    const [rows] = await pool.query(
+      `SELECT pr.*, u.email, u.username, u.nombre
+       FROM password_resets pr
+       JOIN users u ON u.id = pr.user_id
+       WHERE pr.token = ? AND pr.used = 0 AND pr.expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash]
+    );
+    return rows[0] || null;
+  }
+
+  async markPasswordResetUsed(id) {
+    await pool.query('UPDATE password_resets SET used = 1 WHERE id = ?', [id]);
   }
 
   async delete(id) {

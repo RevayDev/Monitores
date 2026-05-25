@@ -597,7 +597,10 @@ const Navbar = () => {
               /* Logged-in user */
               <>
                 {/* User info */}
-                <div className={`flex items-center gap-3 px-4 py-4 ${roleColor.bgLight} rounded-xl border ${roleColor.border}`}>
+                <button
+                  onClick={() => { setIsOpen(false); navigate('/profile'); }}
+                  className={`w-full flex items-center gap-3 px-4 py-4 ${roleColor.bgLight} rounded-xl border ${roleColor.border} text-left`}
+                >
                   <UserAvatar user={user} size="md" />
                   <div className="min-w-0 flex-grow">
                     <p className="text-sm font-semibold text-slate-900 leading-none truncate">{user.nombre || 'Usuario'}</p>
@@ -605,14 +608,6 @@ const Navbar = () => {
                       {user.role}
                     </p>
                   </div>
-                </div>
-
-                {/* Mi Perfil & Ayuda */}
-                <button
-                  onClick={() => { setIsOpen(false); navigate('/profile'); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
-                >
-                  <User size={16} /> Mi Perfil
                 </button>
                 <button
                   onClick={() => { setIsOpen(false); navigate('/help'); }}

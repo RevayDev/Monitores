@@ -721,6 +721,15 @@ class EngagementRepositoryMySQL {
     return true;
   }
 
+  async revokeActiveQrs(userId) {
+    await pool.query(
+      `UPDATE qr_codes
+       SET status = 'revoked'
+       WHERE user_id = ? AND status = 'active'`,
+      [userId]
+    );
+  }
+
   async deleteForumReply(id) {
     await pool.query('DELETE FROM attachments WHERE reply_id = ?', [id]);
     const [result] = await pool.query('DELETE FROM replies WHERE id = ?', [id]);

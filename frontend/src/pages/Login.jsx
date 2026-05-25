@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login, getMaintenanceConfig } from '../services/api';
-import { Mail, Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight, Clock, Wrench } from 'lucide-react';
+import { Lock, LogIn, GraduationCap, Shield, UserCheck, ArrowRight, Clock, Wrench } from 'lucide-react';
 import { ToastContext } from '../context/ToastContext';
 import InputField from '../components/InputField';
 
@@ -177,6 +177,9 @@ const Login = () => {
                 placeholder="••••••••"
                 role={formData.role}
               />
+              <Link to="/forgot-password" className="inline-block text-[11px] font-black text-brand-blue underline">
+                ¿Olvidaste tu contraseña?
+              </Link>
             </div>
 
             <div className="pt-4 flex flex-col gap-4 border-t border-gray-50">
@@ -188,7 +191,7 @@ const Login = () => {
                 {loading ? 'Firma...' : <>Entrar <ArrowRight size={18} /></>}
               </button>
 
-              <p className="text-center text-[10px] text-gray-400 font-bold">
+              <p className="text-center text-[10px] text-gray-400 font-bold underline">
                 ¿No tienes cuenta? <Link to="/signup" className={`${currentStyle.text} hover:underline transition-colors`}>Regístrate Aquí</Link>
               </p>
             </div>

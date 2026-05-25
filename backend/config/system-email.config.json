@@ -1,0 +1,5 @@
+{
+  "fromName": "Sistema Monitores",
+  "resetPasswordSubject": "Recuperacion de contrasena - Monitores",
+  "resetPasswordMessage": "Solicitaste cambiar tu contrasena. Usa este enlace unico, dura 5 minutos y no debes compartirlo:"
+}

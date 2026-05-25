@@ -49,10 +49,40 @@ const deleteSupportTicket = async (req, res) => {
   }
 };
 
+const getTicketMessages = async (req, res) => {
+  try {
+    const messages = await supportService.getTicketMessages(req.params.id);
+    res.json(messages);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const addTicketMessage = async (req, res) => {
+  try {
+    const message = await supportService.addTicketMessage(req.params.id, req.body, req.user || null);
+    res.status(201).json(message);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const assignTicketToAdvisor = async (req, res) => {
+  try {
+    const result = await supportService.assignTicketToAdvisor(req.params.id, req.user);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export default {
   submitSupportRequest,
   listSupportTickets,
   respondSupportTicket,
   updateSupportTicketStatus,
-  deleteSupportTicket
+  deleteSupportTicket,
+  getTicketMessages,
+  addTicketMessage,
+  assignTicketToAdvisor
 };

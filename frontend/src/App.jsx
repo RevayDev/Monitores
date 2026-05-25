@@ -15,6 +15,8 @@ import Profile from './pages/Profile';
 import Complaints from './pages/Complaints';
 import DevDashboard from './pages/DevDashboard';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './pages/ForgotPassword';
 import ModuleForum from './pages/ModuleForum';
 import MonitorAttendanceSheet from './pages/MonitorAttendanceSheet';
 import Toaster from './components/Toaster';
@@ -22,6 +24,7 @@ import BetaBanner from './components/BetaBanner';
 import { getMaintenanceConfig, getCurrentUser } from './services/api';
 import { Wrench, ShieldAlert } from 'lucide-react';
 import HelpCenter from './pages/HelpCenter';
+import SupportChat from './components/SupportChat';
 
 import { ToastContext } from './context/ToastContext';
 
@@ -100,6 +103,9 @@ function AnimatedRoutes({ isMaintenance, userRole, isSuspended }) {
         <Route path="/" element={<PageTransition><Home /></PageTransition>} />
         <Route path="/signup" element={<PageTransition><Signup /></PageTransition>} />
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+        <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
+        <Route path="/reset-password/:token" element={<PageTransition><ResetPassword /></PageTransition>} />
+        <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
         <Route path="/profile" element={<PageTransition><Profile /></PageTransition>} />
         <Route path="/complaints" element={<PageTransition><Complaints /></PageTransition>} />
         <Route path="/help" element={<PageTransition><HelpCenter /></PageTransition>} />
@@ -220,6 +226,7 @@ function App() {
             &copy; 2026 Gestión de Monitorías Universitarias - Todos los derechos reservados. Diseñado y programado por Roberto Jimenez
           </footer>
         </div>
+        <SupportChat />
       </Router>
       <AnimatePresence>
         {toast && (

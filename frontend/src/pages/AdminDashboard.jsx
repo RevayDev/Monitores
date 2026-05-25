@@ -35,6 +35,7 @@ import {
 } from '../services/api';
 import { ToastContext } from '../context/ToastContext';
 import Modal from '../components/Modal';
+import SupportChatModal from '../components/SupportChatModal';
 import {
   Users,
   UserPlus,
@@ -168,6 +169,7 @@ const AdminDashboard = () => {
 
   // Selection/Modals
   const [selectedUser, setSelectedUser] = useState(null);
+  const [mobileActionUser, setMobileActionUser] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [statusTarget, setStatusTarget] = useState(null);
@@ -181,6 +183,7 @@ const AdminDashboard = () => {
   const [reportSubTab, setReportSubTab] = useState('pending');
   const [reports, setReports] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
+  const [activeChatTicket, setActiveChatTicket] = useState(null);
   const [ticketActionId, setTicketActionId] = useState(null);
   const getTicketStatusMeta = (status) => {
     const s = String(status || '').toLowerCase();
@@ -478,7 +481,9 @@ const AdminDashboard = () => {
     try {
       const session = JSON.parse(localStorage.getItem('monitores_current_role') || '{}');
       const payload = { ...formData, currentUserId: session.id };
-      if (passwordData.password) payload.password = passwordData.password;
+      const nextPassword = String(formData.password || '').trim();
+      if (nextPassword) payload.password = nextPassword;
+      else delete payload.password;
       await updateUser(selectedUser.id, payload);
       setIsEditUserOpen(false);
       resetForm();
@@ -637,13 +642,7 @@ const AdminDashboard = () => {
   const LOGS_PER_PAGE = 20;
   const visibleReports = getPageItems(reports, reportsPage, REPORTS_PER_PAGE);
   const reportPageNumbers = getPageNumbers(reports.length, REPORTS_PER_PAGE);
-  const reportHistoryLogs = moderationLogs.filter((log) => {
-    const action = String(log.action || "").toLowerCase();
-    // Filter out raw HTTP logs to avoid redundancy in the UI
-    const isRedundant = action.includes("http") || action.includes("api");
-    const isRelevant = action.includes("report") || action.includes("resolve") || action.includes("moderation");
-    return isRelevant && !isRedundant && log.entity_id;
-  });
+  const reportHistoryLogs = moderationLogs;
   const visibleActivityLogs = getPageItems(reportHistoryLogs, activityLogPage, LOGS_PER_PAGE);
   const activityLogPageNumbers = getPageNumbers(reportHistoryLogs.length, LOGS_PER_PAGE);
 
@@ -1041,7 +1040,16 @@ const AdminDashboard = () => {
                             <div className="rounded-xl border border-gray-200 bg-white/70 p-3">
                               <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Acciones</p>
                               <div className="flex flex-wrap gap-2">
-                                <a href={`mailto:${encodeURIComponent(ticket.requester_email)}?subject=${encodeURIComponent(`[Ticket #${ticket.id}] ${ticket.subject}`)}&body=${encodeURIComponent(`Ticket: #${ticket.id}\nCategoria: ${ticket.category || 'tecnico'}\n\nDescripcion:\n${ticket.message}`)}`} className="px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 text-xs font-black hover:bg-indigo-50">Abrir correo</a>
+                                {ticket.category === 'chat' ? (
+                                  <button
+                                    onClick={() => setActiveChatTicket(ticket)}
+                                    className="px-3 py-2 rounded-xl bg-brand-blue hover:bg-brand-blue-dark text-white text-xs font-black flex items-center gap-1 transition-all shadow-md shadow-brand-blue/20 border-none"
+                                  >
+                                    <MessageSquare size={12} /> Atender Chat
+                                  </button>
+                                ) : (
+                                  <a href={`mailto:${encodeURIComponent(ticket.requester_email)}?subject=${encodeURIComponent(`[Ticket #${ticket.id}] ${ticket.subject}`)}&body=${encodeURIComponent(`Ticket: #${ticket.id}\nCategoria: ${ticket.category || 'tecnico'}\n\nDescripcion:\n${ticket.message}`)}`} className="px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 text-xs font-black hover:bg-indigo-50">Abrir correo</a>
+                                )}
                                 <button onClick={() => handleDeleteTicket(ticket.id)} disabled={ticketActionId === `${ticket.id}:delete`} className="px-3 py-2 rounded-xl bg-rose-100 text-rose-700 text-xs font-black disabled:opacity-60">Quitar</button>
                               </div>
                             </div>
@@ -1422,7 +1430,29 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse">
+                  <>
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {visibleUsers.map(user => {
+                      const isBlocked = user.is_active === 0;
+                      return (
+                        <button
+                          key={user.id}
+                          onClick={() => setMobileActionUser(user)}
+                          className="w-full p-4 flex items-center gap-3 text-left hover:bg-slate-50"
+                        >
+                          <UserAvatar user={user} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-black text-slate-900 truncate">{user.nombre}</p>
+                            <p className="text-[11px] font-bold text-slate-500 truncate">@{user.username} · {user.role}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${isBlocked ? 'bg-slate-100 text-slate-600' : 'bg-green-50 text-green-600'}`}>
+                            {isBlocked ? 'Suspendido' : 'Activo'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <table className="hidden md:table w-full text-left border-collapse">
                     <thead>
                       <tr className="text-[10px] uppercase font-black text-gray-400 border-b border-gray-50 bg-gray-50/50">
                         <th className="px-8 py-6">Perfil Institucional</th>
@@ -1484,6 +1514,7 @@ const AdminDashboard = () => {
                       })}
                     </tbody>
                   </table>
+                  </>
                 )}
                 {activeTab === 'users' && userPageNumbers.length > 1 && (
                   <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
@@ -1516,6 +1547,188 @@ const AdminDashboard = () => {
       </div>
 
       {/* Modals placed outside main container for clarity and to avoid nesting errors */}
+
+      <Modal isOpen={!!mobileActionUser} onClose={() => setMobileActionUser(null)} title="Acciones de usuario" maxWidth="max-w-none sm:max-w-2xl">
+        {mobileActionUser && (() => {
+          const isBlocked = mobileActionUser.is_active === 0;
+          const isMe = session.id === mobileActionUser.id;
+          const isDev = mobileActionUser.role === 'dev';
+          const roleInfo = getRoleColors(mobileActionUser.role);
+          const getRoleLabel = (role) => {
+            switch (role?.toLowerCase()) {
+              case 'dev': return 'Desarrollador (Developer)';
+              case 'admin': return 'Administrador';
+              case 'monitor':
+              case 'monitor_academico': return 'Monitor Académico';
+              case 'monitor_administrativo': return 'Monitor Administrativo';
+              case 'student': return 'Estudiante';
+              default: return role || 'Usuario';
+            }
+          };
+
+          return (
+            <div className="space-y-6 w-full py-2">
+              {/* Header profile card */}
+              <div className="relative overflow-hidden p-6 rounded-[28px] border border-slate-100 bg-gradient-to-br from-slate-50 to-white shadow-sm flex flex-col items-center">
+                {/* Status Badges "Right There" */}
+                <div className="flex flex-wrap gap-2 justify-center mb-4">
+                  {isMe && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-full border border-blue-100 shadow-sm">
+                      <UserCheck size={11} /> Tu Perfil Actual
+                    </span>
+                  )}
+                  {isBlocked && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 text-[10px] font-black uppercase rounded-full border border-rose-100 shadow-sm">
+                      <Lock size={11} /> Cuenta Suspendida
+                    </span>
+                  )}
+                  {isDev && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black uppercase rounded-full border border-purple-100 shadow-sm">
+                      <ShieldCheck size={11} /> Desarrollador Protegido
+                    </span>
+                  )}
+                  {!isBlocked && !isMe && !isDev && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase rounded-full border border-emerald-100 shadow-sm">
+                      <Check size={11} /> Cuenta Activa
+                    </span>
+                  )}
+                </div>
+
+                <UserAvatar user={mobileActionUser} size="lg" className="border-4 border-white shadow-md" />
+
+                <h3 className="text-xl font-black text-slate-900 mt-3 text-center leading-tight truncate max-w-full">
+                  {mobileActionUser.nombre}
+                </h3>
+                <p className="text-xs font-bold text-slate-400 text-center mt-1 bg-slate-100/60 px-3 py-0.5 rounded-full">
+                  @{mobileActionUser.username}
+                </p>
+              </div>
+
+              {/* Information sections */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">
+                  Información Detallada
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Correo */}
+                  <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-blue-500 shrink-0 border border-slate-100 shadow-sm">
+                      <Mail size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Correo Institucional</p>
+                      <p className="text-xs font-bold text-slate-700 truncate">{mobileActionUser.email || 'No registrado'}</p>
+                    </div>
+                  </div>
+
+                  {/* Rol */}
+                  <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center ${roleInfo?.textColor || 'text-slate-500'} shrink-0 border border-slate-100 shadow-sm`}>
+                      <Users size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rol del Usuario</p>
+                      <p className="text-xs font-bold text-slate-700 truncate">{getRoleLabel(mobileActionUser.role)}</p>
+                    </div>
+                  </div>
+
+                  {/* Sede */}
+                  <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-500 shrink-0 border border-slate-100 shadow-sm">
+                      <MapPin size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sede</p>
+                      <p className="text-xs font-bold text-slate-700 truncate">{mobileActionUser.sede || 'Sede no especificada'}</p>
+                    </div>
+                  </div>
+
+                  {/* ID */}
+                  <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-amber-500 shrink-0 border border-slate-100 shadow-sm">
+                      <Info size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Identificador de Usuario</p>
+                      <p className="text-xs font-bold text-slate-700 truncate">ID: {mobileActionUser.id}</p>
+                    </div>
+                  </div>
+
+                  {/* Cuatrimestre if present */}
+                  {mobileActionUser.cuatrimestre && (
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex items-center gap-3 md:col-span-2">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-500 shrink-0 border border-slate-100 shadow-sm">
+                        <GraduationCap size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cuatrimestre</p>
+                        <p className="text-xs font-bold text-slate-700 truncate">{mobileActionUser.cuatrimestre}º Cuatrimestre</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-1">
+                  Acciones Disponibles
+                </h4>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <button
+                    onClick={() => { openUserStatsModal(mobileActionUser); setMobileActionUser(null); }}
+                    className="w-full py-3.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <BarChart3 size={15} /> Ver información
+                  </button>
+
+                  {isMe && (
+                    <div className="sm:col-span-2 p-3 bg-blue-50/50 rounded-2xl border border-blue-100/60 text-[10px] text-blue-600 font-bold text-center leading-relaxed">
+                      Este es tu perfil. Para modificarlo, ve a la sección de "Mi Perfil" en tu menú personal.
+                    </div>
+                  )}
+
+                  {isDev && !isMe && (
+                    <div className="sm:col-span-2 p-3 bg-violet-50/50 rounded-2xl border border-violet-100/60 text-[10px] text-violet-600 font-bold text-center leading-relaxed">
+                      Este perfil está protegido y administrado por el equipo de desarrollo.
+                    </div>
+                  )}
+
+                  {!isMe && !isDev && (
+                    <>
+                      <button
+                        onClick={() => { handleEditUser(mobileActionUser); setMobileActionUser(null); }}
+                        className="w-full py-3.5 px-4 rounded-2xl bg-brand-blue hover:bg-brand-dark-blue text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm shadow-brand-blue/10"
+                      >
+                        <Edit3 size={15} /> Editar Perfil
+                      </button>
+
+                      <button
+                        onClick={() => { setStatusTarget(mobileActionUser); setIsStatusModalOpen(true); setMobileActionUser(null); }}
+                        className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                          isBlocked
+                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100'
+                            : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-100'
+                        }`}
+                      >
+                        {isBlocked ? <Unlock size={15} /> : <Lock size={15} />}
+                        {isBlocked ? 'Activar Perfil' : 'Suspender Perfil'}
+                      </button>
+
+                      <button
+                        onClick={() => { openDeleteConfirm(mobileActionUser, mobileActionUser.role); setMobileActionUser(null); }}
+                        className="w-full py-3.5 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] border border-rose-100 sm:col-span-2"
+                      >
+                        <Trash2 size={15} /> Eliminar Cuenta
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* Detalle de Log Modal */}
       <Modal isOpen={!!selectedLog} onClose={() => setSelectedLog(null)} title="Detalle de Evento de Auditoría" maxWidth="max-w-2xl">
@@ -2067,6 +2280,17 @@ const AdminDashboard = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Support Live Chat Modal */}
+      {activeChatTicket && (
+        <SupportChatModal
+          ticket={activeChatTicket}
+          onClose={() => setActiveChatTicket(null)}
+          onStatusUpdated={() => {
+            loadSupportTickets();
+          }}
+        />
+      )}
     </div>
   );
 };
