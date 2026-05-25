@@ -9,6 +9,7 @@ import analyticsRoutes from './routes/analytics.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import devRoutes from './routes/dev.routes.js';
 import supportRoutes from './routes/support.routes.js';
+import { blockCheck, ipLimiter } from './middlewares/rateLimiter.middleware.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -118,6 +119,10 @@ app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
+
+// Rate limiting
+app.use('/api', blockCheck);
+app.use('/api', ipLimiter);
 
 // Routes
 app.use('/api', usersRoutes);
