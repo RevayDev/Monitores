@@ -286,6 +286,7 @@ export const updateSupportTicketStatus = (ticketId, status) => request(`/support
   body: JSON.stringify({ status })
 });
 export const deleteSupportTicket = (ticketId) => request(`/support/tickets/${ticketId}`, { method: 'DELETE' });
+export const closeSupportTicket = (ticketId) => request(`/support/tickets/${ticketId}/close`, { method: 'POST' });
 
 export const getSupportTicketMessages = (ticketId) => request(`/support/tickets/${ticketId}/messages`);
 export const sendSupportTicketMessage = (ticketId, payload) => request(`/support/tickets/${ticketId}/messages`, {
