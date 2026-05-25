@@ -76,6 +76,15 @@ const assignTicketToAdvisor = async (req, res) => {
   }
 };
 
+const closeSupportTicket = async (req, res) => {
+  try {
+    const result = await supportService.closeTicket(req.params.id, req.user || null);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const uploadSupportFile = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo.' });
   const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -91,6 +100,7 @@ export default {
   respondSupportTicket,
   updateSupportTicketStatus,
   deleteSupportTicket,
+  closeSupportTicket,
   getTicketMessages,
   addTicketMessage,
   assignTicketToAdvisor,

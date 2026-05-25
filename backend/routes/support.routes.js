@@ -16,6 +16,8 @@ router.get('/support/tickets/:id/messages', authMiddleware, supportController.ge
 router.post('/support/tickets/:id/messages', authMiddleware, supportController.addTicketMessage);
 router.post('/support/tickets/:id/assign', authMiddleware, roleMiddleware('dev', 'admin'), supportController.assignTicketToAdvisor);
 
+router.post('/support/tickets/:id/close', authMiddleware, supportController.closeSupportTicket);
+
 // File upload for support chat — saves to /uploads/support/
 router.post('/support/upload', requireUserContext, supportUpload.single('file'), supportController.uploadSupportFile);
 

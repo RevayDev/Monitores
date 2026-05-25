@@ -400,6 +400,38 @@ class SupportService {
 
     return { ok: true, advisorName: advisorUser.nombre, systemMessage: systemMsg };
   }
+
+  async closeTicket(ticketId, actor) {
+    const [existing] = await pool.query('SELECT * FROM support_tickets WHERE id = ? LIMIT 1', [ticketId]);
+    const ticket = existing[0];
+    if (!ticket) throw new Error('Ticket no encontrado.');
+    if (ticket.status === 'closed') throw new Error('El ticket ya esta cerrado.');
+
+    const isStaff = actor && ['admin', 'dev'].includes(String(actor.role || actor.baseRole || '').toLowerCase());
+    const isOwner = actor && Number(ticket.requester_user_id) === Number(actor.id);
+    if (!isStaff && !isOwner) {
+      throw new Error('No tienes permiso para cerrar este ticket.');
+    }
+
+    await pool.query(
+      `UPDATE support_tickets SET status = 'closed', updated_at = NOW() WHERE id = ?`,
+      [ticketId]
+    );
+
+    await pool.query(
+      'INSERT INTO activity_logs (user_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+      [actor?.id || null, 'SUPPORT_TICKET_CLOSED_BY_USER', 'support_ticket', ticketId, JSON.stringify({ previousStatus: ticket.status })]
+    );
+
+    try {
+      const { getIo } = await import('../socket.js');
+      const io = getIo();
+      io.to(`ticket_chat_${ticketId}`).emit('ticket_status_changed', { status: 'closed' });
+    } catch { /* ignore */ }
+    notifyStaffTicketUpdate({ action: 'closed_by_user', ticketId });
+
+    return { ok: true, message: 'Chat cerrado correctamente.' };
+  }
 }
 
 export default new SupportService();
