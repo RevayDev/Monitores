@@ -9,6 +9,7 @@ import analyticsRoutes from './routes/analytics.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import devRoutes from './routes/dev.routes.js';
 import supportRoutes from './routes/support.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 import { blockCheck, ipLimiter } from './middlewares/rateLimiter.middleware.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -133,6 +134,7 @@ app.use('/api', analyticsRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', devRoutes);
 app.use('/api', supportRoutes);
+app.use('/api', aiRoutes);
 wrapAllAsyncRoutes(app);
 
 // Error handling

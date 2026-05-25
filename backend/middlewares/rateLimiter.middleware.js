@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -88,13 +88,13 @@ const ERR_MESSAGES = {
 };
 
 const createHandler = (label) => (req, res) => {
-  const key = String(req.userId || req.ip || 'unknown');
+  const key = String(req.userId || ipKeyGenerator(req) || 'unknown');
   recordViolation(key);
   res.status(429).json({ error: ERR_MESSAGES[label] || ERR_MESSAGES.user, retryAfter: 60 });
 };
 
 export const blockCheck = (req, res, next) => {
-  const key = String(req.userId || req.ip || 'unknown');
+  const key = String(req.userId || ipKeyGenerator(req) || 'unknown');
   if (isBlocked(key)) {
     return res.status(429).json({
       error: 'Demasiadas solicitudes. Acceso bloqueado temporalmente.',
@@ -106,21 +106,21 @@ export const blockCheck = (req, res, next) => {
 
 export const userLimiter = rateLimit({
   windowMs: WINDOW_MS, max: 200,
-  keyGenerator: (req) => String(req.userId || req.ip || 'unknown'),
+  keyGenerator: (req) => String(req.userId || ipKeyGenerator(req) || 'unknown'),
   standardHeaders: true, legacyHeaders: false,
   handler: createHandler('user')
 });
 
 export const ipLimiter = rateLimit({
   windowMs: WINDOW_MS, max: 100,
-  keyGenerator: (req) => req.ip || 'unknown',
+  keyGenerator: (req) => ipKeyGenerator(req) || 'unknown',
   standardHeaders: true, legacyHeaders: false,
   handler: createHandler('ip')
 });
 
 export const aiLimiter = rateLimit({
   windowMs: WINDOW_MS, max: 30,
-  keyGenerator: (req) => String(req.userId || req.ip || 'unknown'),
+  keyGenerator: (req) => String(req.userId || ipKeyGenerator(req) || 'unknown'),
   standardHeaders: true, legacyHeaders: false,
   handler: createHandler('ai')
 });

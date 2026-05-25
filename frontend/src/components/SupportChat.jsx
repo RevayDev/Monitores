@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
 import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Shield, Clock, Headphones, Key, XCircle, Paperclip, Image as ImageIcon, FileText, AtSign } from 'lucide-react';
-import { submitSupportRequest, getSupportTicketMessages, sendSupportTicketMessage, uploadSupportFile, getAllUsers, closeSupportTicket } from '../services/api';
+import { submitSupportRequest, getSupportTicketMessages, sendSupportTicketMessage, uploadSupportFile, getAllUsers, closeSupportTicket, request } from '../services/api';
 import { getSocketUrl } from '../utils/socketUrl';
 import { ToastContext } from '../context/ToastContext';
 import UserAvatar from './UserAvatar';
@@ -319,6 +319,8 @@ const SupportChat = () => {
   const typingTimeoutRef = useRef(null);    // debounce stop_typing emit
   const lastTypingEmitRef = useRef(0);      // throttle typing emit (like forum)
   const fileInputRef = useRef(null);        // hidden file input for attachments
+  const aiSessionRef = useRef(null);
+  const transferredToHumanRef = useRef(false);
 
   // Attachments state (mirrors forum replyAttachments)
   const [attachments, setAttachments] = useState([]);   // [{ file_url, file_type, name }]
@@ -458,6 +460,8 @@ const SupportChat = () => {
       if (data.status === 'closed') {
         setChatMode('closed');
         localStorage.removeItem('support_chat_ticket_id');
+          transferredToHumanRef.current = false;
+          aiSessionRef.current = null;
         const sys = {
           id: `sys-closed-${Date.now()}`, from: 'bot', sender_name: 'Sistema', sender_role: 'bot',
           text: 'Este chat ha sido cerrado. Si necesitas más ayuda, inicia un nuevo chat.',
@@ -661,7 +665,16 @@ const SupportChat = () => {
           id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
           sender_role: 'user', text: fullMessage, time: new Date(),
         }]);
+        transferredToHumanRef.current = true;
+        aiSessionRef.current = null;
         await requestAdvisor(fullMessage);
+
+      // ── BOT MODE — transferred to human (RevayBot stops responding) ──────
+      } else if (transferredToHumanRef.current && chatMode === 'bot') {
+        setMessages(prev => [...prev, {
+          id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
+          sender_role: 'user', text: fullMessage, time: new Date(),
+        }]);
 
       // ── BOT MODE — farewell / gratitude → ask if they need more ──────────
       } else if (chatMode === 'bot' && isFarewell(trimmed)) {
@@ -672,27 +685,42 @@ const SupportChat = () => {
         addBotMessage('¡Con gusto! 😊 Me alegra haber podido ayudarte.', 800);
         setShowClosePrompt(true);
 
-      // ── BOT MODE — smart intent ────────────────────────────────────────────
+      // ── BOT MODE — RevayBot AI response ───────────────────────────────────
       } else {
         setMessages(prev => [...prev, {
           id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
           sender_role: 'user', text: fullMessage, time: new Date(),
         }]);
-        const intent = detectIntent(trimmed);
-        if (intent) {
-          addBotMessage(intent.response, 1000);
-          if (!intent.resolved) {
-            addBotMessage('Si el problema persiste, puedo conectarte con un asesor en vivo. 👤', 3000);
+        setIsBotTyping(true);
+        try {
+          // Create AI session if needed
+          if (!aiSessionRef.current) {
+            const sessionRes = await request('/ai/session', { method: 'POST' });
+            aiSessionRef.current = sessionRes.sessionId;
           }
-        } else {
-          addBotMessage(
-            'Entiendo tu consulta. ¿Puedes darme más detalles sobre lo que necesitas? 🤔\n\nSi prefieres hablar con una persona, escribe **"asesor"** o usa el botón de abajo.',
-            1000
-          );
-          const userMsgCount = messages.filter(m => m.from === 'user').length;
-          if (userMsgCount >= 2) {
-            addBotMessage('Parece que tu consulta necesita atención personalizada. ¿Quieres que te conecte con un asesor ahora? 👤', 3500);
+          const res = await request('/ai/ask', {
+            method: 'POST',
+            body: JSON.stringify({ sessionId: aiSessionRef.current, message: trimmed })
+          });
+          setIsBotTyping(false);
+          if (res && res.response) {
+            // Check if AI indicates it can't help → offer human transfer
+            const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo'];
+            const cantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
+            if (cantHelp) {
+              addBotMessage(res.response, 500);
+              setTimeout(() => {
+                addBotMessage('¿Quieres que te conecte con un asesor humano? 👤', 2000);
+              }, 1500);
+            } else {
+              addBotMessage(res.response, 500);
+            }
+          } else {
+            addBotMessage('No pude procesar tu consulta. ¿Quieres que te conecte con un asesor humano? 👤', 500);
           }
+        } catch {
+          setIsBotTyping(false);
+          addBotMessage('Hubo un error al procesar tu mensaje. ¿Quieres hablar con un asesor humano? 👤', 500);
         }
       }
     } catch (err) {
@@ -734,6 +762,8 @@ const SupportChat = () => {
       time: new Date(),
     }]);
     setShowQuick(true);
+    aiSessionRef.current = null;
+    transferredToHumanRef.current = false;
   };
 
   // ── File upload (same as forum uploadAsAttachment) ────────────────────────

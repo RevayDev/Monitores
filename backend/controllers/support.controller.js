@@ -2,7 +2,7 @@ import supportService from '../services/support.service.js';
 
 const submitSupportRequest = async (req, res) => {
   try {
-    const requester = req.user || { id: req.userContext?.userId || null };
+    const requester = req.user || { id: req.body?.currentUserId || req.userContext?.userId || null };
     const result = await supportService.submitTicket(req.body, requester);
     res.status(201).json(result);
   } catch (error) {
