@@ -6,7 +6,7 @@ import { initSocket } from './socket.js';
 import os from 'os';
 import { spawn } from 'child_process';
 import emailService from './services/email.service.js';
-import { warmUpModel } from './services/ai.service.js';
+import { warmUpModel, clearAllSessions } from './services/ai.service.js';
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -89,6 +89,10 @@ const startOllama = () => {
 };
 
 initializeDatabase()
+  .then(() => {
+    clearAllSessions();
+    console.log('[AI] Sesiones anteriores eliminadas (limpieza al iniciar)');
+  })
   .then(() => startOllama())
   .then(() => {
     warmUpModel(); // no blocking

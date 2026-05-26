@@ -109,11 +109,12 @@ const getRelevantKnowledge = (message, role) => {
 const SYSTEM_PROMPT = `Eres RevayBot, asistente de soporte de MONITORES.
 
 REGLAS ABSOLUTAS (no las ignores):
-1. Responde SOLO en español, máximo 3 oraciones, directo.
+1. Responde SOLO en español, claro y directo. Si la pregunta lo requiere, puedes extenderte, pero sé conciso.
 2. USA ÚNICAMENTE la información de los Documentos de abajo. NO inventes nada. NADA.
-3. Si la respuesta no está en los Documentos, dice "No tengo esa información en mi base de conocimiento."
-4. Si preguntan algo NO relacionado con MONITORES (matemáticas, clima, historia, geografía, política, cultura general, capitales, presidentes, etc.), responde exactamente: "Solo soy un chat de soporte de MONITORES. No puedo responder eso."
-5. Sé amable, calmado. Usa "tú". NO uses markdown.`;
+3. Si la respuesta no está en los Documentos, responde exactamente: "No tengo esa información en mi base de conocimiento."
+4. Si preguntan algo NO relacionado con MONITORES (matemáticas, clima, historia, geografía, política, cultura general, capitales, presidentes, traducciones, poemas, cuentos, chistes, recetas, deportes, música, películas, cualquier tema general), responde exactamente: "Solo soy un chat de soporte de MONITORES. No puedo responder eso."
+5. Sé amable, calmado. Usa "tú". NO uses markdown.
+6. Si el usuario se queja, insulta, o hace preguntas sin sentido, mantén la calma y redirige al soporte humano.`;
 
 /* ──────────────────────────────────────────────────────────────
    SANITIZE
@@ -128,27 +129,29 @@ const IMAGE_STRIP =
 const NAME_STRIP =
   /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
 
+const BARESTR_UUID = /\{[0-9A-Fa-f-]{32,38}\}\.\w{2,6}\b/gi;
+
 const sanitizeContent = (content) => {
   if (typeof content !== 'string') return '';
   return content
+    .replace(BARESTR_UUID, '')
     .replace(UUID_STRIP, '')
     .replace(IMAGE_STRIP, '')
     .replace(NAME_STRIP, '')
     .trim();
 };
 
-// Brute-force final sanitization (strip ANY {UUID}.ext pattern)
-const FINAL_STRIP = /\{[A-Fa-f0-9-]{36}\}\..{3,4}\b/gi;
 const finalSanitize = (content) => {
   if (typeof content !== 'string') return '';
   let c = content;
-  // Run 3 passes to catch any remaining
-  for (let i = 0; i < 3; i++) {
-    c = c.replace(FINAL_STRIP, '');
+  let prev;
+  do {
+    prev = c;
+    c = c.replace(BARESTR_UUID, '');
     c = c.replace(UUID_STRIP, '');
     c = c.replace(IMAGE_STRIP, '');
     c = c.replace(NAME_STRIP, '');
-  }
+  } while (c !== prev);
   return c.trim();
 };
 
@@ -157,7 +160,7 @@ const finalSanitize = (content) => {
 ────────────────────────────────────────────────────────────── */
 
 const IMAGE_PATTERN =
-  /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\{[0-9A-Fa-f-]{36}\}\.png/i;
+  /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\{[0-9A-Fa-f-]{32,40}\}\.\w{2,6}\b/i;
 
 /* ──────────────────────────────────────────────────────────────
    OLLAMA
@@ -165,16 +168,40 @@ const IMAGE_PATTERN =
 
 const MODEL_TIMEOUT = 45000;
 
-const FINAL_UUID = /\{[A-Fa-f0-9-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
+const NUCLEAR_UUID = /\{[0-9A-Fa-f-]{32,40}\}\.\w{2,6}\b/gi;
+
+const stripAllUuid = (str) => {
+  if (typeof str !== 'string') return str;
+  let prev;
+  let cur = str;
+  do {
+    prev = cur;
+    cur = cur.replace(NUCLEAR_UUID, '');
+    cur = cur.replace(BARESTR_UUID, '');
+  } while (cur !== prev);
+  return cur;
+};
+
+const IMG_EXT = /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
+
+const stripAllImages = (str) => {
+  if (typeof str !== 'string') return str;
+  let prev;
+  let cur = str;
+  do {
+    prev = cur;
+    cur = cur.replace(IMG_EXT, '');
+  } while (cur !== prev);
+  return cur;
+};
 
 const tryModel = async (model, messages) => {
-  // 4 rounds of sanitization to ensure NO UUID reaches Ollama
+  // Multi-pass nuclear sanitization + strip ALL image extensions
   const cleanMessages = messages.map((m) => ({
     role: m.role,
-    content: finalSanitize(m.content).slice(0, 700)
+    content: stripAllImages(finalSanitize(m.content)).slice(0, 700)
   }));
 
-  // Last-resort: strip from serialized JSON
   const rawBody = JSON.stringify({
     model,
     stream: false,
@@ -182,7 +209,15 @@ const tryModel = async (model, messages) => {
     messages: cleanMessages,
     options: { temperature: 0.1, num_predict: 60, num_ctx: 1024, top_k: 10, top_p: 0.5 }
   });
-  const safeBody = rawBody.replace(FINAL_UUID, '');
+
+  // Nuclear: strip UUIDs AND ALL image extensions from serialized JSON body
+  const safeBody = stripAllImages(stripAllUuid(rawBody));
+
+  // Verify nothing is left
+  const leftover = safeBody.match(IMG_EXT) || safeBody.match(NUCLEAR_UUID);
+  if (leftover) {
+    console.warn(`[Ollama] IMAGEN AÚN PRESENTE en body: ${leftover[0]}`);
+  }
 
   console.log(`[Ollama] Sending to ${model}`);
 
@@ -201,16 +236,19 @@ const tryModel = async (model, messages) => {
 
     if (!res.ok) {
       const errText = await res.text();
-      // Sanitize error before logging (remove any UUIDs)
-      const safeErr = errText.replace(FINAL_UUID, '[UUID eliminado]');
-      throw new Error(safeErr);
+      if (/cannot read.*\.(png|jpg|jpeg|gif|webp|bmp|svg)/i.test(errText)) {
+        console.warn(`[Ollama] Imagen bloqueada por Ollama (modelo sin soporte de imágenes).`);
+        return '⚠️ No puedo procesar imágenes o archivos. Describe tu problema en texto.';
+      }
+      throw new Error(errText.trim());
     }
 
     const data = await res.json();
     const response = data?.message?.content?.trim();
     if (!response) return null;
 
-    return sanitizeContent(response);
+    // Stripe image extensions from response before storing
+    return stripAllImages(sanitizeContent(response));
   } catch (err) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
@@ -321,14 +359,27 @@ export const askQuestion = async (
   }
 
   // Out-of-scope detection (no enviar a IA preguntas no-MONITORES)
-  const OUT_OF_SCOPE = /\b(capital de|presidente de|cuánto es |resultado de |operación matem|suma |resta |multiplic|división |historia de |geografía de |clima de |receta de |película |canción |deporte |noticias de |política de |economía de |filosofía de |religión de |poema |cuento |chiste |traduce |tradúceme|idioma |quién fue |qué es el |qué es la |qué son los|diferencia entre |que significa |definición de|origen de|cuál es la capital|quién descubrió|año de |fecha de |edad de |peso de |altura de)\b/i;
-  const MATH_PATTERN = /\d+\s*[+\-*/^]\s*\d+|\b(cuánto es|suma|resta|multiplica|divide)\b.*\d+/i;
-  if (!/monitore|módulo|horario|sede|cuatrimestre|programa|asistencia|qr|foro|soporte|perfil|contraseña|login|registro|inscribir|olvidé|olvide|recuperar|cambiar|error|problema|ayuda|como|qué es|qué son/i.test(message)) {
-    if (OUT_OF_SCOPE.test(message) || MATH_PATTERN.test(message)) {
+  const OUT_OF_SCOPE = /\b(capital de|presidente de|cuánto es |resultado de |operación matem|suma |resta |multiplic|división |historia de |geografía de |clima de |receta de |película |canción |deporte |noticias de |política de |economía de |filosofía de |religión de |poema |cuento |chiste |traduce |tradúceme|idioma |quién fue |qué es el |qué es la |qué son los|diferencia entre |que significa |definición de|origen de|cuál es la capital|quién descubrió|año de |fecha de |edad de |peso de |altura de|eres inteligente|puedes hacer|cuál es tu|quién eres|eres humano|eres ia|eres bot|cuántos años|quien te creó|quien te hizo|dime un|cuéntame|háblame de|explícame qué es|cuál es el sentido|qué piensas|opinión sobre)\b/i;
+  const MATH_PATTERN = /\d+\s*[+\-*/^]\s*\d+|\b(cuánto es|suma|resta|multiplica|divide|resultado)\b.*\d+/i;
+  const MONITORES_KW = /monitore|módulo|horario|sede|cuatrimestre|programa|asistencia|qr|foro|soporte|perfil|contraseña|login|registro|inscribir|olvidé|olvide|recuperar|cambiar|error|problema|ayuda|como|qué es|qué son|materia|clase|profesor|calificación|nota|tarea|examen|pago|factura|beca|constancia|justificante|reporte/i;
+
+  const lm = message.toLowerCase();
+
+  if (!MONITORES_KW.test(lm)) {
+    // User insults / nonsense
+    const ABUSIVE = /\b(te odio|eres un|eres una|idiota|estúpido|tonto|puto|pendejo|wey|no sirves|inútil|basura)\b/i;
+    if (ABUSIVE.test(lm)) {
+      const msg = 'Lo siento si algo no está funcionando bien. Puedo intentar ayudarte o transferirte con un agente humano. Escribe "asesor" para hablar con una persona.';
+      session.messages.push({ role: 'assistant', content: msg });
+      return { response: msg, expiresAt: session.expiresAt };
+    }
+    // Math / out of scope
+    if (OUT_OF_SCOPE.test(lm) || MATH_PATTERN.test(lm) || /^\d+\s*[+\-*/^]/.test(lm.trim())) {
       const msg = 'Solo soy un chat de soporte de MONITORES. No puedo responder eso.';
       session.messages.push({ role: 'assistant', content: msg });
       return { response: msg, expiresAt: session.expiresAt };
     }
+    // Greetings (no monitores keywords) → let the AI handle greeting
   }
 
   if (IMAGE_PATTERN.test(message)) {
