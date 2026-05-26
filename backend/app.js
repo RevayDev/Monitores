@@ -52,18 +52,8 @@ const wrapAllAsyncRoutes = (expressApp) => {
 };
 
 // Middleware
-const allowedOrigins = [
-  process.env.FRONTEND_URL
-].filter(Boolean);
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('No permitido por CORS'));
-    }
-  },
+  origin: true,
   credentials: true
 }));
 app.use(bodyParser.json({ limit: '10mb' }));

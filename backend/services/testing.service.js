@@ -2,9 +2,11 @@ import pool from '../utils/mysql.helper.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { initializeDatabase } from '../database/index.js';
+import { clearAllSessions } from './ai.service.js';
 
 class TestingService {
   async nukeAndRebuild() {
+    clearAllSessions();
     await pool.query('SET FOREIGN_KEY_CHECKS = 0');
 
     const [tableRows] = await pool.query('SHOW TABLES');
@@ -36,7 +38,8 @@ class TestingService {
 
     for (const r of roots) {
       await pool.query(
-        'INSERT INTO users (nombre, username, email, password, role, is_active, is_principal) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        `INSERT INTO users (nombre, username, email, password, role, is_active, is_principal) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), email=VALUES(email), password=VALUES(password), role=VALUES(role)`,
         r
       );
     }

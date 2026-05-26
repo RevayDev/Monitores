@@ -386,6 +386,41 @@ const deleteForumReply = async (req, res) => {
   }
 };
 
+const closeForum = async (req, res) => {
+  try {
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) return res.status(400).json({ error: 'ID de foro invalido.' });
+    const data = await engagementService.closeForum(req.userContext.userId, forumId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const reopenForum = async (req, res) => {
+  try {
+    const forumId = Number(req.params.id);
+    if (!Number.isInteger(forumId) || forumId <= 0) return res.status(400).json({ error: 'ID de foro invalido.' });
+    const data = await engagementService.reopenForum(req.userContext.userId, forumId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const setBestAnswer = async (req, res) => {
+  try {
+    const forumId = Number(req.params.id);
+    const replyId = Number(req.body.replyId);
+    if (!Number.isInteger(forumId) || forumId <= 0) return res.status(400).json({ error: 'ID de foro invalido.' });
+    if (!Number.isInteger(replyId) || replyId <= 0) return res.status(400).json({ error: 'ID de respuesta invalido.' });
+    const data = await engagementService.setBestAnswer(req.userContext.userId, forumId, replyId);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const updateForumPresence = async (req, res) => {
   try {
     const { forumId } = req.params;
@@ -493,6 +528,9 @@ export default {
   updateForumReply,
   deleteForumReply,
   getMyStats,
+  closeForum,
+  reopenForum,
+  setBestAnswer,
   updateForumPresence,
   getForumPresence,
   reportForum,

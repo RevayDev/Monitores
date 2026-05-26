@@ -534,6 +534,7 @@ class EngagementRepositoryMySQL {
         f.title,
         f.content,
         f.user_id,
+        f.is_closed,
         COALESCE(f.modulo_id, f.subject_id) AS modulo_id,
         f.created_at,
         u.nombre AS author_name,
@@ -1127,6 +1128,16 @@ class EngagementRepositoryMySQL {
     if (['admin', 'dev'].includes(user.role)) {
       return this.getAdminStats();
     }
+    return true;
+  }
+
+  async setForumClosed(forumId, isClosed) {
+    await pool.query('UPDATE forums SET is_closed = ? WHERE id = ?', [isClosed ? 1 : 0, forumId]);
+    return true;
+  }
+
+  async setForumBestReply(forumId, replyId) {
+    await pool.query('UPDATE forums SET best_reply_id = ? WHERE id = ?', [replyId, forumId]);
     return true;
   }
 

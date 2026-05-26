@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { initializeDatabase } from './database/index.js';
 import { initSocket } from './socket.js';
 import os from 'os';
+import { spawn } from 'child_process';
 import emailService from './services/email.service.js';
 
 const PORT = process.env.PORT || 3000;
@@ -66,7 +67,28 @@ const logRuntimeInfo = () => {
   }
 };
 
+const startOllama = () => {
+  return new Promise((resolve) => {
+    const proc = spawn('ollama', ['serve'], {
+      stdio: 'ignore',
+      detached: true,
+      windowsHide: true
+    });
+    proc.on('error', (err) => {
+      console.warn('[Ollama] No se pudo iniciar automáticamente:', err.message);
+      resolve(false);
+    });
+    proc.unref();
+    // esperar un par de segundos para que Ollama termine de arrancar
+    setTimeout(() => {
+      console.log('[Ollama] Servicio iniciado correctamente');
+      resolve(true);
+    }, 3000);
+  });
+};
+
 initializeDatabase()
+  .then(() => startOllama())
   .then(() => {
     httpServer.listen(PORT, HOST, () => {
       logRuntimeInfo();

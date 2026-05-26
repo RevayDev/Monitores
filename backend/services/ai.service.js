@@ -3,7 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OLLAMA_URL = 'http://localhost:11434';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_MODELS = ['qwen2.5:3b', 'tinyllama'];
 
 const sessions = new Map();
 const SESSION_TTL = 30 * 60 * 1000;
@@ -34,48 +35,49 @@ const getKnowledge = (role) => {
 const SYSTEM_PROMPT = `Soy RevayBot, un asistente virtual creado por Roberto Jiménez, estudiante de cuarto cuatrimestre de la IUB. Estoy aquí para ayudarte con la plataforma MONITORES, un sistema académico de gestión de monitorías universitarias. Soy amable, hablo claro y con pocas palabras. Guío paso a paso, y si necesitas más detalles, los doy sin problema. Si no sé algo, lo digo directamente y ofrezco alternativas.`;
 
 // ── File/Image reference patterns to sanitize ──────────────────────────
-const FILE_REF_PATTERN = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)(["\s)]|$)/i;
+const FILE_REF_PATTERN = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)(["\s)\]>.,]|$)/gi;
+const STRIP_IMAGES_PATTERN = /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
+const UUID_PATTERN = /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)\b/gi;
 
 // ── Ollama call ────────────────────────────────────────────────────────
-const callOllama = async (messages) => {
-  // Strip file/image references from user messages to avoid Ollama image errors
-  const clean = messages.map(m => {
-    if (m.role !== 'user') return m;
-    return { ...m, content: m.content.replace(FILE_REF_PATTERN, '') };
+const sanitizeContent = (content) => (content || '').replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
+const sanitizePrompt = (prompt) => prompt.replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
+
+const tryModel = async (model, prompt) => {
+  const cleanPrompt = sanitizePrompt(prompt);
+  console.log(`[Ollama] Sending to ${model} (${cleanPrompt.length} chars)`);
+  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, options: { temperature: 0.7, max_tokens: 500 } })
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    const isImageErr = /cannot read.*not support image/i.test(body);
+    throw new Error(isImageErr ? 'Ollama_rechazo_imagen' : body);
+  }
+  const data = await res.json();
+  if (!data.response) throw new Error('Empty response from Ollama');
+  return data.response;
+};
+
+const callOllama = async (messages) => {
+  const clean = messages.map(m => ({ ...m, content: sanitizeContent(m.content) }));
   const prompt = clean.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
-  const model = 'phi3:mini';
-  try {
-    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt, stream: false, options: { temperature: 0.7, max_tokens: 500 } })
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error('Ollama returned ' + res.status + (body ? ': ' + body.slice(0, 200) : ''));
-    }
-    const data = await res.json();
-    if (!data.response) throw new Error('Empty response from Ollama');
-    return data.response;
-  } catch (err) {
-    console.error('Ollama primary failed, trying fallback:', err.message);
-    // Fallback to tinyllama
+
+  for (const model of OLLAMA_MODELS) {
     try {
-      const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'tinyllama', prompt, stream: false, options: { temperature: 0.7, max_tokens: 300 } })
-      });
-      if (!res.ok) throw new Error('Ollama fallback failed');
-      const data = await res.json();
-      if (!data.response) throw new Error('Empty response from fallback');
-      return data.response;
+      const result = await tryModel(model, prompt);
+      if (result !== null) return result;
     } catch (err) {
-      console.error('Ollama fallback also failed:', err.message);
-      return null;
+      if (err.message === 'Ollama_rechazo_imagen') {
+        console.error(`Ollama ${model} rejected prompt due to image reference`);
+      } else {
+        console.error(`Ollama ${model} failed:`, err.message);
+      }
     }
   }
+  return null;
 };
 
 // ── Session management ────────────────────────────────────────────────
@@ -87,6 +89,7 @@ const cleanExpired = () => {
 };
 const cleanupTimer = setInterval(cleanExpired, 60_000);
 export const cleanupInterval = () => clearInterval(cleanupTimer);
+export const clearAllSessions = () => { sessions.clear(); };
 
 export const createSession = (userId, role) => {
   const id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -95,7 +98,7 @@ export const createSession = (userId, role) => {
 };
 
 // ── Image detection ────────────────────────────────────────────────────
-const IMAGE_PATTERN = /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)/i;
+const IMAGE_PATTERN = /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\\\{[0-9A-Fa-f-]{36}\\\}\.png/i;
 
 export const askQuestion = async (sessionId, message) => {
   const session = sessions.get(sessionId);
@@ -120,8 +123,9 @@ export const askQuestion = async (sessionId, message) => {
 
   const response = await callOllama(contextMessages);
   if (response === null) {
-    session.messages.push({ role: 'assistant', content: '⚠️ No hay conexión con la IA local (Ollama). RevayBot no está disponible. Si necesitas ayuda, escribe "asesor" para hablar con un humano.' });
-    return { response: session.messages[session.messages.length - 1].content, expiresAt: session.expiresAt };
+    const msg = '⚠️ No hay conexión con la IA local (Ollama). RevayBot no está disponible. Si necesitas ayuda, escribe "asesor" para hablar con un humano.';
+    session.messages.push({ role: 'assistant', content: msg });
+    return { response: msg, aiOffline: true, expiresAt: session.expiresAt };
   }
 
   session.messages.push({ role: 'assistant', content: response });

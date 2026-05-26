@@ -3,9 +3,13 @@ import { createSession, askQuestion, getSessionHistory } from '../services/ai.se
 const createAiSession = async (req, res) => {
   try {
     const user = req.user || req.userContext || {};
-    const result = createSession(user.id || 'anon', user.role || 'student');
+    const userId = user.id || 'anon';
+    const role = user.role || 'student';
+    console.log(`[AI] Creating session for user=${userId} role=${role}`);
+    const result = createSession(userId, role);
     res.json(result);
   } catch (error) {
+    console.error('[AI] Error creating session:', error);
     res.status(500).json({ error: error.message });
   }
 };

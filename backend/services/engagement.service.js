@@ -1093,6 +1093,32 @@ class EngagementService {
     return engagementRepository.getAdminStats();
   }
 
+  async closeForum(userId, forumId) {
+    const forum = await engagementRepository.getForumById(Number(forumId));
+    if (!forum) throw new Error('Foro no encontrado.');
+    if (Number(forum.user_id) !== Number(userId)) throw new Error('Solo el autor del foro puede cerrarlo.');
+    await engagementRepository.setForumClosed(Number(forumId), true);
+    return { success: true, is_closed: true };
+  }
+
+  async reopenForum(userId, forumId) {
+    const forum = await engagementRepository.getForumById(Number(forumId));
+    if (!forum) throw new Error('Foro no encontrado.');
+    if (Number(forum.user_id) !== Number(userId)) throw new Error('Solo el autor del foro puede reabrirlo.');
+    await engagementRepository.setForumClosed(Number(forumId), false);
+    return { success: true, is_closed: false };
+  }
+
+  async setBestAnswer(userId, forumId, replyId) {
+    const forum = await engagementRepository.getForumById(Number(forumId));
+    if (!forum) throw new Error('Foro no encontrado.');
+    if (Number(forum.user_id) !== Number(userId)) throw new Error('Solo el autor del foro puede destacar una respuesta.');
+    const reply = await engagementRepository.getForumReplyById(Number(replyId));
+    if (!reply || Number(reply.forum_id) !== Number(forumId)) throw new Error('Respuesta no encontrada en este foro.');
+    await engagementRepository.setForumBestReply(Number(forumId), Number(replyId));
+    return { success: true, best_reply_id: Number(replyId) };
+  }
+
   async updateForumPresence(userId, forumId, isTyping) {
     return engagementRepository.updateForumPresence(forumId, userId, isTyping);
   }

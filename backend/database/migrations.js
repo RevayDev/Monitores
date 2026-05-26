@@ -47,6 +47,17 @@ const migrations = async () => {
     'Backfill forums.modulo_id'
   );
 
+  // ─── Forum is_closed column ────────────────────────────────────────────────
+  await safeQuery(
+    `ALTER TABLE forums ADD COLUMN is_closed TINYINT(1) NOT NULL DEFAULT 0`,
+    'Add forums.is_closed'
+  );
+  // ─── Forum best_reply_id column ─────────────────────────────────────────────
+  await safeQuery(
+    `ALTER TABLE forums ADD COLUMN best_reply_id BIGINT NULL`,
+    'Add forums.best_reply_id'
+  );
+
   console.log('[migrate] ✅ Migrations completed.');
 };
 
