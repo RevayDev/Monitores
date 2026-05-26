@@ -698,7 +698,7 @@ const SupportChat = () => {
           setShowClosePrompt(true);
         }, 1200);
 
-      // ── BOT MODE — Bot primero, luego IA, luego asesor humano ────────
+      // ── BOT MODE — Bot primero, luego IA, luego auto-ticket ────────
       } else {
         setShowAdvisorBtn(false);
         setMessages(prev => [...prev, {
@@ -715,16 +715,14 @@ const SupportChat = () => {
         let botResponse = intent ? intent.response : null;
 
         if (intent && intent.resolved) {
-          // Bot resolved it
           addBotMessage(botResponse, 500);
-          setTimeout(() => {
-            addBotMessage('¿Necesitas ayuda con algo más?', 2000);
-          }, 1500);
           aiSessionRef.current = null;
         } else if (intent && !intent.resolved) {
-          // Bot wants human (asesor keyword)
-          addBotMessage(botResponse || 'Conectando con un humano...', 500);
-          setShowAdvisorBtn(true);
+          addBotMessage('Te conectamos con un humano.', 500);
+          consecutiveFails.current = 99; // trigger auto-ticket
+          if (!transferredToHumanRef.current) {
+            setTimeout(() => requestAdvisor(lastUserMsgRef.current), 1500);
+          }
         } else {
           // 2. No intent match → try AI
           setIsBotTyping(true);
@@ -758,25 +756,16 @@ const SupportChat = () => {
             addBotMessage(botResponse, 500);
           }
 
-          // 3. Show advisor if AI can't help, user frustrated, or too many fails
+          // 3. Auto-escalate if AI can't help, frustrated, or too many fails
           if (!botResponse || aiCantHelp || aiWasOffline || isFrustrated) {
             consecutiveFails.current += 1;
-            setShowAdvisorBtn(true);
-            if (!botResponse) {
-              addBotMessage(aiWasOffline
-                ? '⚠️ RevayBot no está disponible.'
-                : 'No pude resolver tu consulta.', 500);
-            }
-            // Auto-create human ticket after 3 consecutive fails
-            if (consecutiveFails.current >= 3 && !transferredToHumanRef.current) {
-              setTimeout(async () => {
-                const msg = 'El asistente IA no pudo resolver varias consultas seguidas.';
-                addBotMessage('🔃 Transfiriendo a un humano...', 1000);
-                await requestAdvisor(lastUserMsgRef.current || msg);
-              }, 2000);
-            }
           } else {
             consecutiveFails.current = 0;
+          }
+
+          if (consecutiveFails.current >= 3 && !transferredToHumanRef.current) {
+            addBotMessage('🔃 Transfiriendo a un humano...', 1000);
+            setTimeout(() => requestAdvisor(lastUserMsgRef.current), 2000);
           }
         }
       }
@@ -1061,17 +1050,6 @@ const SupportChat = () => {
                           <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Advisor button */}
-                  {showAdvisorBtn && chatMode !== 'waiting' && (
-                    <div className="flex justify-center pt-2">
-                      <button onClick={() => { setShowAdvisorBtn(false); requestAdvisor(lastUserMsgRef.current); }}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all active:scale-95">
-                        <Headphones size={15} />
-                        Hablar con humano
-                      </button>
                     </div>
                   )}
 

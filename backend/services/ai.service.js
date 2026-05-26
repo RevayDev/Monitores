@@ -131,15 +131,27 @@ const NAME_STRIP =
   /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
 
 const sanitizeContent = (content) => {
-  if (typeof content !== 'string') {
-    return '';
-  }
-
+  if (typeof content !== 'string') return '';
   return content
     .replace(UUID_STRIP, '')
     .replace(IMAGE_STRIP, '')
     .replace(NAME_STRIP, '')
     .trim();
+};
+
+// Brute-force final sanitization (strip ANY {UUID}.ext pattern)
+const FINAL_STRIP = /\{[A-Fa-f0-9-]{36}\}\..{3,4}\b/gi;
+const finalSanitize = (content) => {
+  if (typeof content !== 'string') return '';
+  let c = content;
+  // Run 3 passes to catch any remaining
+  for (let i = 0; i < 3; i++) {
+    c = c.replace(FINAL_STRIP, '');
+    c = c.replace(UUID_STRIP, '');
+    c = c.replace(IMAGE_STRIP, '');
+    c = c.replace(NAME_STRIP, '');
+  }
+  return c.trim();
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -155,74 +167,59 @@ const IMAGE_PATTERN =
 
 const MODEL_TIMEOUT = 45000;
 
+const FINAL_UUID = /\{[A-Fa-f0-9-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
+
 const tryModel = async (model, messages) => {
+  // 4 rounds of sanitization to ensure NO UUID reaches Ollama
   const cleanMessages = messages.map((m) => ({
     role: m.role,
-    content: sanitizeContent(m.content).slice(0, 700)
+    content: finalSanitize(m.content).slice(0, 700)
   }));
+
+  // Last-resort: strip from serialized JSON
+  const rawBody = JSON.stringify({
+    model,
+    stream: false,
+    keep_alive: '2m',
+    messages: cleanMessages,
+    options: { temperature: 0.3, num_predict: 80, num_ctx: 512, top_k: 20, top_p: 0.8 }
+  });
+  const safeBody = rawBody.replace(FINAL_UUID, '');
 
   console.log(`[Ollama] Sending to ${model}`);
 
   const ac = new AbortController();
-
-  const timer = setTimeout(() => {
-    ac.abort();
-  }, MODEL_TIMEOUT);
+  const timer = setTimeout(() => ac.abort(), MODEL_TIMEOUT);
 
   try {
     const res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
-
-      headers: {
-        'Content-Type': 'application/json'
-      },
-
+      headers: { 'Content-Type': 'application/json' },
       signal: ac.signal,
-
-      body: JSON.stringify({
-        model,
-
-        stream: false,
-
-        keep_alive: '2m',
-
-        messages: cleanMessages,
-
-        options: {
-          temperature: 0.3,
-          num_predict: 80,
-          num_ctx: 512,
-          top_k: 20,
-          top_p: 0.8
-        }
-      })
+      body: safeBody
     });
 
     clearTimeout(timer);
 
     if (!res.ok) {
-      throw new Error(await res.text());
+      const errText = await res.text();
+      // Sanitize error before logging (remove any UUIDs)
+      const safeErr = errText.replace(FINAL_UUID, '[UUID eliminado]');
+      throw new Error(safeErr);
     }
 
     const data = await res.json();
-
     const response = data?.message?.content?.trim();
-
-    if (!response) {
-      return null;
-    }
+    if (!response) return null;
 
     return sanitizeContent(response);
-
   } catch (err) {
     clearTimeout(timer);
-
     if (err.name === 'AbortError') {
       console.error(`Ollama ${model} timeout`);
     } else {
       console.error(`Ollama ${model} failed:`, err.message);
     }
-
     return null;
   }
 };
@@ -325,12 +322,15 @@ export const askQuestion = async (
     };
   }
 
-  // Out-of-scope detection (non-MONITORES topics)
-  const OUT_OF_SCOPE = /\b(capital de|presidente de|cuánto es |resultado de |operación matem|suma |resta |multiplic|división |historia de |geografía de |clima de |receta de |película |canción |deporte |noticias de |política de |economía de |filosofía de |religión de |poema |cuento |chiste |traduce |tradúceme|idioma |quién fue |qué es el |qué es la |qué son los|diferencia entre |que significa |definición de|origen de)\b/i;
-  if (OUT_OF_SCOPE.test(message) && !/monitore|módulo|horario|sede|cuatrimestre|programa|asistencia|qr|foro|soporte|perfil|contraseña|login|registro|inscribir/i.test(message)) {
-    const msg = 'Solo soy un chat de soporte de MONITORES. No puedo responder eso.';
-    session.messages.push({ role: 'assistant', content: msg });
-    return { response: msg, expiresAt: session.expiresAt };
+  // Out-of-scope detection (no enviar a IA preguntas no-MONITORES)
+  const OUT_OF_SCOPE = /\b(capital de|presidente de|cuánto es |resultado de |operación matem|suma |resta |multiplic|división |historia de |geografía de |clima de |receta de |película |canción |deporte |noticias de |política de |economía de |filosofía de |religión de |poema |cuento |chiste |traduce |tradúceme|idioma |quién fue |qué es el |qué es la |qué son los|diferencia entre |que significa |definición de|origen de|cuál es la capital|quién descubrió|año de |fecha de |edad de |peso de |altura de)\b/i;
+  const MATH_PATTERN = /\d+\s*[+\-*/^]\s*\d+|\b(cuánto es|suma|resta|multiplica|divide)\b.*\d+/i;
+  if (!/monitore|módulo|horario|sede|cuatrimestre|programa|asistencia|qr|foro|soporte|perfil|contraseña|login|registro|inscribir|olvidé|olvide|recuperar|cambiar|error|problema|ayuda|como|qué es|qué son/i.test(message)) {
+    if (OUT_OF_SCOPE.test(message) || MATH_PATTERN.test(message)) {
+      const msg = 'Solo soy un chat de soporte de MONITORES. No puedo responder eso.';
+      session.messages.push({ role: 'assistant', content: msg });
+      return { response: msg, expiresAt: session.expiresAt };
+    }
   }
 
   if (IMAGE_PATTERN.test(message)) {
