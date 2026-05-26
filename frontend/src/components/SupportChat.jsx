@@ -254,7 +254,7 @@ const QUICK_SUGGESTIONS = [
   { label: '📋 Estado de mi registro', message: '¿Cómo puedo verificar el estado de mi inscripción a una monitoría?' },
   { label: '🐛 Reportar un error', message: 'Encontré un error en la plataforma y quiero reportarlo.' },
   { label: '📡 Problema con QR', message: 'Tengo un problema con el código QR de asistencia.' },
-  { label: '👤 Hablar con un asesor', message: 'asesor' },
+  { label: '🔍 No encuentro lo que busco', message: 'No encuentro la información que necesito en la plataforma.' },
 ];
 
 const detectIntent = (text) => {
@@ -1077,16 +1077,6 @@ const SupportChat = () => {
                       <button onClick={handleStartNewChat}
                         className="px-4 py-2 bg-brand-blue text-white text-xs font-black rounded-xl shadow-md hover:bg-brand-blue-dark transition-all active:scale-95">
                         Iniciar nuevo chat
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Advisor button — shows after first user message in bot mode */}
-                  {chatMode === 'bot' && messages.length > 1 && !isClosed && (
-                    <div className="pt-2 flex justify-center">
-                      <button onClick={() => requestAdvisor('Solicito hablar con un asesor en vivo.')}
-                        className="px-4 py-2.5 bg-brand-blue hover:bg-brand-blue-dark text-white text-[11px] font-black rounded-xl shadow-lg flex items-center gap-2 transition-all active:scale-95">
-                        <Headphones size={14} /> Hablar con un asesor
                       </button>
                     </div>
                   )}
