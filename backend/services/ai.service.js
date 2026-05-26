@@ -43,14 +43,24 @@ const UUID_PATTERN = /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|d
 const sanitizeContent = (content) => (content || '').replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
 const sanitizePrompt = (prompt) => prompt.replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
 
+const MODEL_TIMEOUT = 55000; // 55s (frontend timeout is 60s)
+
 const tryModel = async (model, prompt) => {
   const cleanPrompt = sanitizePrompt(prompt);
   console.log(`[Ollama] Sending to ${model} (${cleanPrompt.length} chars)`);
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, options: { temperature: 0.7, max_tokens: 500 } })
-  });
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), MODEL_TIMEOUT);
+  let res;
+  try {
+    res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, options: { temperature: 0.7, max_tokens: 500 } }),
+      signal: ac.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     const isImageErr = /cannot read.*not support image/i.test(body);
