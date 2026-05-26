@@ -45,17 +45,17 @@ const sanitizePrompt = (prompt) => prompt.replace(FILE_REF_PATTERN, '').replace(
 
 const MODEL_TIMEOUT = 180000; // 3 min (modelo lento en CPU la primera vez)
 
-const tryModel = async (model, prompt) => {
-  const cleanPrompt = sanitizePrompt(prompt);
-  console.log(`[Ollama] Sending to ${model} (${cleanPrompt.length} chars)`);
+const tryModel = async (model, messages) => {
+  const clean = messages.map(m => ({ ...m, content: sanitizeContent(m.content) }));
+  console.log(`[Ollama] Sending to ${model} (${clean.length} messages)`);
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), MODEL_TIMEOUT);
   let res;
   try {
-    res = await fetch(`${OLLAMA_URL}/api/generate`, {
+    res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, keep_alive: '10m', options: { temperature: 0.7, max_tokens: 150 } }),
+      body: JSON.stringify({ model, messages: clean, stream: false, keep_alive: '10m', options: { temperature: 0.7, max_tokens: 150 } }),
       signal: ac.signal
     });
   } finally {
@@ -67,17 +67,16 @@ const tryModel = async (model, prompt) => {
     throw new Error(isImageErr ? 'Ollama_rechazo_imagen' : body);
   }
   const data = await res.json();
-  if (!data.response) throw new Error('Empty response from Ollama');
-  return data.response;
+  const content = data?.message?.content;
+  if (!content) throw new Error('Empty response from Ollama');
+  // Strip accidental system prompt regurgitation
+  return content.replace(/^(System:|Eres RevayBo[ T]).*/i, '').trim() || content;
 };
 
 const callOllama = async (messages) => {
-  const clean = messages.map(m => ({ ...m, content: sanitizeContent(m.content) }));
-  const prompt = clean.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
-
   for (const model of OLLAMA_MODELS) {
     try {
-      const result = await tryModel(model, prompt);
+      const result = await tryModel(model, messages);
       if (result !== null) return result;
     } catch (err) {
       if (err.message === 'Ollama_rechazo_imagen') {
@@ -126,8 +125,7 @@ export const askQuestion = async (sessionId, message) => {
   session.expiresAt = Date.now() + SESSION_TTL;
 
   const contextMessages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'system', content: 'Conocimiento:\n' + session.knowledge },
+    { role: 'system', content: SYSTEM_PROMPT + '\n\nConocimiento:\n' + session.knowledge },
     ...session.messages.slice(-20).map(m => ({ ...m, content: sanitizeContent(m.content) }))
   ];
 
@@ -148,10 +146,10 @@ export const warmUpModel = async () => {
   if (!model) return;
   console.log(`[Ollama] Pre-cargando modelo ${model}...`);
   try {
-    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: 'responde "ok"', stream: false, keep_alive: '30m', options: { temperature: 0.1, max_tokens: 5 } }),
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'responde "ok"' }], stream: false, keep_alive: '30m', options: { temperature: 0.1, max_tokens: 5 } }),
       signal: AbortSignal.timeout(120_000)
     });
     if (res.ok) console.log(`[Ollama] Modelo ${model} precargado`);
