@@ -756,14 +756,19 @@ const SupportChat = () => {
             addBotMessage(botResponse, 500);
           }
 
-          // 3. Auto-escalate if AI can't help, frustrated, or too many fails
+          // 3. Show advisor button + auto-escalate when AI can't help
           if (!botResponse || aiCantHelp || aiWasOffline || isFrustrated) {
             consecutiveFails.current += 1;
+            setShowAdvisorBtn(true);
+            if (!botResponse) {
+              addBotMessage(aiWasOffline ? '⚠️ Intenta de nuevo.' : 'No pude resolverlo.', 500);
+            }
           } else {
             consecutiveFails.current = 0;
           }
 
           if (consecutiveFails.current >= 3 && !transferredToHumanRef.current) {
+            setShowAdvisorBtn(false);
             addBotMessage('🔃 Transfiriendo a un humano...', 1000);
             setTimeout(() => requestAdvisor(lastUserMsgRef.current), 2000);
           }
@@ -1050,6 +1055,17 @@ const SupportChat = () => {
                           <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Advisor button — only when AI can't help */}
+                  {showAdvisorBtn && chatMode !== 'waiting' && (
+                    <div className="flex justify-center pt-2">
+                      <button onClick={() => { setShowAdvisorBtn(false); requestAdvisor(lastUserMsgRef.current); }}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all active:scale-95">
+                        <Headphones size={15} />
+                        Hablar con asesor
+                      </button>
                     </div>
                   )}
 
