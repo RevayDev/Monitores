@@ -55,7 +55,7 @@ const tryModel = async (model, prompt) => {
     res = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, options: { temperature: 0.7, max_tokens: 500 } }),
+      body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, keep_alive: '10m', options: { temperature: 0.7, max_tokens: 500 } }),
       signal: ac.signal
     });
   } finally {
@@ -108,7 +108,7 @@ export const createSession = (userId, role) => {
 };
 
 // ── Image detection ────────────────────────────────────────────────────
-const IMAGE_PATTERN = /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\\\{[0-9A-Fa-f-]{36}\\\}\.png/i;
+const IMAGE_PATTERN = /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\{[0-9A-Fa-f-]{36}\}\.png/i;
 
 export const askQuestion = async (sessionId, message) => {
   const session = sessions.get(sessionId);
@@ -138,8 +138,9 @@ export const askQuestion = async (sessionId, message) => {
     return { response: msg, aiOffline: true, expiresAt: session.expiresAt };
   }
 
-  session.messages.push({ role: 'assistant', content: response });
-  return { response, expiresAt: session.expiresAt };
+  const cleanResponse = sanitizeContent(response);
+  session.messages.push({ role: 'assistant', content: cleanResponse });
+  return { response: cleanResponse, expiresAt: session.expiresAt };
 };
 
 export const getSessionHistory = (sessionId) => {

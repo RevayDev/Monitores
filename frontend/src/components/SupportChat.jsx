@@ -734,11 +734,11 @@ const SupportChat = () => {
         setIsBotTyping(false);
         if (botResponse) {
           addBotMessage(botResponse, 500);
-          if (!intent || intent.resolved) {
+          if (intent && intent.resolved) {
             setTimeout(() => {
               addBotMessage('¿Necesitas ayuda con algo más?', 2000);
             }, 1500);
-          } else {
+          } else if (intent && !intent.resolved) {
             setTimeout(() => {
               addBotMessage('¿Quieres que te conecte con un asesor humano? 👤', 2000);
             }, 1500);
