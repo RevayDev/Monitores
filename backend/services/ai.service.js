@@ -34,19 +34,27 @@ const getKnowledge = (role) => {
 
 const SYSTEM_PROMPT = `Eres RevayBot, asistente de MONITORES. Responde SOLO en español, máximo 3 oraciones, directo y sin rodeos. Si no sabes algo, dilo. Usa "tú". Sé breve.`;
 
-// ── File/Image reference patterns to sanitize ──────────────────────────
-const FILE_REF_PATTERN = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)(["\s)\]>.,]|$)/gi;
-const STRIP_IMAGES_PATTERN = /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
-const UUID_PATTERN = /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)\b/gi;
-
 // ── Ollama call ────────────────────────────────────────────────────────
-const sanitizeContent = (content) => (content || '').replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
-const sanitizePrompt = (prompt) => prompt.replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
+const UUID_STRIP = /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
+const IMAGE_STRIP = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
+const NAME_STRIP = /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
+
+const sanitizeContent = (content) => {
+  if (typeof content !== 'string') return content;
+  return content.replace(UUID_STRIP, '').replace(IMAGE_STRIP, '').replace(NAME_STRIP, '');
+};
 
 const MODEL_TIMEOUT = 180000; // 3 min (modelo lento en CPU la primera vez)
 
 const tryModel = async (model, messages) => {
-  const clean = messages.map(m => ({ ...m, content: sanitizeContent(m.content) }));
+  // Triple sanitización: mensajes individuales, luego contenido, luego final
+  const clean = messages.map(m => ({
+    ...m,
+    content: sanitizeContent(m.content)
+      .replace(UUID_STRIP, '')
+      .replace(IMAGE_STRIP, '')
+      .replace(NAME_STRIP, '')
+  }));
   console.log(`[Ollama] Sending to ${model} (${clean.length} messages)`);
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), MODEL_TIMEOUT);
@@ -63,7 +71,7 @@ const tryModel = async (model, messages) => {
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    const isImageErr = /cannot read.*not support image/i.test(body);
+    const isImageErr = /cannot read[^]*not support image/i.test(body);
     throw new Error(isImageErr ? 'Ollama_rechazo_imagen' : body);
   }
   const data = await res.json();
