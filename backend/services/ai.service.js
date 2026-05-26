@@ -4,226 +4,360 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
-const MODEL = 'qwen2.5:1.5b';
+/*
+  MODELOS RECOMENDADOS PARA CPU:
+  - qwen2:0.5b  -> mejor equilibrio
+  - phi3:mini   -> más inteligente pero más lento
+*/
+const OLLAMA_MODELS = ['qwen2:0.5b'];
 
 const sessions = new Map();
 
 const SESSION_TTL = 30 * 60 * 1000;
 
-// ─────────────────────────────────────────────────────────────
-// LOAD KNOWLEDGE ONLY ONCE
-// ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
+   KNOWLEDGE
+────────────────────────────────────────────────────────────── */
 
 const loadMdFiles = (dir) => {
   try {
     const fullPath = path.resolve(__dirname, '..', dir);
 
-    if (!fs.existsSync(fullPath)) return '';
+    if (!fs.existsSync(fullPath)) {
+      return '';
+    }
 
-    return fs.readdirSync(fullPath)
-      .filter(f => f.endsWith('.md'))
-      .map(f => fs.readFileSync(path.join(fullPath, f), 'utf8'))
-      .join('\n\n');
+    const files = fs
+      .readdirSync(fullPath)
+      .filter(file => file.endsWith('.md'));
+
+    let content = '';
+
+    for (const file of files) {
+      const filePath = path.join(fullPath, file);
+
+      content += fs.readFileSync(filePath, 'utf8') + '\n\n';
+    }
+
+    return content.slice(0, 2500);
 
   } catch (err) {
-    console.error('Knowledge load error:', err);
+    console.error('[AI] Error loading markdown:', err.message);
     return '';
   }
 };
 
-const PUBLIC_KNOWLEDGE = loadMdFiles('knowledge/public');
-const TECH_KNOWLEDGE = loadMdFiles('knowledge/technical');
-
 const getKnowledge = (role) => {
-  const isDev = ['admin', 'dev']
-    .includes(String(role || '').toLowerCase());
+  const publicKnowledge = loadMdFiles('knowledge/public');
 
-  return isDev
-    ? `${PUBLIC_KNOWLEDGE}\n${TECH_KNOWLEDGE}`
-    : PUBLIC_KNOWLEDGE;
+  if (['admin', 'dev'].includes(String(role).toLowerCase())) {
+    return (
+      publicKnowledge +
+      '\n' +
+      loadMdFiles('knowledge/technical')
+    ).slice(0, 3000);
+  }
+
+  return publicKnowledge;
 };
 
-// ─────────────────────────────────────────────────────────────
-// SYSTEM PROMPT
-// ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
+   SYSTEM PROMPT
+────────────────────────────────────────────────────────────── */
 
 const SYSTEM_PROMPT = `
 Eres RevayBot, asistente oficial de MONITORES.
 
-Reglas:
+REGLAS:
 - Responde SOLO en español.
 - Máximo 3 oraciones.
-- Sé breve y claro.
+- Sé breve y directo.
 - No inventes información.
 - Si no sabes algo, dilo.
-- Ayudas con la plataforma MONITORES.
+- No uses markdown.
+- No uses listas largas.
+- Ayuda con la plataforma MONITORES.
+- Si el usuario necesita ayuda humana, sugiere hablar con un asesor.
 `;
 
-// ─────────────────────────────────────────────────────────────
-// SANITIZE
-// ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
+   SANITIZE
+────────────────────────────────────────────────────────────── */
 
-const IMAGE_REGEX =
+const UUID_STRIP =
   /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
 
-const sanitize = (text = '') =>
-  text.replace(IMAGE_REGEX, '').trim();
+const IMAGE_STRIP =
+  /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
 
-// ─────────────────────────────────────────────────────────────
-// OLLAMA
-// ─────────────────────────────────────────────────────────────
+const NAME_STRIP =
+  /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
 
-const askOllama = async (messages) => {
+const sanitizeContent = (content) => {
+  if (typeof content !== 'string') {
+    return '';
+  }
 
-  const controller = new AbortController();
+  return content
+    .replace(UUID_STRIP, '')
+    .replace(IMAGE_STRIP, '')
+    .replace(NAME_STRIP, '')
+    .trim();
+};
 
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 45000);
+/* ──────────────────────────────────────────────────────────────
+   IMAGE DETECTION
+────────────────────────────────────────────────────────────── */
+
+const IMAGE_PATTERN =
+  /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\{[0-9A-Fa-f-]{36}\}\.png/i;
+
+/* ──────────────────────────────────────────────────────────────
+   OLLAMA
+────────────────────────────────────────────────────────────── */
+
+const MODEL_TIMEOUT = 45000;
+
+const tryModel = async (model, messages) => {
+  const cleanMessages = messages.map((m) => ({
+    role: m.role,
+    content: sanitizeContent(m.content).slice(0, 700)
+  }));
+
+  console.log(`[Ollama] Sending to ${model}`);
+
+  const ac = new AbortController();
+
+  const timer = setTimeout(() => {
+    ac.abort();
+  }, MODEL_TIMEOUT);
 
   try {
-
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
+
       headers: {
         'Content-Type': 'application/json'
       },
 
-      signal: controller.signal,
+      signal: ac.signal,
 
       body: JSON.stringify({
-        model: MODEL,
+        model,
 
         stream: false,
 
-        keep_alive: '5m',
+        keep_alive: '2m',
+
+        messages: cleanMessages,
 
         options: {
           temperature: 0.3,
           num_predict: 80,
-          num_ctx: 2048
-        },
-
-        messages
+          num_ctx: 512,
+          top_k: 20,
+          top_p: 0.8
+        }
       })
     });
 
-    if (!response.ok) {
-      throw new Error(await response.text());
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      throw new Error(await res.text());
     }
 
-    const data = await response.json();
+    const data = await res.json();
 
-    return data?.message?.content?.trim();
+    const response = data?.message?.content?.trim();
 
-  } finally {
-    clearTimeout(timeout);
+    if (!response) {
+      return null;
+    }
+
+    return sanitizeContent(response);
+
+  } catch (err) {
+    clearTimeout(timer);
+
+    if (err.name === 'AbortError') {
+      console.error(`Ollama ${model} timeout`);
+    } else {
+      console.error(`Ollama ${model} failed:`, err.message);
+    }
+
+    return null;
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// CREATE SESSION
-// ─────────────────────────────────────────────────────────────
+const callOllama = async (messages) => {
+  for (const model of OLLAMA_MODELS) {
+    const response = await tryModel(model, messages);
 
-export const createSession = (userId, role) => {
+    if (response) {
+      return response;
+    }
+  }
 
+  return null;
+};
+
+/* ──────────────────────────────────────────────────────────────
+   SESSION CLEANUP
+────────────────────────────────────────────────────────────── */
+
+const cleanExpired = () => {
+  const now = Date.now();
+
+  for (const [id, session] of sessions.entries()) {
+    if (now > session.expiresAt) {
+      sessions.delete(id);
+    }
+  }
+};
+
+const cleanupTimer = setInterval(cleanExpired, 60_000);
+
+export const cleanupInterval = () => {
+  clearInterval(cleanupTimer);
+};
+
+export const clearAllSessions = () => {
+  sessions.clear();
+};
+
+/* ──────────────────────────────────────────────────────────────
+   CREATE SESSION
+────────────────────────────────────────────────────────────── */
+
+export const createSession = (userId, role = 'user') => {
   const sessionId =
-    `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    `session_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+  const expiresAt = Date.now() + SESSION_TTL;
 
   sessions.set(sessionId, {
     userId,
     role,
-
-    knowledge: getKnowledge(role)
-      .slice(0, 4000),
-
-    messages: [],
-
-    expiresAt: Date.now() + SESSION_TTL
+    expiresAt,
+    knowledge: getKnowledge(role),
+    messages: []
   });
+
+  console.log(
+    `[AI] Session created for ${userId} (${role})`
+  );
 
   return {
     sessionId,
-    expiresAt: Date.now() + SESSION_TTL
+    expiresAt
   };
 };
 
-// ─────────────────────────────────────────────────────────────
-// ASK QUESTION
-// ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
+   ASK QUESTION
+────────────────────────────────────────────────────────────── */
 
-export const askQuestion = async (sessionId, message) => {
+export const askQuestion = async (
+  sessionId,
+  message
+) => {
 
   const session = sessions.get(sessionId);
 
   if (!session) {
     return {
-      error: 'Sesión inválida.'
+      error:
+        'Sesión inválida o expirada.'
     };
   }
 
   if (Date.now() > session.expiresAt) {
-
     sessions.delete(sessionId);
 
     return {
-      error: 'Sesión expirada.'
+      error:
+        'La sesión expiró. Inicia una nueva conversación.'
     };
   }
 
-  const cleanMessage = sanitize(message);
+  if (
+    !message ||
+    typeof message !== 'string'
+  ) {
+    return {
+      error:
+        'Mensaje inválido.'
+    };
+  }
+
+  if (IMAGE_PATTERN.test(message)) {
+    const msg =
+      '⚠️ RevayBot no puede analizar imágenes o archivos. Describe tu problema en texto.';
+
+    session.messages.push({
+      role: 'assistant',
+      content: msg
+    });
+
+    return {
+      response: msg,
+      expiresAt: session.expiresAt
+    };
+  }
+
+  const cleanUserMessage =
+    sanitizeContent(message).slice(0, 700);
 
   session.messages.push({
     role: 'user',
-    content: cleanMessage
+    content: cleanUserMessage
   });
 
-  // LIMIT HISTORY
-  const history = session.messages.slice(-6);
+  session.expiresAt =
+    Date.now() + SESSION_TTL;
 
   const messages = [
-
     {
       role: 'system',
       content:
-        SYSTEM_PROMPT +
-        '\n\n' +
-        session.knowledge
+        `${SYSTEM_PROMPT}\n\n${session.knowledge}`
     },
 
-    ...history
+    ...session.messages
+      .slice(-4)
+      .map((m) => ({
+        role: m.role,
+        content: sanitizeContent(m.content)
+      }))
   ];
 
-  let response;
-
-  try {
-
-    response = await askOllama(messages);
-
-  } catch (err) {
-
-    console.error('Ollama error:', err.message);
-
-    return {
-      response:
-        '⚠️ La IA no está disponible ahora mismo.'
-    };
-  }
+  const response = await callOllama(messages);
 
   if (!response) {
-    response = 'No pude generar respuesta.';
-  }
+    const fallback =
+      '⚠️ RevayBot está temporalmente ocupado. Intenta nuevamente en unos segundos o escribe "asesor".';
 
-  response = sanitize(response);
+    session.messages.push({
+      role: 'assistant',
+      content: fallback
+    });
+
+    return {
+      response: fallback,
+      aiOffline: true,
+      expiresAt: session.expiresAt
+    };
+  }
 
   session.messages.push({
     role: 'assistant',
     content: response
   });
-
-  session.expiresAt = Date.now() + SESSION_TTL;
 
   return {
     response,
@@ -231,53 +365,36 @@ export const askQuestion = async (sessionId, message) => {
   };
 };
 
-// ─────────────────────────────────────────────────────────────
-// CLEANUP
-// ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
+   HISTORY
+────────────────────────────────────────────────────────────── */
 
-setInterval(() => {
+export const getSessionHistory = (
+  sessionId
+) => {
 
-  const now = Date.now();
+  const session = sessions.get(sessionId);
 
-  for (const [id, session] of sessions) {
-
-    if (now > session.expiresAt) {
-      sessions.delete(id);
-    }
+  if (!session) {
+    return null;
   }
 
-}, 60000);
+  return session.messages.map((m) => ({
+    role:
+      m.role === 'user'
+        ? 'Usuario'
+        : 'RevayBot',
 
-// ─────────────────────────────────────────────────────────────
-// WARMUP
-// ─────────────────────────────────────────────────────────────
+    content: m.content
+  }));
+};
+
+/* ──────────────────────────────────────────────────────────────
+   WARMUP DESACTIVADO
+────────────────────────────────────────────────────────────── */
 
 export const warmUpModel = async () => {
-
-  console.log(`[AI] Warming up ${MODEL}...`);
-
-  try {
-
-    await fetch(`${OLLAMA_URL}/api/generate`, {
-
-      method: 'POST',
-
-      headers: {
-        'Content-Type': 'application/json'
-      },
-
-      body: JSON.stringify({
-        model: MODEL,
-        prompt: 'hola',
-        stream: false
-      })
-
-    });
-
-    console.log('[AI] Warmup complete');
-
-  } catch (err) {
-
-    console.warn('[AI] Warmup failed:', err.message);
-  }
+  console.log(
+    '[Ollama] Warm-up desactivado para ahorrar CPU'
+  );
 };
