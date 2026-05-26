@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const OLLAMA_MODELS = ['qwen2.5:3b', 'tinyllama'];
+const OLLAMA_MODELS = ['tinyllama'];
 
 const sessions = new Map();
 const SESSION_TTL = 30 * 60 * 1000;
@@ -128,7 +128,7 @@ export const askQuestion = async (sessionId, message) => {
   const contextMessages = [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'system', content: 'Conocimiento:\n' + session.knowledge },
-    ...session.messages.slice(-20)
+    ...session.messages.slice(-20).map(m => ({ ...m, content: sanitizeContent(m.content) }))
   ];
 
   const response = await callOllama(contextMessages);
