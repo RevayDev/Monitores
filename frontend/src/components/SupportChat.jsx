@@ -294,6 +294,7 @@ const SupportChat = () => {
   const [inputValue, setInputValue] = useState('');
   const [isBotTyping, setIsBotTyping] = useState(false); // bot "..." animation
   const [advisorTyping, setAdvisorTyping] = useState(false); // advisor typing indicator
+  const [isUserTyping, setIsUserTyping] = useState(false);
 
   // Messages
   const [messages, setMessages] = useState([{
@@ -723,7 +724,7 @@ const SupportChat = () => {
               if (!cantHelp) botResponse = res.response;
             }
           }
-        } catch { /* AI failed or timed out */ }
+        } catch (err) { console.warn('[RevayBot] AI request failed:', err); }
         // Fallback: BOT_INTENTS keyword matching
         const intent = !botResponse ? detectIntent(trimmed) : null;
         if (intent) {
