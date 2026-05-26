@@ -3,176 +3,281 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const OLLAMA_MODELS = ['tinyllama'];
+
+const MODEL = 'qwen2.5:1.5b';
 
 const sessions = new Map();
+
 const SESSION_TTL = 30 * 60 * 1000;
 
-// ── Knowledge loading ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// LOAD KNOWLEDGE ONLY ONCE
+// ─────────────────────────────────────────────────────────────
+
 const loadMdFiles = (dir) => {
-  const fullPath = path.resolve(__dirname, '..', dir);
-  let content = '';
   try {
-    if (fs.existsSync(fullPath)) {
-      const files = fs.readdirSync(fullPath).filter(f => f.endsWith('.md'));
-      for (const file of files) {
-        content += fs.readFileSync(path.join(fullPath, file), 'utf-8') + '\n\n';
-      }
-    }
-  } catch (err) { console.error('Error loading markdown files:', err); }
-  return content;
+    const fullPath = path.resolve(__dirname, '..', dir);
+
+    if (!fs.existsSync(fullPath)) return '';
+
+    return fs.readdirSync(fullPath)
+      .filter(f => f.endsWith('.md'))
+      .map(f => fs.readFileSync(path.join(fullPath, f), 'utf8'))
+      .join('\n\n');
+
+  } catch (err) {
+    console.error('Knowledge load error:', err);
+    return '';
+  }
 };
+
+const PUBLIC_KNOWLEDGE = loadMdFiles('knowledge/public');
+const TECH_KNOWLEDGE = loadMdFiles('knowledge/technical');
 
 const getKnowledge = (role) => {
-  const publicKnowledge = loadMdFiles('knowledge/public');
-  if (['admin', 'dev'].includes(String(role || '').toLowerCase())) {
-    return publicKnowledge + '\n' + loadMdFiles('knowledge/technical');
-  }
-  return publicKnowledge;
+  const isDev = ['admin', 'dev']
+    .includes(String(role || '').toLowerCase());
+
+  return isDev
+    ? `${PUBLIC_KNOWLEDGE}\n${TECH_KNOWLEDGE}`
+    : PUBLIC_KNOWLEDGE;
 };
 
-const SYSTEM_PROMPT = `Eres RevayBot, asistente de MONITORES. Responde SOLO en español, máximo 3 oraciones, directo y sin rodeos. Si no sabes algo, dilo. Usa "tú". Sé breve.`;
+// ─────────────────────────────────────────────────────────────
+// SYSTEM PROMPT
+// ─────────────────────────────────────────────────────────────
 
-// ── Ollama call ────────────────────────────────────────────────────────
-const UUID_STRIP = /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
-const IMAGE_STRIP = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
-const NAME_STRIP = /\b\w+\.(png|jpg|jpeg|gif|webp|bmp|svg)\b/gi;
+const SYSTEM_PROMPT = `
+Eres RevayBot, asistente oficial de MONITORES.
 
-const sanitizeContent = (content) => {
-  if (typeof content !== 'string') return content;
-  return content.replace(UUID_STRIP, '').replace(IMAGE_STRIP, '').replace(NAME_STRIP, '');
-};
+Reglas:
+- Responde SOLO en español.
+- Máximo 3 oraciones.
+- Sé breve y claro.
+- No inventes información.
+- Si no sabes algo, dilo.
+- Ayudas con la plataforma MONITORES.
+`;
 
-const MODEL_TIMEOUT = 180000; // 3 min (modelo lento en CPU la primera vez)
+// ─────────────────────────────────────────────────────────────
+// SANITIZE
+// ─────────────────────────────────────────────────────────────
 
-const tryModel = async (model, messages) => {
-  // Triple sanitización: mensajes individuales, luego contenido, luego final
-  const clean = messages.map(m => ({
-    ...m,
-    content: sanitizeContent(m.content)
-      .replace(UUID_STRIP, '')
-      .replace(IMAGE_STRIP, '')
-      .replace(NAME_STRIP, '')
-  }));
-  console.log(`[Ollama] Sending to ${model} (${clean.length} messages)`);
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), MODEL_TIMEOUT);
-  let res;
+const IMAGE_REGEX =
+  /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg)/gi;
+
+const sanitize = (text = '') =>
+  text.replace(IMAGE_REGEX, '').trim();
+
+// ─────────────────────────────────────────────────────────────
+// OLLAMA
+// ─────────────────────────────────────────────────────────────
+
+const askOllama = async (messages) => {
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, 45000);
+
   try {
-    res = await fetch(`${OLLAMA_URL}/api/chat`, {
+
+    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages: clean, stream: false, keep_alive: '10m', options: { temperature: 0.7, max_tokens: 150 } }),
-      signal: ac.signal
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      signal: controller.signal,
+
+      body: JSON.stringify({
+        model: MODEL,
+
+        stream: false,
+
+        keep_alive: '5m',
+
+        options: {
+          temperature: 0.3,
+          num_predict: 80,
+          num_ctx: 2048
+        },
+
+        messages
+      })
     });
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    const isImageErr = /cannot read[^]*not support image/i.test(body);
-    throw new Error(isImageErr ? 'Ollama_rechazo_imagen' : body);
-  }
-  const data = await res.json();
-  const content = data?.message?.content;
-  if (!content) throw new Error('Empty response from Ollama');
-  // Strip accidental system prompt regurgitation
-  return content.replace(/^(System:|Eres RevayBo[ T]).*/i, '').trim() || content;
-};
 
-const callOllama = async (messages) => {
-  for (const model of OLLAMA_MODELS) {
-    try {
-      const result = await tryModel(model, messages);
-      if (result !== null) return result;
-    } catch (err) {
-      if (err.message === 'Ollama_rechazo_imagen') {
-        console.error(`Ollama ${model} rejected prompt due to image reference`);
-      } else {
-        console.error(`Ollama ${model} failed:`, err.message);
-      }
+    if (!response.ok) {
+      throw new Error(await response.text());
     }
+
+    const data = await response.json();
+
+    return data?.message?.content?.trim();
+
+  } finally {
+    clearTimeout(timeout);
   }
-  return null;
 };
 
-// ── Session management ────────────────────────────────────────────────
-const cleanExpired = () => {
-  const now = Date.now();
-  for (const [id, session] of sessions) {
-    if (now > session.expiresAt) sessions.delete(id);
-  }
-};
-const cleanupTimer = setInterval(cleanExpired, 60_000);
-export const cleanupInterval = () => clearInterval(cleanupTimer);
-export const clearAllSessions = () => { sessions.clear(); };
+// ─────────────────────────────────────────────────────────────
+// CREATE SESSION
+// ─────────────────────────────────────────────────────────────
 
 export const createSession = (userId, role) => {
-  const id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  sessions.set(id, { userId, role, messages: [], expiresAt: Date.now() + SESSION_TTL, knowledge: getKnowledge(role) });
-  return { sessionId: id, expiresAt: Date.now() + SESSION_TTL };
+
+  const sessionId =
+    `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  sessions.set(sessionId, {
+    userId,
+    role,
+
+    knowledge: getKnowledge(role)
+      .slice(0, 4000),
+
+    messages: [],
+
+    expiresAt: Date.now() + SESSION_TTL
+  });
+
+  return {
+    sessionId,
+    expiresAt: Date.now() + SESSION_TTL
+  };
 };
 
-// ── Image detection ────────────────────────────────────────────────────
-const IMAGE_PATTERN = /!\[imagen\]\(https?:\/\/[^\s)]+\)|\.(png|jpg|jpeg|gif|webp|bmp|svg)|\{[0-9A-Fa-f-]{36}\}\.png/i;
+// ─────────────────────────────────────────────────────────────
+// ASK QUESTION
+// ─────────────────────────────────────────────────────────────
 
 export const askQuestion = async (sessionId, message) => {
-  const session = sessions.get(sessionId);
-  if (!session) return { error: 'Sesión expirada o inválida. Inicia una nueva conversación.' };
-  if (Date.now() > session.expiresAt) { sessions.delete(sessionId); return { error: 'Sesión expirada. Inicia una nueva conversación.' }; }
 
-  // If the message contains image/file references, return early
-  if (IMAGE_PATTERN.test(message)) {
-    const imgResponse = '⚠️ RevayBot no procesa imágenes ni archivos. Solo puedo responder preguntas escritas sobre la plataforma MONITORES. Describe tu consulta con texto y te ayudo. 📝';
-    session.messages.push({ role: 'user', content: message }, { role: 'assistant', content: imgResponse });
-    return { response: imgResponse, expiresAt: session.expiresAt };
+  const session = sessions.get(sessionId);
+
+  if (!session) {
+    return {
+      error: 'Sesión inválida.'
+    };
   }
 
-  session.messages.push({ role: 'user', content: message });
-  session.expiresAt = Date.now() + SESSION_TTL;
+  if (Date.now() > session.expiresAt) {
 
-  const contextMessages = [
-    { role: 'system', content: SYSTEM_PROMPT + '\n\nConocimiento:\n' + session.knowledge },
-    ...session.messages.slice(-20).map(m => ({ ...m, content: sanitizeContent(m.content) }))
+    sessions.delete(sessionId);
+
+    return {
+      error: 'Sesión expirada.'
+    };
+  }
+
+  const cleanMessage = sanitize(message);
+
+  session.messages.push({
+    role: 'user',
+    content: cleanMessage
+  });
+
+  // LIMIT HISTORY
+  const history = session.messages.slice(-6);
+
+  const messages = [
+
+    {
+      role: 'system',
+      content:
+        SYSTEM_PROMPT +
+        '\n\n' +
+        session.knowledge
+    },
+
+    ...history
   ];
 
-  const response = await callOllama(contextMessages);
-  if (response === null) {
-    const msg = '⚠️ No hay conexión con la IA local (Ollama). RevayBot no está disponible. Si necesitas ayuda, escribe "asesor" para hablar con un humano.';
-    session.messages.push({ role: 'assistant', content: msg });
-    return { response: msg, aiOffline: true, expiresAt: session.expiresAt };
+  let response;
+
+  try {
+
+    response = await askOllama(messages);
+
+  } catch (err) {
+
+    console.error('Ollama error:', err.message);
+
+    return {
+      response:
+        '⚠️ La IA no está disponible ahora mismo.'
+    };
   }
 
-  const cleanResponse = sanitizeContent(response);
-  session.messages.push({ role: 'assistant', content: cleanResponse });
-  return { response: cleanResponse, expiresAt: session.expiresAt };
+  if (!response) {
+    response = 'No pude generar respuesta.';
+  }
+
+  response = sanitize(response);
+
+  session.messages.push({
+    role: 'assistant',
+    content: response
+  });
+
+  session.expiresAt = Date.now() + SESSION_TTL;
+
+  return {
+    response,
+    expiresAt: session.expiresAt
+  };
 };
+
+// ─────────────────────────────────────────────────────────────
+// CLEANUP
+// ─────────────────────────────────────────────────────────────
+
+setInterval(() => {
+
+  const now = Date.now();
+
+  for (const [id, session] of sessions) {
+
+    if (now > session.expiresAt) {
+      sessions.delete(id);
+    }
+  }
+
+}, 60000);
+
+// ─────────────────────────────────────────────────────────────
+// WARMUP
+// ─────────────────────────────────────────────────────────────
 
 export const warmUpModel = async () => {
-  const model = OLLAMA_MODELS[0];
-  if (!model) return;
-  console.log(`[Ollama] Pre-cargando modelo ${model}...`);
-  try {
-    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'responde "ok"' }], stream: false, keep_alive: '30m', options: { temperature: 0.1, max_tokens: 5 } }),
-      signal: AbortSignal.timeout(120_000)
-    });
-    if (res.ok) console.log(`[Ollama] Modelo ${model} precargado`);
-    else console.warn(`[Ollama] Warm-up respondió con status ${res.status}`);
-  } catch (err) {
-    if (err.name === 'TimeoutError') console.warn(`[Ollama] Warm-up excedió tiempo (el modelo se cargará bajo demanda)`);
-    else console.warn(`[Ollama] Warm-up falló: ${err.message}`);
-  }
-};
 
-export const getSessionHistory = (sessionId) => {
-  const session = sessions.get(sessionId);
-  if (!session) return null;
-  return session.messages.map(m => ({
-    role: m.role === 'user' ? 'Usuario' : 'RevayBot',
-    content: m.content
-  }));
+  console.log(`[AI] Warming up ${MODEL}...`);
+
+  try {
+
+    await fetch(`${OLLAMA_URL}/api/generate`, {
+
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        model: MODEL,
+        prompt: 'hola',
+        stream: false
+      })
+
+    });
+
+    console.log('[AI] Warmup complete');
+
+  } catch (err) {
+
+    console.warn('[AI] Warmup failed:', err.message);
+  }
 };
