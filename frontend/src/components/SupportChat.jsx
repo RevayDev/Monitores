@@ -1157,14 +1157,11 @@ const SupportChat = () => {
                           {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
                         </button>
 
-                       <textarea
-                           ref={inputRef}
-                           value={inputValue}
-                           onChange={(e) => {
-                               setInputValue(e.target.value);
-                               handleUserTyping();
-                           }}
-                           onKeyDown={handleKeyDown}
+                        <textarea
+                            ref={inputRef}
+                            value={inputValue}
+                            onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                            placeholder={chatMode === 'live' ? 'Escribe al asesor...' : 'Escribe tu consulta aquí...'}
                            rows={1}
                            className="flex-1 bg-none text-xs text-slate-800 placeholder-slate-400 resize-none outline-none font-medium max-h-20 py-1 leading-relaxed border-none"

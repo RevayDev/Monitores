@@ -3,8 +3,8 @@ const API_URL = (() => {
   const fromEnvRaw = String(import.meta.env.VITE_API_URL || '').trim();
   const fromEnv = trimSlash(fromEnvRaw);
   if (import.meta.env.DEV) {
-    if (!fromEnv) return 'http://localhost:3000/api';
-    if (fromEnv.startsWith('/')) return 'http://localhost:3000/api';
+    if (!fromEnv) return '/api';
+    if (fromEnv.startsWith('/')) return '/api';
     return fromEnv;
   }
   if (fromEnv) return fromEnv;
