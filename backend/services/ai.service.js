@@ -18,69 +18,104 @@ const sessions = new Map();
 const SESSION_TTL = 30 * 60 * 1000;
 
 /* ──────────────────────────────────────────────────────────────
-   KNOWLEDGE
+   KNOWLEDGE - carga inteligente por tema
 ────────────────────────────────────────────────────────────── */
 
-const loadMdFiles = (dir) => {
+const loadMdFile = (filePath) => {
   try {
-    const fullPath = path.resolve(__dirname, '..', dir);
-
-    if (!fs.existsSync(fullPath)) {
-      return '';
-    }
-
-    const files = fs
-      .readdirSync(fullPath)
-      .filter(file => file.endsWith('.md'));
-
-    let content = '';
-
-    for (const file of files) {
-      const filePath = path.join(fullPath, file);
-
-      content += fs.readFileSync(filePath, 'utf8') + '\n\n';
-    }
-
-    return content.slice(0, 2500);
-
-  } catch (err) {
-    console.error('[AI] Error loading markdown:', err.message);
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
     return '';
   }
 };
 
-const getKnowledge = (role) => {
-  const publicKnowledge = loadMdFiles('knowledge/public');
+const STOP_WORDS = new Set([
+  'para', 'como', 'que', 'con', 'por', 'del', 'las', 'los', 'mas', 'pero',
+  'esta', 'este', 'entre', 'todo', 'tiene', 'hacer', 'puedo', 'debe', 'dice',
+  'sabe', 'well', 'very', 'una', 'uno', 'esa', 'eso', 'ese', 'sus', 'son',
+  'era', 'fue', 'han', 'has', 'hay', 'dos', 'tres', 'vez', 'cada', 'nada',
+  'algo', 'muy', 'asi', 'aqui', 'bien', 'solo', 'otro', 'otros', 'ante',
+  'sobre', 'hasta', 'contra', 'durante', 'mediante', 'segun', 'segun',
+  'donde', 'cuando', 'quien', 'cual', 'cuales', 'cuanto', 'cuanta',
+  'ningun', 'ninguna', 'tanto', 'tanta', 'varios', 'varias', 'mismo',
+  'misma', 'propio', 'propia', 'gran', 'grande', 'buen', 'buena', 'mal',
+  'mala', 'peor', 'mejor', 'mayor', 'menor', 'primer', 'primero', 'ultimo',
+  'ultima', 'siguiente', 'anterior', 'aquel', 'aquella', 'ello', 'le',
+  'lo', 'la', 'los', 'las', 'el', 'ella', 'ellos', 'ellas', 'nos',
+  'os', 'me', 'te', 'se', 'le', 'les', 'nos', 'os'
+]);
 
-  if (['admin', 'dev'].includes(String(role).toLowerCase())) {
-    return (
-      publicKnowledge +
-      '\n' +
-      loadMdFiles('knowledge/technical')
-    ).slice(0, 3000);
+const getRelevantKnowledge = (message, role) => {
+  const publicDir = path.resolve(__dirname, '..', 'knowledge', 'public');
+  const hasTechnical = ['admin', 'dev'].includes(String(role).toLowerCase());
+  const allFiles = [];
+
+  try {
+    if (fs.existsSync(publicDir)) {
+      for (const f of fs.readdirSync(publicDir).filter(f => f.endsWith('.md'))) {
+        allFiles.push({ name: f, path: path.join(publicDir, f), technical: false });
+      }
+    }
+    if (hasTechnical) {
+      const techDir = path.resolve(__dirname, '..', 'knowledge', 'technical');
+      if (fs.existsSync(techDir)) {
+        for (const f of fs.readdirSync(techDir).filter(f => f.endsWith('.md'))) {
+          allFiles.push({ name: f, path: path.join(techDir, f), technical: true });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[AI] Error reading knowledge dirs:', err.message);
+    return '';
   }
 
-  return publicKnowledge;
+  if (allFiles.length === 0) return '';
+
+  const msg = message.toLowerCase();
+  const words = msg.split(/[^a-záéíóúñ0-9]+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+  const keywords = [...new Set(words)];
+
+  // Score each file by keyword matches in filename (weight 5) and content (weight 2)
+  const scored = allFiles.map(f => {
+    const content = loadMdFile(f.path);
+    let score = 0;
+    for (const kw of keywords) {
+      if (f.name.toLowerCase().includes(kw)) score += 5;
+      if (content.toLowerCase().includes(kw)) score += 2;
+    }
+    return { ...f, content, score };
+  });
+
+  const relevant = scored.filter(f => f.score > 0).sort((a, b) => b.score - a.score);
+
+  if (relevant.length === 0) {
+    // No match: return only a brief generic summary
+    return '[MONITORES]\nSistema académico de gestión de monitorías. Soporta registro, login, inscripción a monitorías, asistencia QR, foros, y soporte.';
+  }
+
+  // Return top 2 most relevant files, max 1500 chars each
+  return relevant.slice(0, 2).map(f => {
+    const label = f.name.replace('.md', '').replace(/-/g, ' ');
+    const maxLen = 1500;
+    const body = f.content.length > maxLen ? f.content.slice(0, maxLen) + '...' : f.content;
+    return `[${label}]\n${body}`;
+  }).join('\n\n');
 };
 
 /* ──────────────────────────────────────────────────────────────
    SYSTEM PROMPT
 ────────────────────────────────────────────────────────────── */
 
-const SYSTEM_PROMPT = `
-Eres RevayBot, asistente oficial de MONITORES.
+const SYSTEM_PROMPT = `Eres RevayBot, asistente de soporte de MONITORES.
 
-REGLAS:
-- Responde SOLO en español.
-- Máximo 3 oraciones.
-- Sé breve y directo.
-- No inventes información.
-- Si no sabes algo, dilo.
-- No uses markdown.
-- No uses listas largas.
-- Ayuda con la plataforma MONITORES.
-- Si el usuario necesita ayuda humana, sugiere hablar con un asesor.
-`;
+REGLAS ESTRICTAS:
+1. Responde SOLO en español, máximo 3 oraciones.
+2. USA ÚNICAMENTE la información de los documentos que se te proporcionan abajo. NO inventes datos.
+3. Si el usuario pregunta algo que no está en los documentos o no es sobre MONITORES (matemáticas, clima, historia, etc.), responde: "Solo soy un chat de soporte de MONITORES. No puedo responder eso."
+4. Si no sabes la respuesta según los documentos, dilo honestamente.
+5. Si el usuario parece frustrado o la consulta necesita un humano, sugiere hablar con un asesor.
+6. Sé amable, calmado y directo. Usa "tú".
+7. NO uses markdown ni listas.`;
 
 /* ──────────────────────────────────────────────────────────────
    SANITIZE
@@ -195,12 +230,8 @@ const tryModel = async (model, messages) => {
 const callOllama = async (messages) => {
   for (const model of OLLAMA_MODELS) {
     const response = await tryModel(model, messages);
-
-    if (response) {
-      return response;
-    }
+    if (response) return response;
   }
-
   return null;
 };
 
@@ -244,7 +275,6 @@ export const createSession = (userId, role = 'user') => {
     userId,
     role,
     expiresAt,
-    knowledge: getKnowledge(role),
     messages: []
   });
 
@@ -321,11 +351,13 @@ export const askQuestion = async (
   session.expiresAt =
     Date.now() + SESSION_TTL;
 
+  const relevantKnowledge = getRelevantKnowledge(cleanUserMessage, session.role);
+
   const messages = [
     {
       role: 'system',
       content:
-        `${SYSTEM_PROMPT}\n\n${session.knowledge}`
+        `${SYSTEM_PROMPT}\n\nDocumentos:\n${relevantKnowledge}`
     },
 
     ...session.messages

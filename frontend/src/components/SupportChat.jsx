@@ -295,6 +295,7 @@ const SupportChat = () => {
   const [isBotTyping, setIsBotTyping] = useState(false); // bot "..." animation
   const [advisorTyping, setAdvisorTyping] = useState(false); // advisor typing indicator
   const [isUserTyping, setIsUserTyping] = useState(false);
+  const [showAdvisorBtn, setShowAdvisorBtn] = useState(false);
 
   // Messages
   const [messages, setMessages] = useState([{
@@ -321,6 +322,7 @@ const SupportChat = () => {
   const lastTypingEmitRef = useRef(0);      // throttle typing emit (like forum)
   const fileInputRef = useRef(null);        // hidden file input for attachments
   const aiSessionRef = useRef(null);
+  const lastUserMsgRef = useRef('');
   const transferredToHumanRef = useRef(false);
 
   // Attachments state (mirrors forum replyAttachments)
@@ -613,6 +615,7 @@ const SupportChat = () => {
   // ── Main send handler ─────────────────────────────────────────────────────
   const handleSend = async (textArg) => {
     const trimmed = (typeof textArg === 'string' ? textArg : inputValue).trim();
+    lastUserMsgRef.current = trimmed;
     const hasAttachments = attachments.length > 0;
     if ((!trimmed && !hasAttachments) || isSendingRef.current) return;
 
@@ -696,6 +699,7 @@ const SupportChat = () => {
 
       // ── BOT MODE — RevayBot AI response (fallback to BOT_INTENTS) ────────
       } else {
+        setShowAdvisorBtn(false);
         setMessages(prev => [...prev, {
           id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
           sender_role: 'user', text: fullMessage, time: new Date(),
@@ -703,6 +707,10 @@ const SupportChat = () => {
         setIsBotTyping(true);
         let botResponse = null;
         let aiWasOffline = false;
+        let aiCantHelp = false;
+        // Frustration detection
+        const frustrationKw = ['no sirve', 'no funciona', 'por qué no', 'estresante', 'cansado', 'inútil', 'frustrado', 'no entiendo', 'no mejoras', 'lento', 'pesimo', 'malo', 'horrible'];
+        const isFrustrated = frustrationKw.some(kw => trimmed.toLowerCase().includes(kw));
         try {
           if (!aiSessionRef.current) {
             const sessionRes = await request('/ai/session', { method: 'POST' });
@@ -719,9 +727,9 @@ const SupportChat = () => {
           if (res && res.response) {
             aiWasOffline = res.aiOffline === true;
             if (!aiWasOffline) {
-              const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo'];
-              const cantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
-              if (!cantHelp) botResponse = res.response;
+              const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo', 'solo soy un chat de soporte', 'no puedo responder'];
+              aiCantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
+              if (!aiCantHelp) botResponse = res.response;
             }
           }
         } catch (err) { console.warn('[RevayBot] AI request failed:', err); }
@@ -739,15 +747,18 @@ const SupportChat = () => {
               addBotMessage('¿Necesitas ayuda con algo más?', 2000);
             }, 1500);
           } else if (intent && !intent.resolved) {
-            setTimeout(() => {
-              addBotMessage('¿Quieres que te conecte con un asesor humano? 👤', 2000);
-            }, 1500);
+            setShowAdvisorBtn(true);
           }
-        } else {
-          const offlineMsg = aiWasOffline
-            ? '⚠️ RevayBot (IA) no está disponible en este momento. Usa las opciones rápidas o escribe "asesor" para hablar con un humano.'
-            : 'No pude procesar tu consulta. ¿Quieres que te conecte con un asesor humano? 👤';
-          addBotMessage(offlineMsg, 500);
+        }
+        // Show advisor button when AI can't help, user is frustrated, or no response
+        if (!botResponse || aiCantHelp || isFrustrated || aiWasOffline) {
+          setShowAdvisorBtn(true);
+          if (!botResponse) {
+            const offlineMsg = aiWasOffline
+              ? '⚠️ RevayBot (IA) no está disponible en este momento.'
+              : 'No pude resolver tu consulta.';
+            addBotMessage(offlineMsg, 500);
+          }
         }
       }
     } catch (err) {
@@ -1031,6 +1042,17 @@ const SupportChat = () => {
                           <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Advisor button */}
+                  {showAdvisorBtn && chatMode !== 'waiting' && (
+                    <div className="flex justify-center pt-2">
+                      <button onClick={() => { setShowAdvisorBtn(false); requestAdvisor(lastUserMsgRef.current); }}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all active:scale-95">
+                        <Headphones size={15} />
+                        Hablar con asesor humano
+                      </button>
                     </div>
                   )}
 
