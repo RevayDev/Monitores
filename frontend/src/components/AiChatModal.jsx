@@ -105,14 +105,14 @@ const AiChatModal = ({ panelName = 'general' }) => {
       {/* Floating button */}
       {!isOpen && (
         <button onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-12 h-12 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full shadow-xl flex items-center justify-center z-50 transition-all active:scale-90 border-none">
+          className="fixed bottom-6 left-6 w-12 h-12 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full shadow-xl flex items-center justify-center z-50 transition-all active:scale-90 border-none">
           <Bot size={22} />
         </button>
       )}
 
       {/* Modal */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[380px] max-w-[calc(100vw-24px)] h-[560px] max-h-[calc(100vh-120px)] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 left-6 w-[380px] max-w-[calc(100vw-24px)] h-[560px] max-h-[calc(100vh-120px)] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-brand-blue text-white shrink-0">
             <div className="flex items-center gap-2">

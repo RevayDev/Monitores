@@ -83,7 +83,6 @@ import StatCard from '../components/StatCard';
 import { getRoleColors } from '../utils/roleHelpers';
 import { getPageItems, getPageNumbers, parseLogMetadata } from '../utils/adminDashboardHelpers';
 import { formatTimeAMPM } from '../utils/timeHelpers';
-import AiChatModal from '../components/AiChatModal';
 
 const MaintToggle = ({ id, title, subtitle, icon: Icon, active, onToggle }) => (
   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
@@ -2303,7 +2302,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </Modal>
-      <AiChatModal panelName="admin" />
     </div>
   );
 };

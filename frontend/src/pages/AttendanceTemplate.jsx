@@ -167,27 +167,4 @@ const AttendanceTemplate = () => {
   );
 };
 
-const InfoItem = ({ icon, label, value, color }) => {
-  const colors = {
-    blue: 'text-blue-600 bg-blue-50',
-    emerald: 'text-emerald-600 bg-emerald-50',
-    amber: 'text-amber-600 bg-amber-50',
-    purple: 'text-purple-600 bg-purple-50',
-    rose: 'text-rose-600 bg-rose-50',
-  };
-  return (
-    <div className="flex flex-col gap-1 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-      <div className="flex items-center gap-2 mb-1">
-        <div className={`p-1.5 rounded-lg ${colors[color] || colors.blue}`}>
-          {React.cloneElement(icon, { size: 14 })}
-        </div>
-        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
-      </div>
-      <span className="text-sm font-extrabold text-gray-800">{value}</span>
-    </div>
-  );
-}
-
-const User = ({ size }) => <Users size={size} />;
-
 export default AttendanceTemplate;

@@ -33,9 +33,17 @@ const getKnowledge = (role) => {
 
 const SYSTEM_PROMPT = `Soy RevayBot, un asistente virtual creado por Roberto Jiménez, estudiante de cuarto cuatrimestre de la IUB. Estoy aquí para ayudarte con la plataforma MONITORES, un sistema académico de gestión de monitorías universitarias. Soy amable, hablo claro y con pocas palabras. Guío paso a paso, y si necesitas más detalles, los doy sin problema. Si no sé algo, lo digo directamente y ofrezco alternativas.`;
 
+// ── File/Image reference patterns to sanitize ──────────────────────────
+const FILE_REF_PATTERN = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)(["\s)]|$)/i;
+
 // ── Ollama call ────────────────────────────────────────────────────────
 const callOllama = async (messages) => {
-  const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+  // Strip file/image references from user messages to avoid Ollama image errors
+  const clean = messages.map(m => {
+    if (m.role !== 'user') return m;
+    return { ...m, content: m.content.replace(FILE_REF_PATTERN, '') };
+  });
+  const prompt = clean.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
   const model = 'phi3:mini';
   try {
     const res = await fetch(`${OLLAMA_URL}/api/generate`, {
@@ -43,7 +51,10 @@ const callOllama = async (messages) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, prompt, stream: false, options: { temperature: 0.7, max_tokens: 500 } })
     });
-    if (!res.ok) throw new Error('Ollama returned ' + res.status);
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error('Ollama returned ' + res.status + (body ? ': ' + body.slice(0, 200) : ''));
+    }
     const data = await res.json();
     if (!data.response) throw new Error('Empty response from Ollama');
     return data.response;

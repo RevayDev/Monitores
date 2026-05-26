@@ -23,7 +23,10 @@ import {
   updateForum,
   updateForumReply,
   updateForumPresence,
-  createForumReport
+  createForumReport,
+  closeForum,
+  reopenForum,
+  setBestAnswer
 } from '../services/api';
 import UserAvatar from '../components/UserAvatar';
 import { ToastContext } from '../context/ToastContext';
@@ -453,7 +456,7 @@ const ModuleForum = () => {
   const isReportReplyTarget = reportTypeParam === 'reply' && reportTargetIdParam > 0;
 
   const isReadOnly = useMemo(() => {
-    return isReadOnlyParam || (detail && detail.is_active_member === false);
+    return isReadOnlyParam || (detail && detail.is_active_member === false) || detail?.is_closed;
   }, [isReadOnlyParam, detail]);
 
   const handleReport = async () => {
@@ -1047,6 +1050,7 @@ const ModuleForum = () => {
 
   const handleReply = async () => {
     if (!selectedId || !replyText.trim() || !currentUser) return;
+    if (detail?.is_closed) { showToast('El foro está cerrado. No puedes responder.', 'error'); return; }
     const messageText = replyText.trim();
     const messageAttachments = [...replyAttachments];
     const tmpId = `tmp-local-${Date.now()}`;
@@ -1160,6 +1164,38 @@ const ModuleForum = () => {
         return;
       }
       showToast(error.message || 'Error al eliminar', 'error');
+    }
+  };
+
+  const handleSetBestAnswer = async (replyId) => {
+    if (!selectedId) return;
+    try {
+      await setBestAnswer(selectedId, replyId);
+      setDetail((prev) => {
+        if (!prev) return prev;
+        return { ...prev, best_reply_id: replyId };
+      });
+      showToast('Respuesta destacada como mejor respuesta', 'success');
+    } catch (error) {
+      showToast(error.message || 'Error al destacar respuesta', 'error');
+    }
+  };
+
+  const handleToggleClose = async () => {
+    if (!selectedId) return;
+    try {
+      const isClosed = detail?.is_closed;
+      if (isClosed) {
+        await reopenForum(selectedId);
+        setDetail((prev) => prev ? { ...prev, is_closed: false } : prev);
+        showToast('Foro reabierto', 'success');
+      } else {
+        await closeForum(selectedId);
+        setDetail((prev) => prev ? { ...prev, is_closed: true } : prev);
+        showToast('Foro cerrado', 'success');
+      }
+    } catch (error) {
+      showToast(error.message || 'Error al cambiar estado del foro', 'error');
     }
   };
 
@@ -1316,18 +1352,20 @@ const ModuleForum = () => {
                 </div>
 
                 <div className="relative flex-1 min-h-0 flex flex-col p-3 sm:p-0 overflow-visible">
-                  <div
-                    ref={messagesScrollRef}
-                    onScroll={handleScrollTracking}
-                    className="forum-chat-surface flex-1 overflow-y-auto pr-1 space-y-3 min-h-0 rounded-none p-0 border-0"
-                  >
-                    {/* Main original post question inside scrollable area */}
-                    <div className={`rounded-xl sm:rounded-2xl border shadow-sm transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 bg-white ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'border-rose-300 bg-rose-50/50' :
+                    {/* Main original post question FIXED at top - outside scrollable area */}
+                    <div className={`shrink-0 rounded-xl sm:rounded-2xl border shadow-sm transition-all duration-500 overflow-hidden relative p-3 sm:p-4 space-y-2 bg-white ${isReportThreadTarget && Number(detail.id) === reportTargetIdParam ? 'border-rose-300 bg-rose-50/50' :
                       isMeMentioned(detail.content, currentUser?.id) ? 'border-blue-300 animate-pulse-blue bg-blue-50/50' :
                         (Number(detail.user_id) === Number(currentUser?.id) ? 'border-brand-blue/40 bg-blue-50/40' : 'border-blue-100 bg-blue-50/30')
                       }`}>
-                      <div className="mb-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
-                        Pregunta principal
+                      <div className="flex flex-wrap items-center gap-1 mb-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
+                          Pregunta principal
+                        </span>
+                        {detail?.is_closed && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 text-[10px] font-black uppercase tracking-wide">
+                            Cerrado
+                          </span>
+                        )}
                       </div>
                       {isReportThreadTarget && Number(detail.id) === reportTargetIdParam && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Origen del reporte</div>}
                       {isMeMentioned(detail.content, currentUser?.id) && <div className="absolute bottom-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full border border-blue-200 flex items-center gap-1 z-10">Te mencionaron</div>}
@@ -1358,10 +1396,15 @@ const ModuleForum = () => {
                           <div className="relative group">
                             <button onClick={() => setActiveMenuId(activeMenuId === 'thread' ? null : 'thread')} className="p-2 text-gray-400 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-all active:scale-90"><MoreVertical size={16} /></button>
                             {activeMenuId === 'thread' && (
-                              <div className="absolute right-0 top-9 w-40 bg-white rounded-xl border border-gray-100 py-1 z-[140] shadow-xl animate-scale-in">
+                              <div className="absolute right-0 top-9 w-44 bg-white rounded-xl border border-gray-100 py-1 z-[140] shadow-xl animate-scale-in">
                                 {Number(detail.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'thread', id: detail.id, name: detail.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
                                 {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { handleStartEdit(detail, false); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
                                 {(Number(detail.user_id) === Number(currentUser?.id) || canModerate) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: detail.id, type: 'forum' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
+                                {Number(detail.user_id) === Number(currentUser?.id) && (
+                                  <button onClick={() => { handleToggleClose(); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+                                    {detail?.is_closed ? '🔓 Reabrir foro' : '🔒 Cerrar foro'}
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1380,6 +1423,11 @@ const ModuleForum = () => {
                         </>
                       )}
                     </div>
+                  <div
+                    ref={messagesScrollRef}
+                    onScroll={handleScrollTracking}
+                    className="forum-chat-surface flex-1 overflow-y-auto pr-1 space-y-3 min-h-0 rounded-none p-0 border-0"
+                  >
                     {(() => {
                       const allReplies = (detail.replies || detail.comments || []);
                       const displayedReplies = allReplies;
@@ -1424,6 +1472,11 @@ const ModuleForum = () => {
                                   OBJETO DEL REPORTE
                                 </div>
                               )}
+                              {detail?.best_reply_id && Number(reply.id) === Number(detail.best_reply_id) && (
+                                <div className="absolute -top-2 -right-2 px-3 py-1 bg-emerald-600 text-white text-[9px] font-black rounded-full border-2 border-white z-20 shadow-lg">
+                                  Mejor respuesta
+                                </div>
+                              )}
                               <div className={`flex ${isMeSender ? 'justify-end' : 'justify-between'} items-start mb-2 text-xs`}>
                                 {!isMeSender ? (
                                   <div className="flex items-center gap-2 text-gray-500">
@@ -1461,6 +1514,11 @@ const ModuleForum = () => {
                                       {Number(reply.user_id) !== Number(currentUser?.id) && <button onClick={() => { setReportTarget({ type: 'reply', id: reply.id, name: reply.author_name }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2"><AlertOctagon size={12} /> Reportar</button>}
                                       {Number(reply.user_id) === Number(currentUser?.id) && !isReadOnly && <button onClick={() => { handleStartEdit(reply, true); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-gray-600 hover:bg-blue-50 flex items-center gap-2"><Edit3 size={12} /> Editar</button>}
                                       {(canModerate || Number(reply.user_id) === Number(currentUser?.id)) && !isReadOnly && <button onClick={() => { setConfirmDelete({ id: reply.id, type: 'reply' }); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12} /> Eliminar</button>}
+                                      {Number(detail?.user_id) === Number(currentUser?.id) && Number(reply.user_id) !== Number(currentUser?.id) && !isReadOnly && (
+                                        <button onClick={() => { handleSetBestAnswer(reply.id); setActiveMenuId(null); }} className="w-full text-left px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
+                                          {Number(detail.best_reply_id) === Number(reply.id) ? 'Quitar mejor respuesta' : 'Marcar como mejor respuesta'}
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>

@@ -380,6 +380,9 @@ export const updateForum = (id, payload) => request(`/forums/${id}`, { method: '
 export const updateForumReply = (id, payload) => request(`/forums/reply/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
 export const deleteForumReply = (id) => request(`/forums/reply/${id}`, { method: 'DELETE' });
 export const toggleForumSave = (id) => request(`/forums/${id}/save`, { method: 'POST', body: JSON.stringify({}) });
+export const closeForum = (id) => request(`/forums/${id}/close`, { method: 'POST' });
+export const reopenForum = (id) => request(`/forums/${id}/reopen`, { method: 'POST' });
+export const setBestAnswer = (id, replyId) => request(`/forums/${id}/best-answer`, { method: 'POST', body: JSON.stringify({ replyId }) });
 export const deleteForum = (id) => request(`/forums/${id}`, { method: 'DELETE' });
 export const getMonitorAdminStats = () => request('/stats/monitor-admin');
 export const getAdminStats = () => request('/stats/admin');

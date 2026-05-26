@@ -18,7 +18,6 @@ import {
 } from '../services/api';
 import Modal from '../components/Modal';
 import SupportTicketPanel from '../components/SupportTicketPanel';
-import AiChatModal from '../components/AiChatModal';
 import { ToastContext } from '../context/ToastContext';
 import UserAvatar from '../components/UserAvatar';
 import InputField from '../components/InputField';
@@ -1564,7 +1563,6 @@ const DevDashboard = () => {
           </div>
         </div>
       )}
-      <AiChatModal panelName="dev" />
     </div>
   );
 };

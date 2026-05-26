@@ -350,6 +350,7 @@ const SupportChat = () => {
     'listo', 'perfecto', 'excelente', 'genial', 'ok gracias',
     'hasta luego', 'adios', 'adiós', 'chao', 'bye',
     'me ayudaste', 'solucionado', 'resuelto',
+    'no gracias', 'no, gracias', 'no quiero', 'no necesito', 'no me interesa',
   ];
   const isFarewell = (text) => {
     const lower = text.toLowerCase().trim();
@@ -390,10 +391,15 @@ const SupportChat = () => {
     const savedTicketId = localStorage.getItem('support_chat_ticket_id');
     if (savedTicketId) {
       const tid = Number(savedTicketId);
-      setActiveTicketId(tid);
-      setChatMode('live');
-      connectSocket(tid);
-      loadChatHistory(tid);
+      loadChatHistory(tid).then(msgs => {
+        if (msgs && msgs.length > 0) {
+          setActiveTicketId(tid);
+          setChatMode('live');
+          connectSocket(tid);
+        } else {
+          localStorage.removeItem('support_chat_ticket_id');
+        }
+      });
     }
     return () => { socketRef.current?.disconnect(); };
   }, []);
@@ -478,7 +484,7 @@ const SupportChat = () => {
   const loadChatHistory = async (ticketId) => {
     try {
       const history = await getSupportTicketMessages(ticketId);
-      if (!Array.isArray(history) || !history.length) return;
+      if (!Array.isArray(history) || !history.length) return [];
       const converted = history.map(msg => ({
         id: msg.id,
         from: msg.sender_role === 'user' ? 'user' : (msg.sender_role === 'bot' ? 'bot' : 'advisor'),
@@ -492,7 +498,8 @@ const SupportChat = () => {
         const seen = new Set();
         return merged.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
       });
-    } catch { /* silent */ }
+      return converted;
+    } catch { return []; }
   };
 
   // ── Bot message helper ────────────────────────────────────────────────────
@@ -534,15 +541,14 @@ const SupportChat = () => {
 
   // ── Close chat (user-facing) ────────────────────────────────────────────
   const handleUserCloseChat = async () => {
-    if (!activeTicketId) return;
-    try {
-      await closeSupportTicket(activeTicketId);
-      setChatMode('closed');
-      setShowClosePrompt(false);
-      localStorage.removeItem('support_chat_ticket_id');
-    } catch (err) {
-      addBotMessage('Error al cerrar el chat. Intenta nuevamente.', 1000);
+    if (activeTicketId) {
+      try {
+        await closeSupportTicket(activeTicketId);
+      } catch { /* ticket might already be closed */ }
     }
+    setChatMode('closed');
+    setShowClosePrompt(false);
+    localStorage.removeItem('support_chat_ticket_id');
   };
 
   // ── Typing emit (throttled like forum) ───────────────────────────────────
@@ -683,44 +689,64 @@ const SupportChat = () => {
           sender_role: 'user', text: fullMessage, time: new Date(),
         }]);
         addBotMessage('¡Con gusto! 😊 Me alegra haber podido ayudarte.', 800);
-        setShowClosePrompt(true);
+        setTimeout(() => {
+          setShowClosePrompt(true);
+        }, 1200);
 
-      // ── BOT MODE — RevayBot AI response ───────────────────────────────────
+      // ── BOT MODE — RevayBot AI response (fallback to BOT_INTENTS) ────────
       } else {
         setMessages(prev => [...prev, {
           id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
           sender_role: 'user', text: fullMessage, time: new Date(),
         }]);
         setIsBotTyping(true);
+        let botResponse = null;
+        let aiWasOffline = false;
         try {
-          // Create AI session if needed
           if (!aiSessionRef.current) {
             const sessionRes = await request('/ai/session', { method: 'POST' });
             aiSessionRef.current = sessionRes.sessionId;
           }
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000);
           const res = await request('/ai/ask', {
             method: 'POST',
-            body: JSON.stringify({ sessionId: aiSessionRef.current, message: trimmed })
+            body: JSON.stringify({ sessionId: aiSessionRef.current, message: trimmed }),
+            signal: controller.signal
           });
-          setIsBotTyping(false);
+          clearTimeout(timeout);
           if (res && res.response) {
-            // Check if AI indicates it can't help → offer human transfer
-            const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo'];
-            const cantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
-            if (cantHelp) {
-              addBotMessage(res.response, 500);
-              setTimeout(() => {
-                addBotMessage('¿Quieres que te conecte con un asesor humano? 👤', 2000);
-              }, 1500);
-            } else {
-              addBotMessage(res.response, 500);
+            aiWasOffline = res.aiOffline === true;
+            if (!aiWasOffline) {
+              const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo'];
+              const cantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
+              if (!cantHelp) botResponse = res.response;
             }
-          } else {
-            addBotMessage('No pude procesar tu consulta. ¿Quieres que te conecte con un asesor humano? 👤', 500);
           }
-        } catch {
-          setIsBotTyping(false);
-          addBotMessage('Hubo un error al procesar tu mensaje. ¿Quieres hablar con un asesor humano? 👤', 500);
+        } catch { /* AI failed or timed out */ }
+        // Fallback: BOT_INTENTS keyword matching
+        const intent = !botResponse ? detectIntent(trimmed) : null;
+        if (intent) {
+          botResponse = intent.response;
+          if (intent.resolved) aiSessionRef.current = null;
+        }
+        setIsBotTyping(false);
+        if (botResponse) {
+          addBotMessage(botResponse, 500);
+          if (!intent || intent.resolved) {
+            setTimeout(() => {
+              addBotMessage('¿Necesitas ayuda con algo más?', 2000);
+            }, 1500);
+          } else {
+            setTimeout(() => {
+              addBotMessage('¿Quieres que te conecte con un asesor humano? 👤', 2000);
+            }, 1500);
+          }
+        } else {
+          const offlineMsg = aiWasOffline
+            ? '⚠️ RevayBot (IA) no está disponible en este momento. Usa las opciones rápidas o escribe "asesor" para hablar con un humano.'
+            : 'No pude procesar tu consulta. ¿Quieres que te conecte con un asesor humano? 👤';
+          addBotMessage(offlineMsg, 500);
         }
       }
     } catch (err) {
