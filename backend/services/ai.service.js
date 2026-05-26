@@ -32,7 +32,7 @@ const getKnowledge = (role) => {
   return publicKnowledge;
 };
 
-const SYSTEM_PROMPT = `Soy RevayBot, un asistente virtual creado por Roberto Jiménez, estudiante de cuarto cuatrimestre de la IUB. Estoy aquí para ayudarte con la plataforma MONITORES, un sistema académico de gestión de monitorías universitarias. Soy amable, hablo claro y con pocas palabras. Guío paso a paso, y si necesitas más detalles, los doy sin problema. Si no sé algo, lo digo directamente y ofrezco alternativas.`;
+const SYSTEM_PROMPT = `Eres RevayBot, asistente de MONITORES. Responde SOLO en español, máximo 3 oraciones, directo y sin rodeos. Si no sabes algo, dilo. Usa "tú". Sé breve.`;
 
 // ── File/Image reference patterns to sanitize ──────────────────────────
 const FILE_REF_PATTERN = /[\\/]?[\w{}-]+\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|doc|docx|xls|xlsx|zip|rar)(["\s)\]>.,]|$)/gi;
@@ -43,7 +43,7 @@ const UUID_PATTERN = /\{[0-9A-Fa-f-]{36}\}\.(png|jpg|jpeg|gif|webp|bmp|svg|pdf|d
 const sanitizeContent = (content) => (content || '').replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
 const sanitizePrompt = (prompt) => prompt.replace(FILE_REF_PATTERN, '').replace(STRIP_IMAGES_PATTERN, '').replace(UUID_PATTERN, '');
 
-const MODEL_TIMEOUT = 55000; // 55s (frontend timeout is 60s)
+const MODEL_TIMEOUT = 180000; // 3 min (modelo lento en CPU la primera vez)
 
 const tryModel = async (model, prompt) => {
   const cleanPrompt = sanitizePrompt(prompt);
@@ -55,7 +55,7 @@ const tryModel = async (model, prompt) => {
     res = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, keep_alive: '10m', options: { temperature: 0.7, max_tokens: 500 } }),
+      body: JSON.stringify({ model, prompt: cleanPrompt, stream: false, keep_alive: '10m', options: { temperature: 0.7, max_tokens: 150 } }),
       signal: ac.signal
     });
   } finally {
@@ -151,7 +151,7 @@ export const warmUpModel = async () => {
     const res = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: 'Hola', stream: false, keep_alive: '30m', options: { max_tokens: 10 } }),
+      body: JSON.stringify({ model, prompt: 'responde "ok"', stream: false, keep_alive: '30m', options: { temperature: 0.1, max_tokens: 5 } }),
       signal: AbortSignal.timeout(120_000)
     });
     if (res.ok) console.log(`[Ollama] Modelo ${model} precargado`);
