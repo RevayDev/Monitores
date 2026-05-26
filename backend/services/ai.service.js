@@ -325,6 +325,14 @@ export const askQuestion = async (
     };
   }
 
+  // Out-of-scope detection (non-MONITORES topics)
+  const OUT_OF_SCOPE = /\b(capital de|presidente de|cuánto es |resultado de |operación matem|suma |resta |multiplic|división |historia de |geografía de |clima de |receta de |película |canción |deporte |noticias de |política de |economía de |filosofía de |religión de |poema |cuento |chiste |traduce |tradúceme|idioma |quién fue |qué es el |qué es la |qué son los|diferencia entre |que significa |definición de|origen de)\b/i;
+  if (OUT_OF_SCOPE.test(message) && !/monitore|módulo|horario|sede|cuatrimestre|programa|asistencia|qr|foro|soporte|perfil|contraseña|login|registro|inscribir/i.test(message)) {
+    const msg = 'Solo soy un chat de soporte de MONITORES. No puedo responder eso.';
+    session.messages.push({ role: 'assistant', content: msg });
+    return { response: msg, expiresAt: session.expiresAt };
+  }
+
   if (IMAGE_PATTERN.test(message)) {
     const msg =
       '⚠️ RevayBot no puede analizar imágenes o archivos. Describe tu problema en texto.';

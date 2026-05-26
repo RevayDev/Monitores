@@ -323,6 +323,7 @@ const SupportChat = () => {
   const fileInputRef = useRef(null);        // hidden file input for attachments
   const aiSessionRef = useRef(null);
   const lastUserMsgRef = useRef('');
+  const consecutiveFails = useRef(0);
   const transferredToHumanRef = useRef(false);
 
   // Attachments state (mirrors forum replyAttachments)
@@ -697,67 +698,85 @@ const SupportChat = () => {
           setShowClosePrompt(true);
         }, 1200);
 
-      // ── BOT MODE — RevayBot AI response (fallback to BOT_INTENTS) ────────
+      // ── BOT MODE — Bot primero, luego IA, luego asesor humano ────────
       } else {
         setShowAdvisorBtn(false);
         setMessages(prev => [...prev, {
           id: newId(), from: 'user', sender_name: currentUser.nombre || 'Usuario',
           sender_role: 'user', text: fullMessage, time: new Date(),
         }]);
-        setIsBotTyping(true);
-        let botResponse = null;
-        let aiWasOffline = false;
-        let aiCantHelp = false;
+
         // Frustration detection
-        const frustrationKw = ['no sirve', 'no funciona', 'por qué no', 'estresante', 'cansado', 'inútil', 'frustrado', 'no entiendo', 'no mejoras', 'lento', 'pesimo', 'malo', 'horrible'];
+        const frustrationKw = ['no sirve', 'no funciona', 'por qué no', 'estresante', 'cansado', 'inútil', 'frustrado', 'no entiendo', 'no mejoras', 'lento', 'pesimo', 'malo', 'horrible', 'no cambias'];
         const isFrustrated = frustrationKw.some(kw => trimmed.toLowerCase().includes(kw));
-        try {
-          if (!aiSessionRef.current) {
-            const sessionRes = await request('/ai/session', { method: 'POST' });
-            aiSessionRef.current = sessionRes.sessionId;
-          }
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 180_000);
-          const res = await request('/ai/ask', {
-            method: 'POST',
-            body: JSON.stringify({ sessionId: aiSessionRef.current, message: trimmed }),
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
-          if (res && res.response) {
-            aiWasOffline = res.aiOffline === true;
-            if (!aiWasOffline) {
-              const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo', 'solo soy un chat de soporte', 'no puedo responder'];
-              aiCantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
-              if (!aiCantHelp) botResponse = res.response;
-            }
-          }
-        } catch (err) { console.warn('[RevayBot] AI request failed:', err); }
-        // Fallback: BOT_INTENTS keyword matching
-        const intent = !botResponse ? detectIntent(trimmed) : null;
-        if (intent) {
-          botResponse = intent.response;
-          if (intent.resolved) aiSessionRef.current = null;
-        }
-        setIsBotTyping(false);
-        if (botResponse) {
+
+        // 1. Try BOT_INTENTS first
+        const intent = detectIntent(trimmed);
+        let botResponse = intent ? intent.response : null;
+
+        if (intent && intent.resolved) {
+          // Bot resolved it
           addBotMessage(botResponse, 500);
-          if (intent && intent.resolved) {
-            setTimeout(() => {
-              addBotMessage('¿Necesitas ayuda con algo más?', 2000);
-            }, 1500);
-          } else if (intent && !intent.resolved) {
-            setShowAdvisorBtn(true);
-          }
-        }
-        // Show advisor button when AI can't help, user is frustrated, or no response
-        if (!botResponse || aiCantHelp || isFrustrated || aiWasOffline) {
+          setTimeout(() => {
+            addBotMessage('¿Necesitas ayuda con algo más?', 2000);
+          }, 1500);
+          aiSessionRef.current = null;
+        } else if (intent && !intent.resolved) {
+          // Bot wants human (asesor keyword)
+          addBotMessage(botResponse || 'Conectando con un humano...', 500);
           setShowAdvisorBtn(true);
-          if (!botResponse) {
-            const offlineMsg = aiWasOffline
-              ? '⚠️ RevayBot (IA) no está disponible en este momento.'
-              : 'No pude resolver tu consulta.';
-            addBotMessage(offlineMsg, 500);
+        } else {
+          // 2. No intent match → try AI
+          setIsBotTyping(true);
+          let aiWasOffline = false;
+          let aiCantHelp = false;
+          try {
+            if (!aiSessionRef.current) {
+              const sessionRes = await request('/ai/session', { method: 'POST' });
+              aiSessionRef.current = sessionRes.sessionId;
+            }
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 180_000);
+            const res = await request('/ai/ask', {
+              method: 'POST',
+              body: JSON.stringify({ sessionId: aiSessionRef.current, message: trimmed }),
+              signal: controller.signal
+            });
+            clearTimeout(timeout);
+            if (res && res.response) {
+              aiWasOffline = res.aiOffline === true;
+              if (!aiWasOffline) {
+                const cantHelpKeywords = ['no puedo', 'no sé', 'no tengo información', 'no estoy seguro', 'no dispongo', 'solo soy un chat de soporte', 'no puedo responder'];
+                aiCantHelp = cantHelpKeywords.some(kw => res.response.toLowerCase().includes(kw));
+                if (!aiCantHelp) botResponse = res.response;
+              }
+            }
+          } catch (err) { console.warn('[RevayBot] AI request failed:', err); }
+          setIsBotTyping(false);
+
+          if (botResponse) {
+            addBotMessage(botResponse, 500);
+          }
+
+          // 3. Show advisor if AI can't help, user frustrated, or too many fails
+          if (!botResponse || aiCantHelp || aiWasOffline || isFrustrated) {
+            consecutiveFails.current += 1;
+            setShowAdvisorBtn(true);
+            if (!botResponse) {
+              addBotMessage(aiWasOffline
+                ? '⚠️ RevayBot no está disponible.'
+                : 'No pude resolver tu consulta.', 500);
+            }
+            // Auto-create human ticket after 3 consecutive fails
+            if (consecutiveFails.current >= 3 && !transferredToHumanRef.current) {
+              setTimeout(async () => {
+                const msg = 'El asistente IA no pudo resolver varias consultas seguidas.';
+                addBotMessage('🔃 Transfiriendo a un humano...', 1000);
+                await requestAdvisor(lastUserMsgRef.current || msg);
+              }, 2000);
+            }
+          } else {
+            consecutiveFails.current = 0;
           }
         }
       }
@@ -1051,7 +1070,7 @@ const SupportChat = () => {
                       <button onClick={() => { setShowAdvisorBtn(false); requestAdvisor(lastUserMsgRef.current); }}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all active:scale-95">
                         <Headphones size={15} />
-                        Hablar con asesor humano
+                        Hablar con humano
                       </button>
                     </div>
                   )}
