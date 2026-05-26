@@ -143,6 +143,25 @@ export const askQuestion = async (sessionId, message) => {
   return { response: cleanResponse, expiresAt: session.expiresAt };
 };
 
+export const warmUpModel = async () => {
+  const model = OLLAMA_MODELS[0];
+  if (!model) return;
+  console.log(`[Ollama] Pre-cargando modelo ${model}...`);
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: 'Hola', stream: false, keep_alive: '30m', options: { max_tokens: 10 } }),
+      signal: AbortSignal.timeout(120_000)
+    });
+    if (res.ok) console.log(`[Ollama] Modelo ${model} precargado`);
+    else console.warn(`[Ollama] Warm-up respondió con status ${res.status}`);
+  } catch (err) {
+    if (err.name === 'TimeoutError') console.warn(`[Ollama] Warm-up excedió tiempo (el modelo se cargará bajo demanda)`);
+    else console.warn(`[Ollama] Warm-up falló: ${err.message}`);
+  }
+};
+
 export const getSessionHistory = (sessionId) => {
   const session = sessions.get(sessionId);
   if (!session) return null;
