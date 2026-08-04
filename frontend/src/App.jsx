@@ -152,9 +152,11 @@ function App() {
     }
   });
 
-  const showToast = (message, type = 'info') => {
+  const showToast = React.useCallback((message, type = 'info') => {
     setToast({ message, type });
-  };
+  }, []);
+
+  const toastValue = React.useMemo(() => ({ showToast }), [showToast]);
 
   React.useEffect(() => {
     const checkStatus = async () => {
@@ -209,7 +211,7 @@ function App() {
   }, []);
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={toastValue}>
       <Router>
         <div className="min-h-screen bg-gray-50 flex flex-col">
           <BetaBanner />

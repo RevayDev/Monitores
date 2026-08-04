@@ -36,18 +36,24 @@ import {
   Filter
 } from 'lucide-react';
 
+const cleanUrl = (url) => {
+  if (!url) return '';
+  return url.replace(/^https?:\/\/localhost(:\d+)?/, window.location.origin)
+            .replace(/^https?:\/\/127\.0\.0\.1(:\d+)?/, window.location.origin);
+};
+
 const renderRich = (text) => {
   if (!text) return null;
   const lines = text.split('\n');
   return lines.map((line, idx) => {
     const normalized = line.trim();
     const img = normalized.match(/^!\[(.*)\]\((https?:\/\/[^\s]+)\)$/i);
-    if (img) return <img key={`i-${idx}`} src={img[2]} alt={img[1] || 'imagen'} className="rounded-xl max-h-60 border border-gray-200" />;
+    if (img) return <img key={`i-${idx}`} src={cleanUrl(img[2])} alt={img[1] || 'imagen'} className="rounded-xl max-h-60 border border-gray-200" />;
 
     const vid = normalized.match(/^\[video\]\((https?:\/\/[^\s]+)\)$/i);
     if (vid) {
       return (
-        <a key={`v-${idx}`} href={vid[1]} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm break-all">
+        <a key={`v-${idx}`} href={cleanUrl(vid[1])} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm break-all">
           Ver video: {vid[1]}
         </a>
       );
@@ -56,7 +62,7 @@ const renderRich = (text) => {
     const file = normalized.match(/^\[file:([^\]]+)\]\((https?:\/\/[^\s]+)\)$/i);
     if (file) {
       return (
-        <a key={`f-${idx}`} href={file[2]} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm break-all">
+        <a key={`f-${idx}`} href={cleanUrl(file[2])} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm break-all">
           Archivo: {file[1]}
         </a>
       );
@@ -69,7 +75,7 @@ const renderRich = (text) => {
     while ((m = regex.exec(line)) !== null) {
       if (m.index > last) chunks.push(line.slice(last, m.index));
       chunks.push(
-        <a key={`${idx}-${m.index}`} href={m[2]} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+        <a key={`${idx}-${m.index}`} href={cleanUrl(m[2])} target="_blank" rel="noreferrer" className="text-blue-600 underline">
           {m[1]}
         </a>
       );

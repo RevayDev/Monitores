@@ -100,6 +100,10 @@ const Navbar = () => {
   useEffect(() => {
     fetchUser();
     const loadNotifications = async () => {
+      if (!user?.id) {
+        setNotifications([]);
+        return;
+      }
       try {
         const rows = await getNotifications();
         setNotifications(rows || []);

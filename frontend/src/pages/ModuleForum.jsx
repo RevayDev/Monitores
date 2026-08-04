@@ -244,6 +244,12 @@ const getCaretAnchor = (textarea) => {
   return { x: anchorX, y: anchorY };
 };
 
+const cleanUrl = (url) => {
+  if (!url) return '';
+  return url.replace(/^https?:\/\/localhost(:\d+)?/, window.location.origin)
+            .replace(/^https?:\/\/127\.0\.0\.1(:\d+)?/, window.location.origin);
+};
+
 const renderRichText = (text, members = [], monitorId, myId) => {
   const value = String(text || '');
   const lines = value.split(/\r?\n/);
@@ -287,7 +293,7 @@ const renderInlines = (text, members = [], monitorId, myId) => {
     if (!part) return null;
     const mdImage = part.match(/^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/);
     if (mdImage) {
-      return <img key={`img-${idx}`} src={mdImage[1]} alt="imagen" className="max-h-64 rounded-2xl border border-gray-200 my-2 block mx-auto lg:mx-0" />;
+      return <img key={`img-${idx}`} src={cleanUrl(mdImage[1])} alt="imagen" className="max-h-64 rounded-2xl border border-gray-200 my-2 block mx-auto lg:mx-0" />;
     }
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={idx} className="font-black text-gray-900">{part.slice(2, -2)}</strong>;
@@ -296,7 +302,7 @@ const renderInlines = (text, members = [], monitorId, myId) => {
       return <em key={idx} className="italic text-gray-700">{part.slice(1, -1)}</em>;
     }
     if (/^https?:\/\/[^\s]+$/.test(part)) {
-      return <a key={`u-${idx}`} href={part} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{part}</a>;
+      return <a key={`u-${idx}`} href={cleanUrl(part)} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{part}</a>;
     }
     if (/^@[^#]+#\d+$/.test(part)) {
       const id = Number((part.match(/#(\d+)$/) || [])[1] || 0);
